@@ -97,6 +97,8 @@ class D2Serializer:
         if not style:
             return None
         style_dict = style.model_dump(exclude_none=True, by_alias=True)
+        # Filter out empty strings and other falsy values that aren't valid D2 values
+        style_dict = {k: v for k, v in style_dict.items() if v not in (None, "", [], {})}
         if not style_dict:
             return None
 
