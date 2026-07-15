@@ -454,9 +454,14 @@ function diagramToRecords(diagram: { store: TLStore }) {
   const { store } = diagram
   const records: unknown[] = []
 
-  // Document record
+  // Document record — only include fields tldraw v5 accepts
   if (store.document) {
-    records.push({ ...store.document, typeName: "document" as const })
+    records.push({
+      id: store.document.id,
+      name: store.document.name,
+      gridSize: (store.document as { gridSize?: number }).gridSize ?? 10,
+      typeName: "document" as const,
+    })
   }
 
   // Page records

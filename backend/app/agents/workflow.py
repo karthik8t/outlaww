@@ -21,6 +21,7 @@ from google.adk.workflow import node
 from app.agents.action_registry import ActionRegistry
 from app.agents.agent_registry import AgentRegistry
 from app.schema.models import (
+    Diagram,
     LLMShape,
     MarkdownArtifact,
     MarkdownEditOperation,

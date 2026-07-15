@@ -311,7 +311,6 @@ class TLDocument(BaseModel):
     name: str = "Untitled"
     typeName: Literal["document"] = "document"
     gridSize: float = 10
-    nameIsReadonly: bool = False
     meta: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("id", mode="before")
