@@ -27,3 +27,7 @@ app.middleware("http")(request_context_middleware)
 register_exception_handlers(app)
 
 app.include_router(router)
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "outlaww-backend"}
