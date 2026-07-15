@@ -455,10 +455,10 @@ function diagramToRecords(diagram: { store: TLStore }) {
   const records: unknown[] = []
 
   if (store.document) {
-    records.push({ ...store.document, typeName: "document" as const })
+    records.push({ ...store.document, id: "document", typeName: "document" as const })
   }
   for (const page of Object.values(store.page || {})) {
-    records.push({ ...page, typeName: "page" as const })
+    records.push({ ...page, id: "page:page", typeName: "page" as const })
   }
   for (const shape of Object.values(store.shape || {})) {
     records.push({
@@ -469,7 +469,7 @@ function diagramToRecords(diagram: { store: TLStore }) {
       rotation: (shape as TLShape & { rotation?: number }).rotation || 0,
       opacity: (shape as TLShape & { opacity?: number }).opacity ?? 1,
       isLocked: (shape as TLShape & { isLocked?: boolean }).isLocked ?? false,
-      parentId: shape.parentId,
+      parentId: "page:page",
       index: shape.index,
       props: shape.props || {},
       meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta || {},

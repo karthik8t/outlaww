@@ -89,7 +89,7 @@ async def safe_run_node(ctx: Context, agent: Any, node_input: Any) -> Any:
 # ---------------------------------------------------------------------------
 
 _STATE_KEY = "reflection"
-_INITIAL = Reflections().model_dump()
+_INITIAL = Reflections().model_dump(mode="json")
 
 
 def _load_reflection(state: dict[str, Any]) -> Reflections:
@@ -100,7 +100,7 @@ def _load_reflection(state: dict[str, Any]) -> Reflections:
 
 
 def _save_reflection(state: dict[str, Any], ref: Reflections) -> None:
-    state[_STATE_KEY] = ref.model_dump()
+    state[_STATE_KEY] = ref.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ def _load_diagrams(state: dict[str, Any]) -> list[Diagram]:
 
 
 def _save_diagrams(state: dict[str, Any], diagrams: list[Diagram]) -> None:
-    state[_DIAGRAMS_KEY] = [d.model_dump() for d in diagrams]
+    state[_DIAGRAMS_KEY] = [d.model_dump(mode="json") for d in diagrams]
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +137,7 @@ def _load_markdown_docs(state: dict[str, Any]) -> list[MarkdownArtifact]:
 def _save_markdown_docs(
     state: dict[str, Any], docs: list[MarkdownArtifact]
 ) -> None:
-    state[_MARKDOWN_KEY] = [d.model_dump() for d in docs]
+    state[_MARKDOWN_KEY] = [d.model_dump(mode="json") for d in docs]
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +419,7 @@ async def router_node(ctx: Context, node_input: str) -> None:
 
     # Try to parse as RouterOutput
     if isinstance(result, RouterOutput):
-        routing = result.model_dump()
+        routing = result.model_dump(mode="json")
         logger.info(f"[router] classified as RouterOutput: target={routing.get('target')}, action={routing.get('action_name', '')}")
     elif isinstance(result, dict):
         routing = result
