@@ -80,7 +80,7 @@ class D2Style(BaseModel):
     # Animation
     animated: Optional[bool] = None
 
-    # Root-level (diagram background/frame)
+    # Root-level styles (diagram background/frame)
     root_fill: Optional[str] = Field(None, serialization_alias="fill")
     root_fill_pattern: Optional[FillPattern] = Field(None, serialization_alias="fill-pattern")
     root_stroke: Optional[str] = Field(None, serialization_alias="stroke")
@@ -162,7 +162,7 @@ class D2Edge(BaseModel):
     target: str = Field(..., description="Target node ID (must exist in nodes)")
     direction: ConnectionDirection = Field(
         default="->",
-        description="Arrow direction: -> (forward), <- (reverse), <-> (bidirectional), -- (undirected)"
+        description="Arrow direction: '->' | '<-' | '<->' | '--'"
     )
     label: Optional[str] = Field(None, description="Edge label. Supports Markdown.")
     style: Optional[D2Style] = None
@@ -176,6 +176,25 @@ class D2Edge(BaseModel):
         None,
         description="Attach note to actor. Serialized as actor: 'note text' in D2 sequence diagram."
     )
+
+
+# ============================================================================
+# RENDER OPTIONS (for API endpoints)
+# ============================================================================
+
+class RenderOptions(BaseModel):
+    """Options for rendering D2 diagrams via API endpoints."""
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    format: Literal["svg", "png", "pdf", "gif", "pptx"] = "svg"
+    theme_id: Optional[int] = Field(None, serialization_alias="theme-id")
+    dark_theme_id: Optional[int] = Field(None, serialization_alias="dark-theme-id")
+    layout_engine: Optional[LayoutEngine] = Field(None, serialization_alias="layout-engine")
+    direction: Optional[DiagramDirection] = None
+    pad: int = Field(default=100, ge=0)
+    sketch: bool = False
+    animate_interval: Optional[int] = Field(None, serialization_alias="animate-interval", ge=0)
+    scale: float = Field(default=1.0, gt=0)
 
 
 # ============================================================================
