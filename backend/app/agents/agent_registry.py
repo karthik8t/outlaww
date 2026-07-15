@@ -32,25 +32,6 @@ _ROUTABLE_AGENTS: list[str] = [
     "research",
 ]
 
-# ===========================================================================
-#  Output format rule — shared across all agents
-# ===========================================================================
-
-_OUTPUT_FORMAT_RULE = (
-    "\n\n# CRITICAL OUTPUT FORMAT\n"
-    "Your response MUST be a single raw JSON object. Follow these rules exactly:\n"
-    "  - Output ONLY the JSON. Nothing else.\n"
-    "  - NO markdown formatting. NO code blocks. NO ``` fences. NO ```json.\n"
-    "  - NO text before or after the JSON.\n"
-    "  - NO explanations, NO apologies, NO greetings.\n"
-    "  - Start your response with { and end with }.\n"
-    "  - If you need to think, think silently. Output only the final JSON.\n\n"
-    "WRONG (never do this):\n"
-    "```json\n{\"key\": \"value\"}\n```\n\n"
-    "CORRECT (always do this):\n"
-    "{\"key\": \"value\"}\n"
-)
-
 
 def _build_router_instruction() -> str:
     """Build the system instruction for the router agent dynamically."""
@@ -73,16 +54,14 @@ def _build_router_instruction() -> str:
         "Cannot be handled:\n"
         "  generic         — user's request is off-topic, rude, unclear, or outside scope\n\n"
         "# Rules\n"
-        "1. Return ONLY the JSON object with keys: target, action_name, reasoning, user_message.\n"
-        "2. target MUST be exactly one of the enum values listed above.\n"
-        "3. When target is 'action', set action_name to one of: "
+        "1. target MUST be exactly one of the enum values listed above.\n"
+        "2. When target is 'action', set action_name to one of: "
         "new_diagram, add_to_diagram, style_diagram, new_doc, edit_doc, explain, "
         "review_gaps, research, show_status, export.\n"
-        "4. When target is 'generic', set user_message to a friendly response explaining "
+        "3. When target is 'generic', set user_message to a friendly response explaining "
         "what the app CAN do.\n"
-        "5. Keep reasoning to one short sentence.\n"
-        "6. For unclear requests, prefer the closest matching agent over generic."
-        + _OUTPUT_FORMAT_RULE
+        "4. Keep reasoning to one short sentence.\n"
+        "5. For unclear requests, prefer the closest matching agent over generic."
     )
 
 
@@ -135,7 +114,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "note, image, video, bookmark, embed, line, highlight.\n\n"
             "Use meaningful names for frames and notes. Prefer clean layouts with "
             "proper spacing."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Creates new tldraw diagrams from natural language descriptions.",
     },
@@ -149,7 +128,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "move_shape, add_page, remove_page.\n\n"
             "Be precise — only modify what the user asked to change. Preserve all "
             "existing shapes and properties unless explicitly told to modify them."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Applies edits to an existing tldraw diagram.",
     },
@@ -161,7 +140,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "snapshot and a patch description for minor adjustments.\n\n"
             "Produce minimal patch operations: patch_shape, patch_page, patch_asset.\n\n"
             "Keep changes minimal and surgical — do not rewrite the entire diagram."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Applies minimal patches to diagram styles and properties.",
     },
@@ -176,7 +155,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "proper heading hierarchy (h1/h2/h3), and meaningful sections.\n\n"
             "Follow CommonMark spec. Use GitHub Flavored Markdown extensions where "
             "helpful. Write clear, concise, publication-ready content."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Creates new markdown documents with frontmatter and structured content.",
     },
@@ -189,7 +168,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "Produce edit operations: replace_section, insert_section, remove_section, "
             "update_frontmatter, append_content, prepend_content.\n\n"
             "Preserve existing structure unless told otherwise."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Applies edits to existing markdown documents.",
     },
@@ -204,7 +183,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "steps or bullet points, use analogies when helpful, reference specific "
             "diagram shapes or markdown sections when relevant, and end with key "
             "takeaways."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Explains concepts, architecture, and code in plain language.",
     },
@@ -219,7 +198,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "concerns, and suggested next steps.\n\n"
             "Be specific and actionable. Reference existing artifacts by id when "
             "relevant."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Identifies gaps in documentation, diagrams, and project coverage.",
     },
@@ -232,7 +211,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "Break the question into sub-questions, consider multiple perspectives, "
             "provide evidence or reasoning for each, and give a clear recommendation.\n\n"
             "Be thorough but concise. Cite sources when available."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Researches topics and provides analysis with recommendations.",
     },
@@ -267,7 +246,7 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "- For learnings: capture facts the system should remember.\n"
             "- For log_entries: one sentence summarizing what happened.\n"
             "- Never fabricate information. Only reflect what was actually said/done."
-            + _OUTPUT_FORMAT_RULE
+
         ),
         "description": "Updates persistent memory and project state after each interaction.",
     },

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import Any
 
 from google.adk import Context
@@ -52,52 +51,13 @@ def get_agent_registry() -> AgentRegistry:
 
 
 # ---------------------------------------------------------------------------
-#  Defensive JSON parsing
+#  Safe node runner with logging
 # ---------------------------------------------------------------------------
 
-_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
-
-
-def _strip_json_fences(text: str) -> str:
-    """Strip markdown code fences from LLM output that should be raw JSON.
-
-    LLMs sometimes wrap JSON in ```json blocks despite instructions not to.
-    This function strips those fences so the output can be parsed.
-    """
-    if not text:
-        return text
-    stripped = text.strip()
-    # If the whole text is a fenced code block, extract the content
-    match = _JSON_FENCE_RE.fullmatch(stripped)
-    if match:
-        return match.group(1).strip()
-    return stripped
-
-
-def _coerce_to_dict(result: Any) -> dict[str, Any] | list | Any:
-    """Best-effort coercion of an agent result to a usable Python object.
-
-    If the result is a string (agent had no output_schema or schema validation
-    was bypassed), try to strip markdown fences and parse as JSON.
-    """
-    if isinstance(result, dict) or isinstance(result, list):
-        return result
-    if isinstance(result, str):
-        cleaned = _strip_json_fences(result)
-        try:
-            parsed = json.loads(cleaned)
-            return parsed
-        except (json.JSONDecodeError, ValueError):
-            return result
-    return result
-
-
 async def safe_run_node(ctx: Context, agent: Any, node_input: Any) -> Any:
-    """Run an agent node with defensive JSON fence stripping.
+    """Run an agent node. ADK handles output_schema → dict conversion.
 
-    If the agent returns a string that looks like fenced JSON, attempt to
-    parse it. This is a safety net — the prompts should prevent this, but
-    LLMs don't always follow instructions.
+    Logs the raw and final result for debugging.
     """
     agent_name = getattr(agent, "name", "unknown")
     logger.info(f"[{agent_name}] running with input length={len(str(node_input))}")
@@ -108,25 +68,20 @@ async def safe_run_node(ctx: Context, agent: Any, node_input: Any) -> Any:
         logger.error(f"[{agent_name}] LLM call failed: {exc}", exc_info=True)
         raise
 
-    # Log raw result before coercion
-    if isinstance(result, str):
-        logger.info(f"[{agent_name}] raw output (str, len={len(result)}): {result[:300]}")
-    elif isinstance(result, dict):
-        logger.info(f"[{agent_name}] raw output (dict, keys={list(result.keys())})")
-    elif isinstance(result, list):
-        logger.info(f"[{agent_name}] raw output (list, len={len(result)})")
+    # ADK should return a dict when output_schema is set — log if it didn't
+    if isinstance(result, dict):
+        logger.info(f"[{agent_name}] output (dict, keys={list(result.keys())})")
+    elif isinstance(result, str):
+        logger.warning(f"[{agent_name}] output is str (len={len(result)}), ADK did not convert — attempting fallback parse")
+        try:
+            result = json.loads(result)
+            logger.info(f"[{agent_name}] fallback parse succeeded")
+        except (json.JSONDecodeError, ValueError):
+            logger.error(f"[{agent_name}] fallback parse failed, returning raw string")
     else:
-        logger.info(f"[{agent_name}] raw output (type={type(result).__name__})")
+        logger.info(f"[{agent_name}] output (type={type(result).__name__})")
 
-    coerced = _coerce_to_dict(result)
-
-    # Log after coercion
-    if isinstance(coerced, dict):
-        logger.info(f"[{agent_name}] coerced output keys={list(coerced.keys())}")
-    elif isinstance(coerced, list):
-        logger.info(f"[{agent_name}] coerced output list len={len(coerced)}")
-
-    return coerced
+    return result
 
 
 # ---------------------------------------------------------------------------
