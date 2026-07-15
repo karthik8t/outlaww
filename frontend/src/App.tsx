@@ -450,40 +450,26 @@ function MarkdownViewer({
 //  Tldraw Canvas — re-renders diagram via useEffect on diagram changes
 // ---------------------------------------------------------------------------
 
-// Ensure tldraw record IDs have the correct prefix (e.g. "shape:abc", "page:abc")
-function prefixedId(typeName: string, id: string): string {
-  if (id.startsWith(typeName + ":")) return id
-  return typeName + ":" + id
-}
-
 function diagramToRecords(diagram: { store: TLStore }) {
   const { store } = diagram
   const records: unknown[] = []
 
   if (store.document) {
-    records.push({
-      ...store.document,
-      id: "document:document",
-      typeName: "document" as const,
-    })
+    records.push({ ...store.document, typeName: "document" as const })
   }
   for (const page of Object.values(store.page || {})) {
-    records.push({
-      ...page,
-      id: prefixedId("page", page.id),
-      typeName: "page" as const,
-    })
+    records.push({ ...page, typeName: "page" as const })
   }
   for (const shape of Object.values(store.shape || {})) {
     records.push({
-      id: prefixedId("shape", shape.id),
+      id: shape.id,
       type: shape.type,
       x: shape.x,
       y: shape.y,
       rotation: (shape as TLShape & { rotation?: number }).rotation || 0,
       opacity: (shape as TLShape & { opacity?: number }).opacity ?? 1,
       isLocked: (shape as TLShape & { isLocked?: boolean }).isLocked ?? false,
-      parentId: prefixedId("page", shape.parentId || "page"),
+      parentId: shape.parentId,
       index: shape.index,
       props: shape.props || {},
       meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta || {},
@@ -493,11 +479,7 @@ function diagramToRecords(diagram: { store: TLStore }) {
     })
   }
   for (const asset of Object.values(store.asset || {})) {
-    records.push({
-      ...asset,
-      id: prefixedId("asset", asset.id),
-      typeName: "asset" as const,
-    })
+    records.push({ ...asset, typeName: "asset" as const })
   }
   return records
 }

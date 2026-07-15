@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Literal, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -14,6 +14,13 @@ from pydantic import BaseModel, Field
 
 def _uuid() -> str:
     return uuid4().hex
+
+
+def _prefixed_id(type_name: str, raw: str) -> str:
+    """Ensure a tldraw record ID has the correct ``type_name:`` prefix."""
+    if raw.startswith(type_name + ":"):
+        return raw
+    return f"{type_name}:{raw}"
 
 
 # ===========================================================================
@@ -219,6 +226,18 @@ class TLShape(BaseModel):
     updatedAt: float = 0.0
     createdAt: float = 0.0
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def _fix_id(cls, v: str) -> str:
+        return _prefixed_id("shape", v)
+
+    @field_validator("parentId", mode="before")
+    @classmethod
+    def _fix_parent(cls, v: str) -> str:
+        if v and not v.startswith("page:"):
+            return f"page:{v}"
+        return v
+
 
 # -- Asset record -----------------------------------------------------------
 
@@ -232,6 +251,11 @@ class TLAsset(BaseModel):
     createdAt: float = 0.0
     updatedAt: float = 0.0
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def _fix_id(cls, v: str) -> str:
+        return _prefixed_id("asset", v)
+
 
 # -- Page record ------------------------------------------------------------
 
@@ -242,6 +266,11 @@ class TLPage(BaseModel):
     typeName: Literal["page"] = "page"
     index: str = "a0"
     meta: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _fix_id(cls, v: str) -> str:
+        return _prefixed_id("page", v)
 
 
 # -- Camera / instance state ------------------------------------------------
@@ -284,6 +313,11 @@ class TLDocument(BaseModel):
     gridSize: float = 10
     nameIsReadonly: bool = False
     meta: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _fix_id(cls, v: str) -> str:
+        return _prefixed_id("document", v)
 
 
 # -- Store (the full tldraw snapshot) ---------------------------------------
