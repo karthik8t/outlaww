@@ -47,6 +47,7 @@ export function useSession() {
   // ---- data from backend ----
   const [sessions, setSessions] = useState<api.SessionListItem[]>([])
   const [diagrams, setDiagrams] = useState<api.Diagram[]>([])
+  const [tldrawRecordsMap, setTldrawRecordsMap] = useState<Record<string, Record<string, unknown>[]>>({})
   const [markdownDocs, setMarkdownDocs] = useState<api.MarkdownDoc[]>([])
   const [actions, setActions] = useState<api.AppAction[]>([])
   const [agents, setAgents] = useState<string[]>([])
@@ -86,7 +87,10 @@ export function useSession() {
       api.getSession(sessionId).catch(() => null),
     ])
       .then(([diagRes, mdRes, sessRes]) => {
-        if (diagRes) setDiagrams(diagRes.diagrams)
+        if (diagRes) {
+          setDiagrams(diagRes.diagrams)
+          setTldrawRecordsMap(diagRes.tldraw_records || {})
+        }
         if (mdRes) setMarkdownDocs(mdRes.markdown_docs)
         // Rehydrate chat from session events (optional)
         if (sessRes && sessRes.events.length > 0) {
@@ -132,6 +136,7 @@ export function useSession() {
     try {
       const res = await api.getDiagrams(sid)
       setDiagrams(res.diagrams)
+      setTldrawRecordsMap(res.tldraw_records || {})
     } catch { /* ignore */ }
   }, [])
 
@@ -178,7 +183,10 @@ export function useSession() {
       setMessages((prev) => [...prev, agentMsg])
 
       // Sync diagrams / docs from response
-      if (res.diagrams.length > 0) setDiagrams(res.diagrams)
+      if (res.diagrams.length > 0) {
+        setDiagrams(res.diagrams)
+        setTldrawRecordsMap(res.tldraw_records || {})
+      }
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("chat error:", err)
@@ -217,7 +225,10 @@ export function useSession() {
       }
       setMessages((prev) => [...prev, agentMsg])
 
-      if (res.diagrams.length > 0) setDiagrams(res.diagrams)
+      if (res.diagrams.length > 0) {
+        setDiagrams(res.diagrams)
+        setTldrawRecordsMap(res.tldraw_records || {})
+      }
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("action error:", err)
@@ -233,6 +244,7 @@ export function useSession() {
     // data
     sessions,
     diagrams,
+    tldrawRecordsMap,
     markdownDocs,
     actions,
     agents,

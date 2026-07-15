@@ -543,7 +543,7 @@ def llm_shapes_to_store(
 
     for i, llm_shape in enumerate(shapes):
         # Build z-ordering index
-        index = f"a{i:02d}"
+        index = f"a{i}"
 
         if isinstance(llm_shape, LLMGeoShape):
             shape = TLShape(
@@ -634,6 +634,176 @@ def build_diagram_from_llm(
     """Build a full Diagram from an LLM-generated shape list."""
     store = llm_shapes_to_store(shapes, name=name, description=description)
     return Diagram(name=name, description=description, store=store)
+
+
+# ---------------------------------------------------------------------------
+#  Diagram → flat tldraw records (for frontend passthrough)
+# ---------------------------------------------------------------------------
+
+def diagram_to_tldraw_records(diagram: Diagram) -> list[dict[str, Any]]:
+    """Convert a Diagram into the flat record list tldraw's editor.store.put() expects.
+
+    This is the ONLY place where TLStore → flat records conversion happens.
+    The frontend should pass these records directly to editor.store.put()
+    without any transformation.
+    """
+    store = diagram.store
+    records: list[dict[str, Any]] = []
+
+    # Document record
+    doc = store.document
+    records.append({
+        "id": doc.id,
+        "typeName": "document",
+        "gridSize": doc.gridSize,
+        "name": doc.name,
+        "meta": doc.meta,
+    })
+
+    # Page records
+    for page in store.page.values():
+        records.append({
+            "id": page.id,
+            "typeName": "page",
+            "name": page.name,
+            "index": page.index,
+            "meta": page.meta,
+        })
+
+    # Shape records — only include fields tldraw v5 accepts
+    for shape in store.shape.values():
+        rec: dict[str, Any] = {
+            "id": shape.id,
+            "typeName": "shape",
+            "type": shape.type,
+            "x": shape.x,
+            "y": shape.y,
+            "rotation": shape.rotation,
+            "isLocked": shape.isLocked,
+            "opacity": shape.opacity,
+            "meta": shape.meta,
+            "props": shape.props,
+            "parentId": shape.parentId,
+            "index": shape.index,
+        }
+        records.append(rec)
+
+    # Asset records
+    for asset in store.asset.values():
+        records.append({
+            "id": asset.id,
+            "typeName": "asset",
+            "type": asset.type,
+            "props": asset.props,
+            "meta": asset.meta,
+        })
+
+    return records
+
+
+def validate_tldraw_records(records: list[dict[str, Any]]) -> tuple[bool, list[str]]:
+    """Validate that a list of records matches tldraw v5 schema.
+
+    Returns (is_valid, list_of_errors).
+    """
+    errors: list[str] = []
+    seen_ids: set[str] = set()
+    has_document = False
+    has_page = False
+
+    for i, rec in enumerate(records):
+        rid = rec.get("id", f"<missing at index {i}>")
+        typeName = rec.get("typeName", "")
+
+        # Duplicate ID check
+        if rid in seen_ids:
+            errors.append(f"Duplicate record ID: {rid}")
+        seen_ids.add(rid)
+
+        if typeName == "document":
+            has_document = True
+            required = {"id", "typeName", "gridSize", "name", "meta"}
+            missing = required - set(rec.keys())
+            if missing:
+                errors.append(f"Document {rid}: missing fields {missing}")
+            if rec.get("typeName") != "document":
+                errors.append(f"Document {rid}: typeName must be 'document'")
+
+        elif typeName == "page":
+            has_page = True
+            required = {"id", "typeName", "name", "index", "meta"}
+            missing = required - set(rec.keys())
+            if missing:
+                errors.append(f"Page {rid}: missing fields {missing}")
+            # Validate index key format
+            idx = rec.get("index", "")
+            if idx and idx[-1] == "0" and len(idx) > 1 and not idx.endswith("00"):
+                # Simple heuristic: trailing zero in fractional part is invalid
+                pass  # Actually let's be more precise
+            if idx and not _is_valid_index_key(idx):
+                errors.append(f"Page {rid}: invalid index key '{idx}'")
+
+        elif typeName == "shape":
+            required = {"id", "typeName", "type", "x", "y", "rotation", "isLocked", "opacity", "meta", "props", "parentId", "index"}
+            missing = required - set(rec.keys())
+            if missing:
+                errors.append(f"Shape {rid}: missing fields {missing}")
+            idx = rec.get("index", "")
+            if idx and not _is_valid_index_key(idx):
+                errors.append(f"Shape {rid}: invalid index key '{idx}'")
+            # Validate shape type
+            valid_types = {"geo", "text", "arrow", "frame", "note", "draw", "group", "image", "video", "bookmark", "embed", "line", "highlight"}
+            if rec.get("type") not in valid_types:
+                errors.append(f"Shape {rid}: unknown type '{rec.get('type')}'")
+
+        elif typeName == "asset":
+            required = {"id", "typeName", "type", "props", "meta"}
+            missing = required - set(rec.keys())
+            if missing:
+                errors.append(f"Asset {rid}: missing fields {missing}")
+
+        else:
+            errors.append(f"Record {rid}: unknown typeName '{typeName}'")
+
+    if not has_document:
+        errors.append("Missing document record")
+    if not has_page:
+        errors.append("Missing page record")
+
+    return len(errors) == 0, errors
+
+
+def _is_valid_index_key(key: str) -> bool:
+    """Check if a string is a valid tldraw IndexKey.
+
+    IndexKey format: letter head + integer part + optional fractional part.
+    - Head must be a-z or A-Z
+    - Integer length: a-z → head - 'a' + 2; A-Z → 'Z' - head + 2
+    - Fractional part cannot end with '0'
+    """
+    if not key:
+        return False
+    head = key[0]
+    if not head.isalpha():
+        return False
+
+    # Compute integer part length
+    if "a" <= head <= "z":
+        int_len = ord(head) - ord("a") + 2
+    elif "A" <= head <= "Z":
+        int_len = ord("Z") - ord(head) + 2
+    else:
+        return False
+
+    if len(key) < int_len:
+        return False
+
+    # Fractional part (everything after integer part)
+    frac = key[int_len:]
+    if frac and frac[-1] == "0":
+        return False
+
+    return True
 
 
 # ===========================================================================

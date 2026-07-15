@@ -26,6 +26,7 @@ export interface ChatResponse {
   structured_output: unknown
   reflection: unknown
   diagrams: Diagram[]
+  tldraw_records: Record<string, Record<string, unknown>[]>
   markdown_docs: MarkdownDoc[]
   active_ids: Record<string, string>
 }
@@ -60,6 +61,7 @@ export interface SessionsListResponse {
 export interface DiagramsResponse {
   session_id: string
   diagrams: Diagram[]
+  tldraw_records: Record<string, Record<string, unknown>[]>
   active_diagram_id: string
 }
 

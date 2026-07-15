@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
-import type { TLStore, TLShape } from "@/lib/api"
 import {
   GitBranch,
   Plus,
@@ -447,83 +446,27 @@ function MarkdownViewer({
 }
 
 // ---------------------------------------------------------------------------
-//  Tldraw Canvas — re-renders diagram via useEffect on diagram changes
+//  Tldraw Canvas — uses pre-built records from backend
 // ---------------------------------------------------------------------------
 
-function diagramToRecords(diagram: { store: TLStore }) {
-  const { store } = diagram
-  const records: unknown[] = []
-
-  // Document — tldraw v5 only accepts: id, typeName, gridSize, name, meta
-  if (store.document) {
-    records.push({
-      id: store.document.id || "document:document",
-      typeName: "document" as const,
-      gridSize: (store.document as { gridSize?: number }).gridSize ?? 10,
-      name: (store.document as { name?: string }).name ?? "",
-      meta: (store.document as { meta?: Record<string, unknown> }).meta ?? {},
-    })
-  }
-
-  // Page — tldraw v5 only accepts: id, typeName, name, index, meta
-  for (const page of Object.values(store.page || {})) {
-    records.push({
-      id: page.id,
-      typeName: "page" as const,
-      name: (page as { name?: string }).name ?? "Page 1",
-      index: (page as { index?: string }).index ?? "a0",
-      meta: (page as { meta?: Record<string, unknown> }).meta ?? {},
-    })
-  }
-
-  // Shape — tldraw v5 only accepts: id, typeName, type, x, y, rotation,
-  //   isLocked, opacity, meta, props, parentId, index, (plus updatedAt/createdAt)
-  for (const shape of Object.values(store.shape || {})) {
-    records.push({
-      id: shape.id,
-      typeName: "shape" as const,
-      type: shape.type,
-      x: shape.x ?? 0,
-      y: shape.y ?? 0,
-      rotation: (shape as TLShape & { rotation?: number }).rotation ?? 0,
-      isLocked: (shape as TLShape & { isLocked?: boolean }).isLocked ?? false,
-      opacity: (shape as TLShape & { opacity?: number }).opacity ?? 1,
-      meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta ?? {},
-      props: shape.props || {},
-      parentId: shape.parentId,
-      index: shape.index ?? "a0",
-    })
-  }
-
-  // Asset — tldraw v5 only accepts: id, typeName, type, props, meta
-  for (const asset of Object.values(store.asset || {})) {
-    records.push({
-      id: asset.id,
-      typeName: "asset" as const,
-      type: asset.type,
-      props: asset.props || {},
-      meta: (asset as TLAsset & { meta?: Record<string, unknown> }).meta ?? {},
-    })
-  }
-
-  return records
-}
-
-function TldrawCanvas({ diagram }: { diagram: { store: TLStore } | null }) {
+function TldrawCanvas({
+  diagram,
+  records,
+}: {
+  diagram: { store: TLStore } | null
+  records: Record<string, unknown>[] | null
+}) {
   const editorRef = useRef<Editor | null>(null)
 
-  // Sync diagram into the editor store whenever diagram prop changes
+  // Sync diagram into the editor store whenever records change
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
-    if (!diagram) return
+    if (!records || records.length === 0) return
 
-    const records = diagramToRecords(diagram)
-    if (records.length > 0) {
-      // store.put overwrites existing records with the same ID
-      editor.store.put(records as Parameters<typeof editor.store.put>[0])
-    }
-  }, [diagram])
+    // Put pre-built records directly — no transformation needed
+    editor.store.put(records as Parameters<typeof editor.store.put>[0])
+  }, [records])
 
   return (
     <div className="flex-1 relative w-full h-full overflow-hidden">
@@ -532,11 +475,8 @@ function TldrawCanvas({ diagram }: { diagram: { store: TLStore } | null }) {
         onMount={(editor) => {
           editorRef.current = editor
           // Load initial diagram if available
-          if (diagram) {
-            const records = diagramToRecords(diagram)
-            if (records.length > 0) {
-              editor.store.put(records as Parameters<typeof editor.store.put>[0])
-            }
+          if (records && records.length > 0) {
+            editor.store.put(records as Parameters<typeof editor.store.put>[0])
           }
         }}
       />
@@ -593,6 +533,11 @@ export default function App() {
     [session.markdownDocs, session.selectedDocId],
   )
 
+  const selectedDiagramRecords = useMemo(() => {
+    if (!selectedDiagram) return null
+    return session.tldrawRecordsMap[selectedDiagram.id] || null
+  }, [selectedDiagram, session.tldrawRecordsMap])
+
   const projectName = useMemo(() => {
     if (selectedDiagram?.name) return selectedDiagram.name
     if (selectedDoc?.name) return selectedDoc.name
@@ -639,7 +584,7 @@ export default function App() {
           {selectedDoc ? (
             <MarkdownViewer doc={selectedDoc} />
           ) : (
-            <TldrawCanvas diagram={selectedDiagram} />
+            <TldrawCanvas diagram={selectedDiagram} records={selectedDiagramRecords} />
           )}
         </section>
       </main>

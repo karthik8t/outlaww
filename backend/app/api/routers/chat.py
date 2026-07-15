@@ -19,6 +19,7 @@ from app.api.dependencies import (
     get_workflow_runner,
     user_id_for,
 )
+from app.schema.models import Diagram, diagram_to_tldraw_records, validate_tldraw_records
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ class ChatResponse(BaseModel):
     structured_output: Any = None
     reflection: Any = None
     diagrams: list[Any] = []
+    tldraw_records: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     markdown_docs: list[Any] = []
     active_ids: dict[str, str] = {}
 
@@ -84,6 +86,7 @@ class SessionsListResponse(BaseModel):
 class DiagramsResponse(BaseModel):
     session_id: str
     diagrams: list[Any] = []
+    tldraw_records: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     active_diagram_id: str = ""
 
 
@@ -194,6 +197,21 @@ async def chat(req: ChatRequest) -> ChatResponse:
     docs = await runner.get_markdown_docs()
     active = await runner.get_active_ids()
 
+    # Build pre-built tldraw records for each diagram
+    tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+    for d in diagrams:
+        if isinstance(d, dict):
+            # Convert dict back to Diagram model for record generation
+            try:
+                diagram_model = Diagram(**d)
+                records = diagram_to_tldraw_records(diagram_model)
+                is_valid, errs = validate_tldraw_records(records)
+                if not is_valid:
+                    logger.warning(f"[chat] diagram {d.get('id', '?')} validation errors: {errs}")
+                tldraw_records_map[d["id"]] = records
+            except Exception as exc:
+                logger.error(f"[chat] failed to build tldraw records for diagram: {exc}")
+
     return ChatResponse(
         session_id=session_id,
         routed_to=routed_to or dispatch_result.get("agent_name", "generic") if dispatch_result else "generic",
@@ -203,6 +221,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         structured_output=structured_output,
         reflection=reflection,
         diagrams=diagrams,
+        tldraw_records=tldraw_records_map,
         markdown_docs=docs,
         active_ids=active,
     )
@@ -256,9 +275,25 @@ async def get_diagrams(session_id: str) -> DiagramsResponse:
     runner = get_workflow_runner(session_id=session_id)
     diagrams = await runner.get_diagrams()
     active = await runner.get_active_ids()
+
+    # Build pre-built tldraw records for each diagram
+    tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+    for d in diagrams:
+        if isinstance(d, dict):
+            try:
+                diagram_model = Diagram(**d)
+                records = diagram_to_tldraw_records(diagram_model)
+                is_valid, errs = validate_tldraw_records(records)
+                if not is_valid:
+                    logger.warning(f"[diagrams] diagram {d.get('id', '?')} validation errors: {errs}")
+                tldraw_records_map[d["id"]] = records
+            except Exception as exc:
+                logger.error(f"[diagrams] failed to build tldraw records for diagram: {exc}")
+
     return DiagramsResponse(
         session_id=session_id,
         diagrams=diagrams,
+        tldraw_records=tldraw_records_map,
         active_diagram_id=active.get("active_diagram_id", ""),
     )
 
@@ -348,10 +383,22 @@ async def _stream_gen(
         docs = await runner.get_markdown_docs()
         active = await runner.get_active_ids()
 
+        # Build pre-built tldraw records for each diagram
+        tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+        for d in diagrams:
+            if isinstance(d, dict):
+                try:
+                    diagram_model = Diagram(**d)
+                    records = diagram_to_tldraw_records(diagram_model)
+                    tldraw_records_map[d["id"]] = records
+                except Exception as exc:
+                    logger.error(f"[stream] failed to build tldraw records: {exc}")
+
         yield _sse("workflow_complete", {
             "dispatch_result": dispatch_result,
             "reflection": reflection,
             "diagrams": diagrams,
+            "tldraw_records": tldraw_records_map,
             "markdown_docs": docs,
             "active_ids": active,
         })
