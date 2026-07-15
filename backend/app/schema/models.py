@@ -542,10 +542,26 @@ def llm_shapes_to_store(
     )
 
     for i, llm_shape in enumerate(shapes):
-        # Build z-ordering index
         index = f"a{i}"
 
         if isinstance(llm_shape, LLMGeoShape):
+            # Geo shape: all required tldraw v5 props
+            rich_text = _to_rich_text(llm_shape.props.text)
+            geo_props = {
+                "geo": llm_shape.props.geo,
+                "color": llm_shape.props.color,
+                "labelColor": "black",
+                "fill": llm_shape.props.fill,
+                "dash": "draw",
+                "size": "m",
+                "font": "draw",
+                "align": "middle",
+                "verticalAlign": "middle",
+                "growY": 0,
+                "scale": 1,
+                "url": "",
+                "richText": rich_text,
+            }
             shape = TLShape(
                 id=llm_shape.id,
                 type="geo",
@@ -553,9 +569,21 @@ def llm_shapes_to_store(
                 y=llm_shape.y,
                 parentId=page_id,
                 index=index,
-                props=llm_shape.props.model_dump(mode="json"),
+                props=geo_props,
             )
         elif isinstance(llm_shape, LLMTextShape):
+            # Text shape: all required tldraw v5 props
+            rich_text = _to_rich_text(llm_shape.props.text)
+            text_props = {
+                "color": llm_shape.props.color,
+                "size": llm_shape.props.size,
+                "font": "draw",
+                "textAlign": "start",
+                "w": llm_shape.props.w or 100,
+                "richText": rich_text,
+                "scale": 1,
+                "autoSize": True,
+            }
             shape = TLShape(
                 id=llm_shape.id,
                 type="text",
@@ -563,30 +591,46 @@ def llm_shapes_to_store(
                 y=llm_shape.y,
                 parentId=page_id,
                 index=index,
-                props=llm_shape.props.model_dump(mode="json"),
+                props=text_props,
             )
         elif isinstance(llm_shape, LLMArrowShape):
-            # Convert LLM arrow terminals to TLShape props format
+            # Arrow shape: all required tldraw v5 props
             start = llm_shape.props.start
             end = llm_shape.props.end
+            rich_text = _to_rich_text(llm_shape.props.text)
             arrow_props = {
+                "kind": "arc",
+                "labelColor": "black",
                 "color": llm_shape.props.color,
+                "fill": "none",
+                "dash": "draw",
+                "size": "m",
                 "arrowheadStart": llm_shape.props.arrowheadStart,
                 "arrowheadEnd": llm_shape.props.arrowheadEnd,
-                "text": llm_shape.props.text,
-                "start": {
-                    "type": start.type,
+                "font": "draw",
+                "start": {"type": "point", "x": 0, "y": 0},
+                "end": {"type": "point", "x": 100, "y": 0},
+                "bend": 0,
+                "richText": rich_text,
+                "labelPosition": 0.5,
+                "scale": 1,
+                "elbowMidPoint": 0.5,
+            }
+            # If binding to shapes, use binding format
+            if start.type == "binding" and start.boundShapeId:
+                arrow_props["start"] = {
+                    "type": "binding",
                     "boundShapeId": start.boundShapeId,
                     "normalizedAnchor": start.normalizedAnchor,
                     "isExact": start.isExact,
-                },
-                "end": {
-                    "type": end.type,
+                }
+            if end.type == "binding" and end.boundShapeId:
+                arrow_props["end"] = {
+                    "type": "binding",
                     "boundShapeId": end.boundShapeId,
                     "normalizedAnchor": end.normalizedAnchor,
                     "isExact": end.isExact,
-                },
-            }
+                }
             shape = TLShape(
                 id=llm_shape.id,
                 type="arrow",
@@ -597,6 +641,11 @@ def llm_shapes_to_store(
                 props=arrow_props,
             )
         elif isinstance(llm_shape, LLMFrameShape):
+            # Frame shape: all required tldraw v5 props
+            frame_props = {
+                "name": llm_shape.props.name,
+                "color": "light-blue",
+            }
             shape = TLShape(
                 id=llm_shape.id,
                 type="frame",
@@ -604,9 +653,25 @@ def llm_shapes_to_store(
                 y=llm_shape.y,
                 parentId=page_id,
                 index=index,
-                props=llm_shape.props.model_dump(mode="json"),
+                props=frame_props,
             )
         elif isinstance(llm_shape, LLMNoteShape):
+            # Note shape: all required tldraw v5 props
+            rich_text = _to_rich_text(llm_shape.props.text)
+            note_props = {
+                "color": llm_shape.props.color,
+                "labelColor": "black",
+                "size": llm_shape.props.size,
+                "font": "draw",
+                "fontSizeAdjustment": None,
+                "align": "start",
+                "verticalAlign": "top",
+                "growY": 0,
+                "url": "",
+                "richText": rich_text,
+                "scale": 1,
+                "textLastEditedBy": None,
+            }
             shape = TLShape(
                 id=llm_shape.id,
                 type="note",
@@ -614,15 +679,31 @@ def llm_shapes_to_store(
                 y=llm_shape.y,
                 parentId=page_id,
                 index=index,
-                props=llm_shape.props.model_dump(mode="json"),
+                props=note_props,
             )
         else:
-            # Unknown shape type — skip with warning
             continue
 
         store.shape[shape.id] = shape
 
     return store
+
+
+def _to_rich_text(text: str) -> dict[str, Any]:
+    """Convert plain text to tldraw v5 richText format (TipTap/ProseMirror)."""
+    if not text:
+        return {"type": "doc", "content": [{"type": "paragraph"}]}
+    lines = text.split("\n")
+    content = []
+    for line in lines:
+        if not line:
+            content.append({"type": "paragraph"})
+        else:
+            content.append({
+                "type": "paragraph",
+                "content": [{"type": "text", "text": line}],
+            })
+    return {"type": "doc", "content": content}
 
 
 def build_diagram_from_llm(
