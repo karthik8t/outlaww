@@ -102,11 +102,20 @@ def _event_to_dict(event: Any) -> dict[str, Any]:
         for p in parts:
             text += getattr(p, "text", "") or ""
 
+    # ADK stores structured output in event.output when output_schema is set
+    output = getattr(event, "output", None)
+
+    # Also check function_call / function_response for tool-based agents
+    function_call = getattr(event, "function_call", None)
+    function_response = getattr(event, "function_response", None)
+
     return {
         "id": getattr(event, "id", ""),
         "author": getattr(event, "author", ""),
         "text": text,
-        "output": getattr(event, "output", None),
+        "output": output,
+        "function_call": function_call,
+        "function_response": function_response,
         "timestamp": getattr(event, "timestamp", 0.0),
     }
 
@@ -162,6 +171,14 @@ async def chat(req: ChatRequest) -> ChatResponse:
     elapsed = (time.perf_counter() - start) * 1000
     logger.info(f"[chat] {pipeline} done in {elapsed:.0f}ms → agent={routed_to or 'generic'} events={len(events_out)}")
 
+    # Get dispatch result from state for structured output
+    dispatch_result = await runner.get_dispatch_result()
+    if dispatch_result:
+        if not structured_output:
+            structured_output = dispatch_result.get("output")
+        if not final_text:
+            final_text = dispatch_result.get("text", "")
+
     reflection = await runner.get_reflection()
     diagrams = await runner.get_diagrams()
     docs = await runner.get_markdown_docs()
@@ -169,7 +186,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     return ChatResponse(
         session_id=session_id,
-        routed_to=routed_to or "generic",
+        routed_to=routed_to or dispatch_result.get("agent_name", "generic") if dispatch_result else "generic",
         action_name=action_name,
         events=events_out,
         final_text=final_text,
@@ -299,11 +316,13 @@ async def _stream_gen(
             })
 
         reflection = await runner.get_reflection()
+        dispatch_result = await runner.get_dispatch_result()
         diagrams = await runner.get_diagrams()
         docs = await runner.get_markdown_docs()
         active = await runner.get_active_ids()
 
         yield _sse("workflow_complete", {
+            "dispatch_result": dispatch_result,
             "reflection": reflection,
             "diagrams": diagrams,
             "markdown_docs": docs,

@@ -537,12 +537,15 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
     text = ""
     structured_output = None
     if isinstance(result, dict):
+        structured_output = result
+        # Extract human-readable text from common fields
         text = (
             result.get("explanation", "")
             or result.get("summary", "")
             or result.get("reasoning", "")
+            or result.get("text", "")
+            or result.get("description", "")
         )
-        structured_output = result
     elif isinstance(result, str):
         text = result
     else:
@@ -553,19 +556,21 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
         "output": structured_output or result,
         "text": text,
     }
-    logger.info(f"[dispatch] result from {agent_name}: text_len={len(text)}")
+    logger.info(f"[dispatch] result from {agent_name}: text_len={len(text)} output_type={type(structured_output).__name__}")
 
     # ----- Persist artifacts to state via StateDelta -------------------------
     # Diagram agents
-    if agent_name == "diagram_agent" and isinstance(structured_output, dict):
+    if agent_name == "create_diagram" and isinstance(structured_output, dict):
         _persist_diagram_output(ctx, structured_output, user_message)
-    elif agent_name == "diagram_editor" and isinstance(structured_output, dict):
+    elif agent_name == "edit_diagram" and isinstance(structured_output, dict):
+        _persist_diagram_edit(ctx, structured_output)
+    elif agent_name == "patch_diagram" and isinstance(structured_output, dict):
         _persist_diagram_edit(ctx, structured_output)
 
     # Markdown agents
-    elif agent_name == "markdown_agent" and isinstance(structured_output, dict):
+    elif agent_name == "create_markdown" and isinstance(structured_output, dict):
         _persist_markdown_output(ctx, structured_output)
-    elif agent_name == "markdown_editor" and isinstance(structured_output, dict):
+    elif agent_name == "edit_markdown" and isinstance(structured_output, dict):
         _persist_markdown_edit(ctx, structured_output)
 
 
@@ -639,7 +644,7 @@ async def reflection_node(ctx: Context, node_input: Any) -> None:
     for fact in ro.learnings:
         ref.learn(fact)
     for d in ro.decisions_made:
-        ref.declare(
+        ref.decide(
             title=d.get("title", "Decision"),
             decision=d.get("decision", ""),
             context=d.get("context", ""),

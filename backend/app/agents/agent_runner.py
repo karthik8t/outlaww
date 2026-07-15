@@ -214,6 +214,13 @@ class WorkflowRunner:
             return None
         return session.state.get("reflection")
 
+    async def get_dispatch_result(self) -> dict[str, Any] | None:
+        """Return the dispatch result from the session (agent name, output, text)."""
+        session = await self.get_session()
+        if session is None:
+            return None
+        return session.state.get("dispatch_result")
+
     async def get_diagrams(self) -> list[dict[str, Any]]:
         """Return all persisted diagrams from the session."""
         session = await self.get_session()
