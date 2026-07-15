@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react"
-import { Tldraw } from "tldraw"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Tldraw, type Editor } from "tldraw"
 import "tldraw/tldraw.css"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -447,55 +447,82 @@ function MarkdownViewer({
 }
 
 // ---------------------------------------------------------------------------
-//  Tldraw Canvas
+//  Tldraw Canvas — re-renders diagram via useEffect on diagram changes
 // ---------------------------------------------------------------------------
 
+function diagramToRecords(diagram: { store: TLStore }) {
+  const { store } = diagram
+  const records: unknown[] = []
+
+  if (store.document) {
+    records.push({ ...store.document, typeName: "document" as const })
+  }
+  for (const page of Object.values(store.page || {})) {
+    records.push({ ...page, typeName: "page" as const })
+  }
+  for (const shape of Object.values(store.shape || {})) {
+    records.push({
+      id: shape.id,
+      type: shape.type,
+      x: shape.x,
+      y: shape.y,
+      rotation: (shape as TLShape & { rotation?: number }).rotation || 0,
+      opacity: (shape as TLShape & { opacity?: number }).opacity ?? 1,
+      isLocked: (shape as TLShape & { isLocked?: boolean }).isLocked ?? false,
+      parentId: shape.parentId,
+      index: shape.index,
+      props: shape.props || {},
+      meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta || {},
+      typeName: "shape" as const,
+      ...(shape as TLShape & { bounds?: unknown }).bounds
+        ? { bounds: (shape as TLShape & { bounds?: unknown }).bounds }
+        : {},
+      ...(shape as TLShape & { connecting?: unknown }).connecting
+        ? { connecting: (shape as TLShape & { connecting?: unknown }).connecting }
+        : {},
+      updatedAt: (shape as TLShape & { updatedAt?: number }).updatedAt || Date.now(),
+      createdAt: (shape as TLShape & { createdAt?: number }).createdAt || Date.now(),
+    })
+  }
+  for (const asset of Object.values(store.asset || {})) {
+    records.push({ ...asset, typeName: "asset" as const })
+  }
+  return records
+}
+
 function TldrawCanvas({ diagram }: { diagram: { store: TLStore } | null }) {
+  const editorRef = useRef<Editor | null>(null)
+
+  // Sync diagram into the editor store whenever diagram prop changes
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    if (!diagram) return
+
+    // Clear existing records then insert new ones
+    const allIds = editor.store.allIds()
+    if (allIds.length > 0) {
+      editor.store.remove([...allIds])
+    }
+
+    const records = diagramToRecords(diagram)
+    if (records.length > 0) {
+      editor.store.put(records as Parameters<typeof editor.store.put>[0])
+    }
+  }, [diagram])
+
   return (
     <div className="flex-1 relative w-full h-full overflow-hidden">
       <Tldraw
         hideUi={false}
         onMount={(editor) => {
-          if (!diagram) return
-          const { store } = diagram
-          const records: unknown[] = []
-
-          if (store.document) {
-            records.push({ ...store.document, typeName: "document" as const })
-          }
-          for (const page of Object.values(store.page || {})) {
-            records.push({ ...page, typeName: "page" as const })
-          }
-          for (const shape of Object.values(store.shape || {})) {
-            records.push({
-              id: shape.id,
-              type: shape.type,
-              x: shape.x,
-              y: shape.y,
-              rotation: (shape as TLShape & { rotation?: number }).rotation || 0,
-              opacity: (shape as TLShape & { opacity?: number }).opacity ?? 1,
-              isLocked: (shape as TLShape & { isLocked?: boolean }).isLocked ?? false,
-              parentId: shape.parentId,
-              index: shape.index,
-              props: shape.props || {},
-              meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta || {},
-              typeName: "shape" as const,
-              ...(shape as TLShape & { bounds?: unknown }).bounds
-                ? { bounds: (shape as TLShape & { bounds?: unknown }).bounds }
-                : {},
-              ...(shape as TLShape & { connecting?: unknown }).connecting
-                ? { connecting: (shape as TLShape & { connecting?: unknown }).connecting }
-                : {},
-              updatedAt: (shape as TLShape & { updatedAt?: number }).updatedAt || Date.now(),
-              createdAt: (shape as TLShape & { createdAt?: number }).createdAt || Date.now(),
-            })
-          }
-          for (const asset of Object.values(store.asset || {})) {
-            records.push({ ...asset, typeName: "asset" as const })
-          }
-
-          if (records.length > 0) {
-            editor.store.put(records as Parameters<typeof editor.store.put>[0])
+          editorRef.current = editor
+          // Load initial diagram if available
+          if (diagram) {
+            const records = diagramToRecords(diagram)
+            if (records.length > 0) {
+              editor.store.put(records as Parameters<typeof editor.store.put>[0])
+            }
           }
         }}
       />
