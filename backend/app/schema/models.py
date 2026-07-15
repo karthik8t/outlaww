@@ -133,8 +133,10 @@ class DrawShapeProps(BaseModel):
 
 
 class FrameShapeProps(BaseModel):
-    color: str = "light-blue"
+    color: str = "black"
     name: str = ""
+    w: float = 320
+    h: float = 180
 
 
 class GroupShapeProps(BaseModel):
@@ -144,13 +146,16 @@ class GroupShapeProps(BaseModel):
 
 class NoteShapeProps(BaseModel):
     color: str = "yellow"
+    labelColor: str = "black"
     size: str = "m"
     font: str = "draw"
+    fontSizeAdjustment: int = 1
     align: str = "start"
-    text: str = ""
+    verticalAlign: str = "middle"
     growY: float = 0.0
-    isAdmonition: bool = False
-    author: str = ""
+    url: str = ""
+    scale: float = 1.0
+    textLastEditedBy: Optional[str] = None
 
 
 class ImageShapeProps(BaseModel):
@@ -403,7 +408,7 @@ class LLMTextProps(BaseModel):
     text: str = ""
     color: Literal["black", "blue", "green", "orange", "yellow", "violet", "red"] = "black"
     size: Literal["s", "m", "l", "xl"] = "m"
-    w: Optional[float] = None
+    w: float = 100
 
 
 class LLMArrowTerminal(BaseModel):
@@ -579,7 +584,7 @@ def llm_shapes_to_store(
                 "size": llm_shape.props.size,
                 "font": "draw",
                 "textAlign": "start",
-                "w": llm_shape.props.w or 100,
+                "w": llm_shape.props.w,
                 "richText": rich_text,
                 "scale": 1,
                 "autoSize": True,
@@ -644,7 +649,9 @@ def llm_shapes_to_store(
             # Frame shape: all required tldraw v5 props
             frame_props = {
                 "name": llm_shape.props.name,
-                "color": "light-blue",
+                "color": "black",
+                "w": llm_shape.props.w,
+                "h": llm_shape.props.h,
             }
             shape = TLShape(
                 id=llm_shape.id,
@@ -663,9 +670,9 @@ def llm_shapes_to_store(
                 "labelColor": "black",
                 "size": llm_shape.props.size,
                 "font": "draw",
-                "fontSizeAdjustment": None,
+                "fontSizeAdjustment": 1,
                 "align": "start",
-                "verticalAlign": "top",
+                "verticalAlign": "middle",
                 "growY": 0,
                 "url": "",
                 "richText": rich_text,
