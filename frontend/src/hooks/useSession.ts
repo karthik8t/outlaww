@@ -45,6 +45,7 @@ export function useSession() {
   const [ready, setReady] = useState(true) // false while loading session data on mount
 
   // ---- data from backend ----
+  const [sessions, setSessions] = useState<api.SessionListItem[]>([])
   const [diagrams, setDiagrams] = useState<api.Diagram[]>([])
   const [markdownDocs, setMarkdownDocs] = useState<api.MarkdownDoc[]>([])
   const [actions, setActions] = useState<api.AppAction[]>([])
@@ -65,10 +66,11 @@ export function useSession() {
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
 
-  // ---- boot: load actions + agents list (session-independent) ----
+  // ---- boot: load actions + agents + sessions list (session-independent) ----
   useEffect(() => {
     api.getActions().then((r) => setActions(r.actions)).catch(console.error)
     api.getAgents().then((r) => setAgents(r.agents)).catch(console.error)
+    api.listSessions().then((r) => setSessions(r.sessions)).catch(console.error)
   }, [])
 
   // ---- boot: if session exists in URL, load its data ----
@@ -117,6 +119,13 @@ export function useSession() {
   }, [])
 
   // ---- refresh helpers ----
+  const refreshSessions = useCallback(async () => {
+    try {
+      const res = await api.listSessions()
+      setSessions(res.sessions)
+    } catch { /* ignore */ }
+  }, [])
+
   const refreshDiagrams = useCallback(async () => {
     const sid = sessionIdRef.current
     if (!sid) return
@@ -222,6 +231,7 @@ export function useSession() {
     sessionId,
     ready,
     // data
+    sessions,
     diagrams,
     markdownDocs,
     actions,
@@ -240,6 +250,7 @@ export function useSession() {
     sidebarView,
     setSidebarView,
     // refresh
+    refreshSessions,
     refreshDiagrams,
     refreshDocs,
   }

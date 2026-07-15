@@ -71,6 +71,16 @@ class SessionDetailResponse(BaseModel):
     state: dict[str, Any] = {}
 
 
+class SessionListItem(BaseModel):
+    session_id: str
+    user_id: str = ""
+    last_update_time: float = 0.0
+
+
+class SessionsListResponse(BaseModel):
+    sessions: list[SessionListItem] = []
+
+
 class DiagramsResponse(BaseModel):
     session_id: str
     diagrams: list[Any] = []
@@ -195,6 +205,23 @@ async def chat(req: ChatRequest) -> ChatResponse:
         diagrams=diagrams,
         markdown_docs=docs,
         active_ids=active,
+    )
+
+
+@router.get("/sessions", response_model=SessionsListResponse)
+async def list_sessions() -> SessionsListResponse:
+    """List all sessions for the outlaww app."""
+    session_svc = get_session_service()
+    resp = await session_svc.list_sessions(app_name="outlaww")
+    return SessionsListResponse(
+        sessions=[
+            SessionListItem(
+                session_id=s.id,
+                user_id=s.user_id,
+                last_update_time=s.last_update_time,
+            )
+            for s in resp.sessions
+        ]
     )
 
 

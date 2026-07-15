@@ -47,6 +47,16 @@ export interface SessionDetail {
   state: Record<string, unknown>
 }
 
+export interface SessionListItem {
+  session_id: string
+  user_id: string
+  last_update_time: number
+}
+
+export interface SessionsListResponse {
+  sessions: SessionListItem[]
+}
+
 export interface DiagramsResponse {
   session_id: string
   diagrams: Diagram[]
@@ -168,6 +178,11 @@ export async function sendAction(
   action: string,
 ): Promise<ChatResponse> {
   return post<ChatResponse>("/chat", { session_id: sessionId, action })
+}
+
+/** List all sessions for the outlaww app. */
+export async function listSessions(): Promise<SessionsListResponse> {
+  return get<SessionsListResponse>("/chat/sessions")
 }
 
 /** Get full session details (events + state). */

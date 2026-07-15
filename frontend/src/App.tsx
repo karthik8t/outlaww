@@ -499,14 +499,9 @@ function TldrawCanvas({ diagram }: { diagram: { store: TLStore } | null }) {
     if (!editor) return
     if (!diagram) return
 
-    // Clear existing records then insert new ones
-    const allIds = editor.store.allIds()
-    if (allIds.length > 0) {
-      editor.store.remove([...allIds])
-    }
-
     const records = diagramToRecords(diagram)
     if (records.length > 0) {
+      // store.put overwrites existing records with the same ID
       editor.store.put(records as Parameters<typeof editor.store.put>[0])
     }
   }, [diagram])

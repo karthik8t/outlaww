@@ -2,21 +2,16 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from google.adk.sessions import BaseSessionService, InMemorySessionService
+from google.adk.sessions import BaseSessionService, DatabaseSessionService
 
 from app.agents.agent_registry import AgentRegistry
 from app.agents.agent_runner import AgentRunner, WorkflowRunner
 
 
 @lru_cache(maxsize=1)
-def _get_session_service() -> InMemorySessionService:
-    """Singleton session service.
-
-    Swap this function body for a DatabaseSessionService-backed one when
-    you need MySQL persistence — the AgentRunner depends only on the
-    BaseSessionService interface, so the rest of the code stays unchanged.
-    """
-    return InMemorySessionService()
+def _get_session_service() -> DatabaseSessionService:
+    """Singleton session service backed by SQLite for persistence."""
+    return DatabaseSessionService(db_url="sqlite+aiosqlite:///./my_agent_data.db")
 
 
 @lru_cache(maxsize=1)
