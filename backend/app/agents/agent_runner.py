@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any, AsyncGenerator
 
 from google.adk.agents import LlmAgent
@@ -9,6 +11,7 @@ from google.adk.sessions import BaseSessionService, Session
 from google.adk.workflow import Workflow
 from google.genai import types
 
+logger = logging.getLogger(__name__)
 
 _APP_NAME = "outlaww"
 
@@ -165,13 +168,31 @@ class WorkflowRunner:
         if state_delta:
             delta.update(state_delta)
 
-        async for event in runner.run_async(
-            user_id=self._user_id,
-            session_id=self._session_id,
-            new_message=content,
-            state_delta=delta,
-        ):
-            yield event
+        workflow_type = "action" if state_delta and state_delta.get("action_name") else "text"
+        logger.info(f"[workflow] starting {workflow_type} pipeline: {message[:200]}")
+
+        start = time.perf_counter()
+        event_count = 0
+
+        try:
+            async for event in runner.run_async(
+                user_id=self._user_id,
+                session_id=self._session_id,
+                new_message=content,
+                state_delta=delta,
+            ):
+                event_count += 1
+                author = getattr(event, "author", "unknown")
+                logger.debug(f"[workflow] event #{event_count}: author={author}")
+                yield event
+
+            elapsed = (time.perf_counter() - start) * 1000
+            logger.info(f"[workflow] completed in {elapsed:.0f}ms ({event_count} events)")
+
+        except Exception as exc:
+            elapsed = (time.perf_counter() - start) * 1000
+            logger.error(f"[workflow] failed after {elapsed:.0f}ms: {exc}", exc_info=True)
+            raise
 
     async def get_session(self) -> Session | None:
         return await self._session_service.get_session(

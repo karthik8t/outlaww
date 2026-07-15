@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from typing import Any, AsyncGenerator
 from uuid import uuid4
 
@@ -19,6 +21,7 @@ from app.api.dependencies import (
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -122,8 +125,10 @@ async def chat(req: ChatRequest) -> ChatResponse:
     Session is created automatically if session_id is new.
     """
     session_id = req.session_id
-    runner = get_workflow_runner(session_id=session_id, action=req.action)
+    pipeline = "action" if req.action else "text"
+    logger.info(f"[chat] {pipeline} request session={session_id[:12]} action={req.action or 'none'}")
 
+    runner = get_workflow_runner(session_id=session_id, action=req.action)
     message = req.text or ""
 
     # For actions, inject action_name into state so dispatch_node picks it up
@@ -135,17 +140,27 @@ async def chat(req: ChatRequest) -> ChatResponse:
     routed_to = ""
     action_name = req.action or ""
 
-    async for event in runner.run(message, state_delta=state_delta):
-        out = _event_to_dict(event)
-        events_out.append(out)
-        if out["text"]:
-            final_text = out["text"]
-        if out["output"] is not None:
-            structured_output = out["output"]
-        # Detect which agent handled it
-        author = event.author or ""
-        if author and author not in ("router", "user", "reflection"):
-            routed_to = author
+    start = time.perf_counter()
+
+    try:
+        async for event in runner.run(message, state_delta=state_delta):
+            out = _event_to_dict(event)
+            events_out.append(out)
+            if out["text"]:
+                final_text = out["text"]
+            if out["output"] is not None:
+                structured_output = out["output"]
+            # Detect which agent handled it
+            author = event.author or ""
+            if author and author not in ("router", "user", "reflection"):
+                routed_to = author
+    except Exception as exc:
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.error(f"[chat] {pipeline} failed after {elapsed:.0f}ms: {exc}")
+        raise
+
+    elapsed = (time.perf_counter() - start) * 1000
+    logger.info(f"[chat] {pipeline} done in {elapsed:.0f}ms → agent={routed_to or 'generic'} events={len(events_out)}")
 
     reflection = await runner.get_reflection()
     diagrams = await runner.get_diagrams()
@@ -258,6 +273,9 @@ async def _stream_gen(
     action: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """Yield SSE chunks from the routed workflow pipeline."""
+    pipeline = "action" if action else "text"
+    logger.info(f"[stream] {pipeline} request session={session_id[:12]}")
+
     runner = get_workflow_runner(session_id=session_id, action=action)
     state_delta = {"action_name": action} if action else None
 
@@ -292,7 +310,10 @@ async def _stream_gen(
             "active_ids": active,
         })
 
+        logger.info(f"[stream] {pipeline} done")
+
     except Exception as exc:
+        logger.error(f"[stream] {pipeline} failed: {exc}")
         yield _sse("error", {"detail": str(exc)})
 
 

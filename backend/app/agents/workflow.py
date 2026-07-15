@@ -99,8 +99,34 @@ async def safe_run_node(ctx: Context, agent: Any, node_input: Any) -> Any:
     parse it. This is a safety net — the prompts should prevent this, but
     LLMs don't always follow instructions.
     """
-    result = await ctx.run_node(agent, node_input)
-    return _coerce_to_dict(result)
+    agent_name = getattr(agent, "name", "unknown")
+    logger.info(f"[{agent_name}] running with input length={len(str(node_input))}")
+
+    try:
+        result = await ctx.run_node(agent, node_input)
+    except Exception as exc:
+        logger.error(f"[{agent_name}] LLM call failed: {exc}", exc_info=True)
+        raise
+
+    # Log raw result before coercion
+    if isinstance(result, str):
+        logger.info(f"[{agent_name}] raw output (str, len={len(result)}): {result[:300]}")
+    elif isinstance(result, dict):
+        logger.info(f"[{agent_name}] raw output (dict, keys={list(result.keys())})")
+    elif isinstance(result, list):
+        logger.info(f"[{agent_name}] raw output (list, len={len(result)})")
+    else:
+        logger.info(f"[{agent_name}] raw output (type={type(result).__name__})")
+
+    coerced = _coerce_to_dict(result)
+
+    # Log after coercion
+    if isinstance(coerced, dict):
+        logger.info(f"[{agent_name}] coerced output keys={list(coerced.keys())}")
+    elif isinstance(coerced, list):
+        logger.info(f"[{agent_name}] coerced output list len={len(coerced)}")
+
+    return coerced
 
 
 # ---------------------------------------------------------------------------
@@ -424,6 +450,8 @@ def _apply_updates(ref: Reflections, updates: list[Any]) -> None:
 @node(name="router", rerun_on_resume=True)
 async def router_node(ctx: Context, node_input: str) -> None:
     """Classify user intent → store routing in ctx.state."""
+    logger.info(f"[router] classifying: {node_input[:200]}")
+
     registry = get_agent_registry()
     router_agent = registry.get("router")
 
@@ -434,13 +462,23 @@ async def router_node(ctx: Context, node_input: str) -> None:
 
     result = await safe_run_node(ctx, router_agent, node_input)
 
+    # Try to parse as RouterOutput
     if isinstance(result, RouterOutput):
         routing = result.model_dump()
+        logger.info(f"[router] classified as RouterOutput: target={routing.get('target')}, action={routing.get('action_name', '')}")
     elif isinstance(result, dict):
         routing = result
+        # Validate target is a known RouteTarget
+        target = routing.get("target", "generic")
+        if target not in [e.value for e in RouteTarget]:
+            logger.warning(f"[router] unknown target '{target}', falling back to generic")
+            routing["target"] = "generic"
+        logger.info(f"[router] classified as dict: target={routing.get('target')}, action={routing.get('action_name', '')}")
     else:
+        logger.warning(f"[router] unexpected result type {type(result).__name__}, falling back to generic")
         routing = {"target": "generic", "reasoning": "Could not classify"}
 
+    logger.info(f"[router] final routing: {routing}")
     ctx.state["routing"] = routing
     ctx.state["routing_target"] = routing.get("target", "generic")
 
@@ -465,8 +503,10 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
     action_name = ctx.state.get("action_name", "")
 
     if action_name:
+        logger.info(f"[dispatch] predefined action: {action_name}")
         action = _action_registry.get(action_name)
         if action is None:
+            logger.warning(f"[dispatch] unknown action '{action_name}'")
             ctx.state["dispatch_result"] = {
                 "agent_name": "none",
                 "output": f"Unknown action: {action_name}",
@@ -479,8 +519,10 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
         # --- Path 2: Free-form text (router classified it) ---
         routing = ctx.state.get("routing", {})
         target = routing.get("target", "generic")
+        logger.info(f"[dispatch] router target: {target}")
 
         if target == RouteTarget.GENERIC.value or target == "generic":
+            logger.info("[dispatch] generic response — no agent needed")
             ctx.state["dispatch_result"] = {
                 "agent_name": "generic",
                 "output": (
@@ -499,8 +541,10 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
         if target == RouteTarget.ACTION.value or target == "action":
             # Router decided it's an action — look up action_name from routing
             action_name = routing.get("action_name", "")
+            logger.info(f"[dispatch] router selected action: {action_name}")
             action = _action_registry.get(action_name)
             if action is None:
+                logger.warning(f"[dispatch] unknown action '{action_name}' from router")
                 ctx.state["dispatch_result"] = {
                     "agent_name": "none",
                     "output": f"Unknown action: {action_name}",
@@ -512,9 +556,11 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
             agent_name = target
 
     # --- Run the agent ---
+    logger.info(f"[dispatch] running agent: {agent_name}")
     try:
         agent = registry.get(agent_name)
     except KeyError:
+        logger.error(f"[dispatch] agent '{agent_name}' not found in registry")
         ctx.state["dispatch_result"] = {
             "agent_name": "error",
             "output": f"Agent '{agent_name}' not available.",
@@ -552,6 +598,7 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
         "output": structured_output or result,
         "text": text,
     }
+    logger.info(f"[dispatch] result from {agent_name}: text_len={len(text)}")
 
     # ----- Persist artifacts to state via StateDelta -------------------------
     # Diagram agents
@@ -581,6 +628,8 @@ async def reflection_node(ctx: Context, node_input: Any) -> None:
     agent_name = dispatch_result.get("agent_name", "")
     agent_output = dispatch_result.get("output", "")
 
+    logger.info(f"[reflection] updating memory after agent={agent_name}")
+
     # Build artifact context for the reflection agent
     diagrams = _load_diagrams(ctx.state)
     docs = _load_markdown_docs(ctx.state)
@@ -609,9 +658,16 @@ async def reflection_node(ctx: Context, node_input: Any) -> None:
 
     if isinstance(result, ReflectionOutput):
         ro = result
+        logger.info("[reflection] parsed ReflectionOutput directly")
     elif isinstance(result, dict):
-        ro = ReflectionOutput.model_validate(result)
+        try:
+            ro = ReflectionOutput.model_validate(result)
+            logger.info("[reflection] parsed ReflectionOutput from dict")
+        except Exception as exc:
+            logger.warning(f"[reflection] failed to validate dict as ReflectionOutput: {exc}")
+            ro = ReflectionOutput()
     else:
+        logger.warning(f"[reflection] unexpected result type {type(result).__name__}")
         ro = ReflectionOutput()
 
     _apply_updates(ref, ro.updates)
@@ -641,6 +697,7 @@ async def reflection_node(ctx: Context, node_input: Any) -> None:
     ref.total_interactions += 1
 
     _save_reflection(ctx.state, ref)
+    logger.info(f"[reflection] memory updated: interactions={ref.total_interactions}")
 
 
 # ===========================================================================
