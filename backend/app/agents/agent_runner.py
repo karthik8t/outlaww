@@ -137,12 +137,21 @@ class WorkflowRunner:
             )
         return self._runner
 
-    async def run(self, message: str) -> AsyncGenerator[Event, None]:
-        """Send a user message through the full workflow pipeline.
+    async def run(
+        self,
+        message: str,
+        *,
+        state_delta: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[Event, None]:
+        """Send a user message through the workflow pipeline.
 
-        Yields events from every node: router, dispatch, reflection.
+        Yields events from every node that runs.
         The user message is injected into state via state_delta so it
         is properly persisted through ADK's append_event flow.
+
+        Args:
+            message: The user message text.
+            state_delta: Additional state to inject (e.g. {"action_name": "new_diagram"}).
         """
         await self._ensure_session()
         runner = self._get_runner()
@@ -152,11 +161,15 @@ class WorkflowRunner:
             parts=[types.Part.from_text(text=message)],
         )
 
+        delta = {"user_message": message}
+        if state_delta:
+            delta.update(state_delta)
+
         async for event in runner.run_async(
             user_id=self._user_id,
             session_id=self._session_id,
             new_message=content,
-            state_delta={"user_message": message},
+            state_delta=delta,
         ):
             yield event
 

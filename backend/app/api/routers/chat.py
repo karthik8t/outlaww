@@ -114,20 +114,20 @@ def _event_to_dict(event: Any) -> dict[str, Any]:
 
 @router.post("", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
-    """Send a message or predefined action through the full workflow pipeline.
+    """Send a message or predefined action through the workflow pipeline.
 
-    The workflow handles: router -> agent dispatch -> reflection.
+    Free-form text:  START → router → dispatch → reflection
+    Predefined action: START → dispatch → reflection (router skipped)
+
     Session is created automatically if session_id is new.
     """
     session_id = req.session_id
-    runner = get_workflow_runner(session_id=session_id)
+    runner = get_workflow_runner(session_id=session_id, action=req.action)
 
-    # If user provided an action name, prepend it so the router can see it
-    # or fall through to the action's default agent.
-    if req.action:
-        message = f"[action:{req.action}] {req.text or ''}".strip()
-    else:
-        message = req.text  # type: ignore[assignment]
+    message = req.text or ""
+
+    # For actions, inject action_name into state so dispatch_node picks it up
+    state_delta = {"action_name": req.action} if req.action else None
 
     events_out: list[dict[str, Any]] = []
     final_text = ""
@@ -135,7 +135,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
     routed_to = ""
     action_name = req.action or ""
 
-    async for event in runner.run(message):
+    async for event in runner.run(message, state_delta=state_delta):
         out = _event_to_dict(event)
         events_out.append(out)
         if out["text"]:
@@ -251,12 +251,18 @@ def _sse(event_type: str, data: dict) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
 
-async def _stream_gen(session_id: str, message: str) -> AsyncGenerator[str, None]:
+async def _stream_gen(
+    session_id: str,
+    message: str,
+    *,
+    action: str | None = None,
+) -> AsyncGenerator[str, None]:
     """Yield SSE chunks from the routed workflow pipeline."""
-    runner = get_workflow_runner(session_id=session_id)
+    runner = get_workflow_runner(session_id=session_id, action=action)
+    state_delta = {"action_name": action} if action else None
 
     try:
-        async for event in runner.run(message):
+        async for event in runner.run(message, state_delta=state_delta):
             parts = []
             if hasattr(event, "content") and event.content is not None:
                 for p in getattr(event.content, "parts", []) or []:
@@ -293,6 +299,6 @@ async def _stream_gen(session_id: str, message: str) -> AsyncGenerator[str, None
 @router.post("/stream")
 async def chat_stream(req: ChatRequest) -> StreamingResponse:
     """Stream the workflow pipeline as Server-Sent Events."""
-    message = req.text or f"[action:{req.action}]"
-    gen = _stream_gen(req.session_id, message)
+    message = req.text or ""
+    gen = _stream_gen(req.session_id, message, action=req.action)
     return StreamingResponse(gen, media_type="text/event-stream")

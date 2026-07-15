@@ -9,7 +9,9 @@ from state and writes its output back to state for the next node.
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from typing import Any
 
 from google.adk import Context
@@ -47,6 +49,58 @@ def get_agent_registry() -> AgentRegistry:
     if _agent_registry is None:
         _agent_registry = AgentRegistry()
     return _agent_registry
+
+
+# ---------------------------------------------------------------------------
+#  Defensive JSON parsing
+# ---------------------------------------------------------------------------
+
+_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
+
+
+def _strip_json_fences(text: str) -> str:
+    """Strip markdown code fences from LLM output that should be raw JSON.
+
+    LLMs sometimes wrap JSON in ```json blocks despite instructions not to.
+    This function strips those fences so the output can be parsed.
+    """
+    if not text:
+        return text
+    stripped = text.strip()
+    # If the whole text is a fenced code block, extract the content
+    match = _JSON_FENCE_RE.fullmatch(stripped)
+    if match:
+        return match.group(1).strip()
+    return stripped
+
+
+def _coerce_to_dict(result: Any) -> dict[str, Any] | list | Any:
+    """Best-effort coercion of an agent result to a usable Python object.
+
+    If the result is a string (agent had no output_schema or schema validation
+    was bypassed), try to strip markdown fences and parse as JSON.
+    """
+    if isinstance(result, dict) or isinstance(result, list):
+        return result
+    if isinstance(result, str):
+        cleaned = _strip_json_fences(result)
+        try:
+            parsed = json.loads(cleaned)
+            return parsed
+        except (json.JSONDecodeError, ValueError):
+            return result
+    return result
+
+
+async def safe_run_node(ctx: Context, agent: Any, node_input: Any) -> Any:
+    """Run an agent node with defensive JSON fence stripping.
+
+    If the agent returns a string that looks like fenced JSON, attempt to
+    parse it. This is a safety net — the prompts should prevent this, but
+    LLMs don't always follow instructions.
+    """
+    result = await ctx.run_node(agent, node_input)
+    return _coerce_to_dict(result)
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +432,7 @@ async def router_node(ctx: Context, node_input: str) -> None:
     if context_block and context_block != "No context yet.":
         ctx.state["router_context"] = context_block
 
-    result = await ctx.run_node(router_agent, node_input)
+    result = await safe_run_node(ctx, router_agent, node_input)
 
     if isinstance(result, RouterOutput):
         routing = result.model_dump()
@@ -397,25 +451,20 @@ async def router_node(ctx: Context, node_input: str) -> None:
 
 @node(name="dispatch", rerun_on_resume=True)
 async def dispatch_node(ctx: Context, node_input: Any) -> None:
-    """Run the appropriate agent → store result + artifacts in ctx.state."""
-    routing = ctx.state.get("routing", {})
-    target = routing.get("target", "generic")
-    action_name = routing.get("action_name", "")
+    """Run the appropriate agent → store result + artifacts in ctx.state.
 
+    Handles two entry paths:
+      1. Predefined action: action_name is set in state (router skipped)
+      2. Free-form text: routing_target is set by the router node
+    """
     registry = get_agent_registry()
     user_message = ctx.state.get("user_message", "")
     ref = _load_reflection(ctx.state)
 
-    # Resolve which agent to run
-    if target == RouteTarget.GENERIC.value or target == "generic":
-        ctx.state["dispatch_result"] = {
-            "agent_name": "generic",
-            "output": routing.get("user_message", ""),
-            "text": routing.get("user_message", ""),
-        }
-        return
+    # --- Path 1: Predefined action (router was skipped) ---
+    action_name = ctx.state.get("action_name", "")
 
-    if target == RouteTarget.ACTION.value or target == "action":
+    if action_name:
         action = _action_registry.get(action_name)
         if action is None:
             ctx.state["dispatch_result"] = {
@@ -425,10 +474,44 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
             }
             return
         agent_name = action.default_agent
+        ctx.state["routing_target"] = RouteTarget.ACTION.value
     else:
-        agent_name = target
+        # --- Path 2: Free-form text (router classified it) ---
+        routing = ctx.state.get("routing", {})
+        target = routing.get("target", "generic")
 
-    # Run the target agent
+        if target == RouteTarget.GENERIC.value or target == "generic":
+            ctx.state["dispatch_result"] = {
+                "agent_name": "generic",
+                "output": (
+                    "I can help you create diagrams, write documentation, "
+                    "explain concepts, review project gaps, or research topics. "
+                    "Try something like 'create a flowchart' or 'write a README'."
+                ),
+                "text": (
+                    "I can help you create diagrams, write documentation, "
+                    "explain concepts, review project gaps, or research topics. "
+                    "Try something like 'create a flowchart' or 'write a README'."
+                ),
+            }
+            return
+
+        if target == RouteTarget.ACTION.value or target == "action":
+            # Router decided it's an action — look up action_name from routing
+            action_name = routing.get("action_name", "")
+            action = _action_registry.get(action_name)
+            if action is None:
+                ctx.state["dispatch_result"] = {
+                    "agent_name": "none",
+                    "output": f"Unknown action: {action_name}",
+                    "text": f"I don't recognize the action '{action_name}'.",
+                }
+                return
+            agent_name = action.default_agent
+        else:
+            agent_name = target
+
+    # --- Run the agent ---
     try:
         agent = registry.get(agent_name)
     except KeyError:
@@ -447,7 +530,7 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
         else user_message
     )
 
-    result = await ctx.run_node(agent, augmented)
+    result = await safe_run_node(ctx, agent, augmented)
 
     # Extract text and output
     text = ""
@@ -522,7 +605,7 @@ async def reflection_node(ctx: Context, node_input: Any) -> None:
     )
 
     reflection_agent = registry.get("reflection")
-    result = await ctx.run_node(reflection_agent, reflection_context)
+    result = await safe_run_node(ctx, reflection_agent, reflection_context)
 
     if isinstance(result, ReflectionOutput):
         ro = result
@@ -564,10 +647,13 @@ async def reflection_node(ctx: Context, node_input: Any) -> None:
 #  Main Workflow
 # ===========================================================================
 
-def build_workflow() -> Workflow:
-    """Pipeline: START → router → dispatch → reflection"""
+def build_text_workflow() -> Workflow:
+    """Full pipeline: START → router → dispatch → reflection
+
+    Used for free-form text messages where intent classification is needed.
+    """
     return Workflow(
-        name="outlaww_workflow",
+        name="outlaww_text_workflow",
         state_schema=StateSchema,
         edges=[
             ("START", router_node),
@@ -575,3 +661,24 @@ def build_workflow() -> Workflow:
             (dispatch_node, reflection_node),
         ],
     )
+
+
+def build_action_workflow() -> Workflow:
+    """Action pipeline: START → dispatch → reflection
+
+    Used for predefined actions (UI action buttons).
+    Skips the router — the action name is already known.
+    """
+    return Workflow(
+        name="outlaww_action_workflow",
+        state_schema=StateSchema,
+        edges=[
+            ("START", dispatch_node),
+            (dispatch_node, reflection_node),
+        ],
+    )
+
+
+def build_workflow() -> Workflow:
+    """Backward-compat alias → build_text_workflow()."""
+    return build_text_workflow()

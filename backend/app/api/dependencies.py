@@ -60,15 +60,25 @@ def get_agent_runner(
     )
 
 
-def get_workflow_runner(session_id: str) -> WorkflowRunner:
-    """Build a per-request WorkflowRunner for the full pipeline.
+def get_workflow_runner(
+    session_id: str,
+    *,
+    action: str | None = None,
+) -> WorkflowRunner:
+    """Build a per-request WorkflowRunner.
 
-    The workflow handles routing -> agent dispatch -> reflection automatically.
-    user_id is derived internally from session_id.
+    Args:
+        session_id: The project/session ID.
+        action: If set, uses the action workflow (skips router).
+                If None, uses the full text workflow (router → dispatch → reflection).
     """
-    from app.agents.workflow import build_workflow
+    from app.agents.workflow import build_action_workflow, build_text_workflow
 
-    workflow = build_workflow()
+    if action:
+        workflow = build_action_workflow()
+    else:
+        workflow = build_text_workflow()
+
     session_service = _get_session_service()
     return WorkflowRunner(
         session_service=session_service,
