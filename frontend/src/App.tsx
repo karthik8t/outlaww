@@ -1,18 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { Tldraw, useEditor } from "tldraw"
+import { useCallback, useMemo, useState } from "react"
+import { Tldraw } from "tldraw"
 import "tldraw/tldraw.css"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
-import type { TLStore, TLShape, TLAsset } from "@/lib/api"
+import type { TLStore, TLShape } from "@/lib/api"
 import {
   GitBranch,
-  Network,
-  Workflow,
-  Table2,
-  Database,
   Plus,
   Settings,
   Terminal,
@@ -24,23 +19,25 @@ import {
   Download,
   FileText,
   Zap,
-  HelpCircle,
-  Search,
   Loader2,
+  MessageCircle,
 } from "lucide-react"
 
 // ---------------------------------------------------------------------------
-//  Sidebar icons config
+//  Sidebar view type — now includes "chat"
 // ---------------------------------------------------------------------------
 
-interface SidebarItem {
+type SidebarView = "chat" | "diagrams" | "docs" | "actions" | "agents"
+
+interface SidebarItemDef {
   id: string
   label: string
   icon: React.ComponentType<{ className?: string }>
-  view: "diagrams" | "docs" | "actions" | "agents"
+  view: SidebarView
 }
 
-const SIDEBAR_ITEMS: SidebarItem[] = [
+const SIDEBAR_ITEMS: SidebarItemDef[] = [
+  { id: "chat", label: "Chat", icon: MessageCircle, view: "chat" },
   { id: "diagrams", label: "Diagrams", icon: GitBranch, view: "diagrams" },
   { id: "docs", label: "Documents", icon: FileText, view: "docs" },
   { id: "actions", label: "Actions", icon: Zap, view: "actions" },
@@ -48,7 +45,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
 ]
 
 // ---------------------------------------------------------------------------
-//  Left Sidebar (Icon Rail)
+//  Icon Rail
 // ---------------------------------------------------------------------------
 
 function IconRail({
@@ -57,19 +54,17 @@ function IconRail({
   diagramCount,
   docCount,
 }: {
-  activeView: string
-  onViewChange: (view: "diagrams" | "docs" | "actions" | "agents") => void
+  activeView: SidebarView
+  onViewChange: (v: SidebarView) => void
   diagramCount: number
   docCount: number
 }) {
   return (
     <aside className="hidden md:flex w-16 flex-col bg-background border-r border-border z-40 h-full shrink-0">
-      {/* Logo */}
       <div className="p-4 border-b border-border flex items-center justify-center h-16">
         <span className="font-bold text-xl text-foreground">O</span>
       </div>
 
-      {/* Nav items */}
       <div className="py-6 flex-1 flex flex-col items-center gap-3 overflow-y-auto no-scrollbar">
         {SIDEBAR_ITEMS.map((item) => {
           const Icon = item.icon
@@ -108,7 +103,6 @@ function IconRail({
         </button>
       </div>
 
-      {/* Settings */}
       <div className="p-4 border-t border-border flex justify-center">
         <button
           title="Settings"
@@ -158,7 +152,6 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
     )
   }
 
-  // agent
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -191,8 +184,10 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
 }
 
 // ---------------------------------------------------------------------------
-//  Chat Pane
+//  Chat Pane — fixed scroll, same width used by detail panels
 // ---------------------------------------------------------------------------
+
+const PANEL_WIDTH = "w-[380px] min-w-[340px] max-w-[480px]"
 
 function ChatPane({
   messages,
@@ -216,7 +211,9 @@ function ChatPane({
   }, [input, sending, onSend])
 
   return (
-    <section className="hidden md:flex w-[380px] min-w-[340px] max-w-[480px] flex-col bg-background border-r border-border z-40 h-full shrink-0">
+    <section
+      className={`flex flex-col bg-background border-r border-border z-40 h-full shrink-0 overflow-hidden ${PANEL_WIDTH}`}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 h-16 border-b border-border shrink-0">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">
@@ -232,8 +229,8 @@ function ChatPane({
         </div>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1">
+      {/* Messages — scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="p-6 space-y-6">
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground text-sm py-12">
@@ -250,7 +247,7 @@ function ChatPane({
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       <div className="p-4 border-t border-border shrink-0">
@@ -284,7 +281,6 @@ function ChatPane({
             </Button>
           </div>
         </div>
-        {/* Quick actions from backend */}
         {actions.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3 justify-center">
             {actions.slice(0, 5).map((a) => (
@@ -309,7 +305,7 @@ function ChatPane({
 }
 
 // ---------------------------------------------------------------------------
-//  Sidebar Detail Panel — shows list of diagrams / docs / actions / agents
+//  Sidebar Detail Panel — same width as ChatPane
 // ---------------------------------------------------------------------------
 
 function SidebarDetailPanel({
@@ -323,7 +319,7 @@ function SidebarDetailPanel({
   selectedDocId,
   onSelectDoc,
 }: {
-  view: "diagrams" | "docs" | "actions" | "agents"
+  view: SidebarView
   diagrams: { id: string; name: string; description?: string }[]
   docs: { id: string; name: string; content?: string }[]
   actions: { name: string; description: string; default_agent: string }[]
@@ -334,15 +330,21 @@ function SidebarDetailPanel({
   onSelectDoc: (id: string) => void
 }) {
   return (
-    <div className="w-56 border-r border-border bg-background h-full overflow-y-auto shrink-0 hidden lg:block">
-      <div className="p-3">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
+    <div
+      className={`flex flex-col bg-background border-r border-border z-40 h-full shrink-0 overflow-hidden ${PANEL_WIDTH}`}
+    >
+      {/* Header */}
+      <div className="flex items-center px-4 h-16 border-b border-border shrink-0">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">
           {view === "diagrams" && "Diagrams"}
           {view === "docs" && "Documents"}
           {view === "actions" && "Actions"}
           {view === "agents" && "Agents"}
-        </h4>
+        </h3>
+      </div>
 
+      {/* Content — scrollable */}
+      <div className="flex-1 overflow-y-auto min-h-0 p-4">
         {view === "diagrams" && (
           <div className="space-y-1">
             {diagrams.length === 0 && (
@@ -422,7 +424,11 @@ function SidebarDetailPanel({
 //  Markdown Viewer
 // ---------------------------------------------------------------------------
 
-function MarkdownViewer({ doc }: { doc: { name: string; content: string; frontmatter?: Record<string, unknown> } }) {
+function MarkdownViewer({
+  doc,
+}: {
+  doc: { name: string; content: string; frontmatter?: Record<string, unknown> }
+}) {
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-background">
       <div className="max-w-3xl mx-auto">
@@ -441,41 +447,25 @@ function MarkdownViewer({ doc }: { doc: { name: string; content: string; frontma
 }
 
 // ---------------------------------------------------------------------------
-//  Tldraw Canvas with store sync
+//  Tldraw Canvas
 // ---------------------------------------------------------------------------
 
-function TldrawCanvas({
-  diagram,
-}: {
-  diagram: { store: TLStore } | null
-}) {
+function TldrawCanvas({ diagram }: { diagram: { store: TLStore } | null }) {
   return (
     <div className="flex-1 relative w-full h-full overflow-hidden">
       <Tldraw
         hideUi={false}
         onMount={(editor) => {
           if (!diagram) return
-          // Load diagram shapes into tldraw store
           const { store } = diagram
           const records: unknown[] = []
 
-          // Add document record
           if (store.document) {
-            records.push({
-              ...store.document,
-              typeName: "document" as const,
-            })
+            records.push({ ...store.document, typeName: "document" as const })
           }
-
-          // Add pages
           for (const page of Object.values(store.page || {})) {
-            records.push({
-              ...page,
-              typeName: "page" as const,
-            })
+            records.push({ ...page, typeName: "page" as const })
           }
-
-          // Add shapes
           for (const shape of Object.values(store.shape || {})) {
             records.push({
               id: shape.id,
@@ -490,22 +480,20 @@ function TldrawCanvas({
               props: shape.props || {},
               meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta || {},
               typeName: "shape" as const,
-              ...(shape as TLShape & { bounds?: unknown }).bounds ? { bounds: (shape as TLShape & { bounds?: unknown }).bounds } : {},
-              ...(shape as TLShape & { connecting?: unknown }).connecting ? { connecting: (shape as TLShape & { connecting?: unknown }).connecting } : {},
+              ...(shape as TLShape & { bounds?: unknown }).bounds
+                ? { bounds: (shape as TLShape & { bounds?: unknown }).bounds }
+                : {},
+              ...(shape as TLShape & { connecting?: unknown }).connecting
+                ? { connecting: (shape as TLShape & { connecting?: unknown }).connecting }
+                : {},
               updatedAt: (shape as TLShape & { updatedAt?: number }).updatedAt || Date.now(),
               createdAt: (shape as TLShape & { createdAt?: number }).createdAt || Date.now(),
             })
           }
-
-          // Add assets
           for (const asset of Object.values(store.asset || {})) {
-            records.push({
-              ...asset,
-              typeName: "asset" as const,
-            })
+            records.push({ ...asset, typeName: "asset" as const })
           }
 
-          // Create store snapshots and apply
           if (records.length > 0) {
             editor.store.put(records as Parameters<typeof editor.store.put>[0])
           }
@@ -554,7 +542,6 @@ function TopBar({ title }: { title: string }) {
 export default function App() {
   const session = useSession()
 
-  // Find selected diagram/doc objects
   const selectedDiagram = useMemo(
     () => session.diagrams.find((d) => d.id === session.selectedDiagramId) || null,
     [session.diagrams, session.selectedDiagramId],
@@ -571,6 +558,9 @@ export default function App() {
     return "Untitled"
   }, [selectedDiagram, selectedDoc])
 
+  const showChat = session.sidebarView === "chat"
+  const showDetail = session.sidebarView !== "chat"
+
   return (
     <div className="h-screen w-full overflow-hidden flex font-sans antialiased bg-background">
       <IconRail
@@ -580,24 +570,29 @@ export default function App() {
         docCount={session.markdownDocs.length}
       />
       <main className="flex-1 flex h-full relative overflow-hidden">
-        <ChatPane
-          messages={session.messages}
-          sending={session.sending}
-          onSend={session.sendMessage}
-          onAction={session.runAction}
-          actions={session.actions}
-        />
-        <SidebarDetailPanel
-          view={session.sidebarView}
-          diagrams={session.diagrams}
-          docs={session.markdownDocs}
-          actions={session.actions}
-          agents={session.agents}
-          selectedDiagramId={session.selectedDiagramId}
-          onSelectDiagram={session.setSelectedDiagramId}
-          selectedDocId={session.selectedDocId}
-          onSelectDoc={session.setSelectedDocId}
-        />
+        {/* Only ONE panel shows — chat OR details, never both */}
+        {showChat && (
+          <ChatPane
+            messages={session.messages}
+            sending={session.sending}
+            onSend={session.sendMessage}
+            onAction={session.runAction}
+            actions={session.actions}
+          />
+        )}
+        {showDetail && (
+          <SidebarDetailPanel
+            view={session.sidebarView}
+            diagrams={session.diagrams}
+            docs={session.markdownDocs}
+            actions={session.actions}
+            agents={session.agents}
+            selectedDiagramId={session.selectedDiagramId}
+            onSelectDiagram={session.setSelectedDiagramId}
+            selectedDocId={session.selectedDocId}
+            onSelectDoc={session.setSelectedDocId}
+          />
+        )}
         <section className="flex-1 flex flex-col h-full relative overflow-hidden">
           <TopBar title={projectName} />
           {selectedDoc ? (
