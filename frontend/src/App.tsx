@@ -454,44 +454,56 @@ function diagramToRecords(diagram: { store: TLStore }) {
   const { store } = diagram
   const records: unknown[] = []
 
-  // Document record — only include fields tldraw v5 accepts
+  // Document — tldraw v5 only accepts: id, typeName, gridSize, name, meta
   if (store.document) {
     records.push({
-      id: store.document.id,
-      name: store.document.name,
-      gridSize: (store.document as { gridSize?: number }).gridSize ?? 10,
+      id: store.document.id || "document:document",
       typeName: "document" as const,
+      gridSize: (store.document as { gridSize?: number }).gridSize ?? 10,
+      name: (store.document as { name?: string }).name ?? "",
+      meta: (store.document as { meta?: Record<string, unknown> }).meta ?? {},
     })
   }
 
-  // Page records
+  // Page — tldraw v5 only accepts: id, typeName, name, index, meta
   for (const page of Object.values(store.page || {})) {
-    records.push({ ...page, typeName: "page" as const })
+    records.push({
+      id: page.id,
+      typeName: "page" as const,
+      name: (page as { name?: string }).name ?? "Page 1",
+      index: (page as { index?: string }).index ?? "a0",
+      meta: (page as { meta?: Record<string, unknown> }).meta ?? {},
+    })
   }
 
-  // Shape records — backend builds proper shape dicts via llm_shapes_to_store()
+  // Shape — tldraw v5 only accepts: id, typeName, type, x, y, rotation,
+  //   isLocked, opacity, meta, props, parentId, index, (plus updatedAt/createdAt)
   for (const shape of Object.values(store.shape || {})) {
     records.push({
       id: shape.id,
-      type: shape.type,
-      x: shape.x,
-      y: shape.y,
-      rotation: (shape as TLShape & { rotation?: number }).rotation || 0,
-      opacity: (shape as TLShape & { opacity?: number }).opacity ?? 1,
-      isLocked: (shape as TLShape & { isLocked?: boolean }).isLocked ?? false,
-      parentId: shape.parentId,
-      index: shape.index,
-      props: shape.props || {},
-      meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta || {},
       typeName: "shape" as const,
-      updatedAt: (shape as TLShape & { updatedAt?: number }).updatedAt || Date.now(),
-      createdAt: (shape as TLShape & { createdAt?: number }).createdAt || Date.now(),
+      type: shape.type,
+      x: shape.x ?? 0,
+      y: shape.y ?? 0,
+      rotation: (shape as TLShape & { rotation?: number }).rotation ?? 0,
+      isLocked: (shape as TLShape & { isLocked?: boolean }).isLocked ?? false,
+      opacity: (shape as TLShape & { opacity?: number }).opacity ?? 1,
+      meta: (shape as TLShape & { meta?: Record<string, unknown> }).meta ?? {},
+      props: shape.props || {},
+      parentId: shape.parentId,
+      index: shape.index ?? "a0",
     })
   }
 
-  // Asset records
+  // Asset — tldraw v5 only accepts: id, typeName, type, props, meta
   for (const asset of Object.values(store.asset || {})) {
-    records.push({ ...asset, typeName: "asset" as const })
+    records.push({
+      id: asset.id,
+      typeName: "asset" as const,
+      type: asset.type,
+      props: asset.props || {},
+      meta: (asset as TLAsset & { meta?: Record<string, unknown> }).meta ?? {},
+    })
   }
 
   return records
