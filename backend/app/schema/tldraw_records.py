@@ -223,7 +223,7 @@ def _node_to_shape(
                 "url": "",
                 "richText": _to_rich_text(node.label),
                 "scale": 1,
-                "textLastEditedBy": None,
+                "textFirstEditedBy": None,
             },
             "parentId": page_id,
             "index": index,
@@ -418,6 +418,7 @@ def graph_to_tldraw_records(graph: DiagramGraph) -> dict[str, Any]:
     records.append({
         "id": f"camera:{page_id}",
         "typeName": "camera",
+        "meta": {},
         "x": 0,
         "y": 0,
         "z": 1,

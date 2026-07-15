@@ -16,7 +16,7 @@ from app.schema.models import (
     RouterOutput,
 )
 
-_DEFAULT_MODEL = "openai/gpt-4o"
+_DEFAULT_MODEL = "openrouter/google/gemma-4-31b-it:free"
 
 # The router agent uses these enum targets — list of agent names it can delegate to.
 _ROUTABLE_AGENTS: list[str] = [
@@ -87,16 +87,18 @@ def _make_agent(
     from google.adk.agents import LlmAgent
     from google.adk.models.lite_llm import LiteLlm
 
-    kwargs: dict[str, Any] = dict(
-        model=LiteLlm(model=model),
+    api_key = None
+
+    agent_kwargs: dict[str, Any] = dict(
+        model=LiteLlm(model=model, api_key=api_key),
         name=name,
         description=description,
         instruction=instruction,
     )
     if output_schema is not None:
-        kwargs["output_schema"] = output_schema
+        agent_kwargs["output_schema"] = output_schema
 
-    return LlmAgent(**kwargs)
+    return LlmAgent(**agent_kwargs)
 
 
 _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
