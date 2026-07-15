@@ -305,17 +305,13 @@ class D2Serializer:
                 sections.extend(self._serialize_class(cls))
             sections.append("")
 
-        # 4. Ensure at least one page exists (required by D2 CLI)
-        # Check if we have any root nodes that would create an implicit page
-        root_nodes = self._tree.get(None, [])
-        
-        # If no root nodes exist, create a minimal page declaration
-        if not root_nodes:
-            sections.append("# Auto-generated page for empty diagram")
-            sections.append("page: page1 {")
-            sections.append("  layout: auto")
-            sections.append("}")
-            sections.append("")
+# 4. Ensure at least one page exists (required by D2 CLI)
+        # D2 requires an explicit page declaration when all objects are nested in containers
+        sections.append("# Page declaration (required by D2)")
+        sections.append("page: page1 {")
+        sections.append("  layout: auto")
+        sections.append("}")
+        sections.append("")
 
         # 4. Root nodes (tree traversal)
         for root_node in self._tree.get(None, []):
