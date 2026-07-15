@@ -5,10 +5,9 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from google.adk.agents import LlmAgent
 
+from app.schema.diagram_graph import DiagramGraph
 from app.schema.models import (
-    CreateDiagramOutput,
     CreateMarkdownOutput,
-    EditDiagramOutput,
     EditMarkdownOutput,
     ExplainerOutput,
     GapSuggestionOutput,
@@ -103,55 +102,62 @@ def _make_agent(
 _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
     "create_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": CreateDiagramOutput,
+        "output_schema": DiagramGraph,
         "instruction": (
-            "You are a diagram creation agent. You generate tldraw-compatible diagrams "
-            "as a list of shapes.\n\n"
-            "# Shape types (use the 'type' field to pick the right props)\n"
-            "- geo: boxes, circles, diamonds, triangles — set 'props.geo' to the shape\n"
-            "- text: standalone text labels\n"
-            "- arrow: connections between shapes (use 'start/end' with boundShapeId)\n"
-            "- frame: grouping containers with a name\n"
-            "- note: sticky notes\n\n"
+            "You are a diagram creation agent. You generate diagrams as a simple graph "
+            "of nodes and edges.\n\n"
+            "# CRITICAL: Do NOT generate coordinates or layout\n"
+            "You ONLY specify WHAT connects to WHAT. The system computes all layout.\n\n"
+            "# Node shapes\n"
+            "- box: rectangles (default, use for most concepts)\n"
+            "- ellipse: circles (use for databases, external systems)\n"
+            "- diamond: decision points, conditions\n"
+            "- note: sticky notes (use for annotations, side notes)\n"
+            "- frame: grouping container (use to group related nodes)\n\n"
+            "# Output format\n"
+            "- name: diagram title\n"
+            "- description: what the diagram shows (1-2 sentences)\n"
+            "- nodes: list of {id, label, shape}\n"
+            "- edges: list of {id, from_node, to_node, label}\n\n"
             "# Rules\n"
-            "1. Each shape needs: id (any unique string), type, x, y, props\n"
-            "2. Place shapes with clear spatial layout — spread them out, don't stack\n"
-            "3. For arrows: set start/end type='binding' with boundShapeId referencing another shape's id\n"
-            "4. Use frames to group related concepts\n"
-            "5. Keep text concise — diagram labels, not paragraphs\n"
-            "6. Use meaningful geo.text for boxes (short labels inside shapes)\n"
-            "7. Start positions from (100, 100) and space shapes ~200-300px apart\n"
-            "8. IDs can be anything unique like 'box1', 'label1', 'arrow1' — prefix is auto-added\n\n"
-            "# Output\n"
-            "Return: name, description, shapes (the list)"
+            "1. Keep node labels SHORT (1-4 words). Diagrams are visual, not prose.\n"
+            "2. Use meaningful IDs like 'client', 'server', 'db' — not random strings.\n"
+            "3. Edge labels describe the relationship (e.g. 'HTTP', 'queries', 'stores').\n"
+            "4. Don't create cycles unless the real-world process has cycles.\n"
+            "5. 3-15 nodes is typical. More than 20 = split into multiple diagrams.\n"
+            "6. Every edge must reference existing node IDs."
         ),
-        "description": "Creates new tldraw diagrams from natural language descriptions.",
+        "description": "Creates new diagrams from natural language descriptions.",
     },
     "edit_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": EditDiagramOutput,
+        "output_schema": DiagramGraph,
         "instruction": (
-            "You are a diagram editing agent. You receive the current diagram state "
-            "and an editing instruction.\n\n"
-            "Return the COMPLETE updated shapes list — include ALL shapes (unchanged + modified + new). "
-            "Shapes you omit will be DELETED from the diagram.\n\n"
-            "Supported changes: move/resize shapes, change colors/text, add new shapes, "
-            "remove shapes, rearrange layout, change arrow connections.\n\n"
+            "You are a diagram editing agent. You receive the current graph "
+            "(nodes + edges) and an editing instruction.\n\n"
+            "Return the COMPLETE updated graph — include ALL nodes and edges "
+            "(unchanged + modified + new). Items you omit will be DELETED.\n\n"
+            "# CRITICAL: Do NOT generate coordinates or layout\n"
+            "The system computes all layout. You only specify topology.\n\n"
+            "Supported changes: add/remove nodes, add/remove/change edges, "
+            "rename labels, change node shapes.\n\n"
             "Be precise — only modify what was asked. Preserve everything else."
         ),
-        "description": "Applies edits to an existing tldraw diagram.",
+        "description": "Applies edits to an existing diagram graph.",
     },
     "patch_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": EditDiagramOutput,
+        "output_schema": DiagramGraph,
         "instruction": (
-            "You are a diagram patch agent. You receive the current diagram state "
-            "and a request for minor adjustments (colors, spacing, text changes, etc.).\n\n"
-            "Return the COMPLETE updated shapes list — include ALL shapes. "
-            "Shapes you omit will be DELETED.\n\n"
+            "You are a diagram patch agent. You receive the current graph "
+            "(nodes + edges) and a request for minor adjustments.\n\n"
+            "Return the COMPLETE updated graph — include ALL nodes and edges. "
+            "Items you omit will be DELETED.\n\n"
+            "# CRITICAL: Do NOT generate coordinates or layout\n"
+            "The system computes all layout. You only specify topology.\n\n"
             "Keep changes minimal and surgical — only touch what was requested."
         ),
-        "description": "Applies minimal patches to diagram styles and properties.",
+        "description": "Applies minimal patches to diagram graphs.",
     },
     "create_markdown": {
         "model": _DEFAULT_MODEL,

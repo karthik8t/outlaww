@@ -341,10 +341,16 @@ class TLStore(BaseModel):
 # ===========================================================================
 
 class Diagram(BaseModel):
-    """A diagram artifact backed by a full tldraw store."""
+    """A diagram artifact backed by a full tldraw store.
+
+    The `graph` field stores the canonical DiagramGraph (nodes + edges).
+    The `store` field is kept for backward compatibility with existing sessions.
+    When `graph` is set, the API generates tldraw records on-the-fly from it.
+    """
     id: str = Field(default_factory=_uuid)
     name: str = ""
     description: str = ""
+    graph: Optional[dict[str, Any]] = Field(default=None, description="Canonical DiagramGraph (nodes + edges). Used for new diagrams.")
     store: TLStore = Field(default_factory=TLStore)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -546,8 +552,11 @@ def llm_shapes_to_store(
         page={page_id: TLPage(id=page_id, name="Page 1")},
     )
 
+    # Generate valid fractional index keys for all shapes
+    indices = get_first_indices(len(shapes))
+
     for i, llm_shape in enumerate(shapes):
-        index = f"a{i}"
+        index = indices[i]
 
         if isinstance(llm_shape, LLMGeoShape):
             # Geo shape: all required tldraw v5 props
@@ -892,6 +901,190 @@ def _is_valid_index_key(key: str) -> bool:
         return False
 
     return True
+
+
+# ---------------------------------------------------------------------------
+#  Fractional index key generation — ported from @tldraw/utils
+#  Source: node_modules/@tldraw/utils/src/lib/fractionalIndexing.ts
+# ---------------------------------------------------------------------------
+
+_INDEX_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+_ZERO = "0"
+_SMALLEST_INTEGER = "A" + _ZERO * 26
+
+
+def _digit_index(char: str) -> int:
+    return _INDEX_DIGITS.index(char)
+
+
+def _get_integer_length(head: str) -> int:
+    if "a" <= head <= "z":
+        return ord(head) - ord("a") + 2
+    elif "A" <= head <= "Z":
+        return ord("Z") - ord(head) + 2
+    raise ValueError(f"invalid order key head: {head}")
+
+
+def _get_integer_part(key: str) -> str:
+    int_len = _get_integer_length(key[0])
+    if int_len > len(key):
+        raise ValueError(f"invalid order key: {key}")
+    return key[:int_len]
+
+
+def _midpoint(a: str, b: str | None) -> str:
+    if b is not None and a >= b:
+        raise ValueError(f"{a} >= {b}")
+    if a.endswith(_ZERO) or (b is not None and b.endswith(_ZERO)):
+        raise ValueError("trailing zero")
+    if b is not None:
+        n = 0
+        while (a[n:n+1] or _ZERO) == b[n:n+1]:
+            n += 1
+        if n > 0:
+            return b[:n] + _midpoint(a[n:], b[n:])
+    digit_a = _digit_index(a[0]) if a else 0
+    digit_b = _digit_index(b[0]) if b is not None else len(_INDEX_DIGITS)
+    if digit_b - digit_a > 1:
+        mid = round(0.5 * (digit_a + digit_b))
+        return _INDEX_DIGITS[mid]
+    if b is not None and len(b) > 1:
+        return b[0]
+    return _INDEX_DIGITS[digit_a] + _midpoint(a[1:], None)
+
+
+def _increment_integer(x: str) -> str | None:
+    head = x[0]
+    digs = list(x[1:])
+    carry = True
+    for i in range(len(digs) - 1, -1, -1):
+        d = _digit_index(digs[i]) + 1
+        if d == len(_INDEX_DIGITS):
+            digs[i] = _ZERO
+        else:
+            digs[i] = _INDEX_DIGITS[d]
+            carry = False
+            break
+    if carry:
+        if head == "Z":
+            return "a" + _ZERO
+        if head == "z":
+            return None
+        h = chr(ord(head) + 1)
+        if h > "a":
+            digs.append(_ZERO)
+        else:
+            digs.pop()
+        return h + "".join(digs)
+    return head + "".join(digs)
+
+
+def _decrement_integer(x: str) -> str | None:
+    head = x[0]
+    digs = list(x[1:])
+    borrow = True
+    for i in range(len(digs) - 1, -1, -1):
+        d = _digit_index(digs[i]) - 1
+        if d == -1:
+            digs[i] = _INDEX_DIGITS[-1]
+        else:
+            digs[i] = _INDEX_DIGITS[d]
+            borrow = False
+            break
+    if borrow:
+        if head == "a":
+            return "Z" + _INDEX_DIGITS[-1]
+        if head == "A":
+            return None
+        h = chr(ord(head) - 1)
+        if h < "Z":
+            digs.append(_INDEX_DIGITS[-1])
+        else:
+            digs.pop()
+        return h + "".join(digs)
+    return head + "".join(digs)
+
+
+def _key_between(a: str | None, b: str | None) -> str:
+    if a is not None and b is not None and a >= b:
+        raise ValueError(f"{a} >= {b}")
+    if a is None:
+        if b is None:
+            return "a0"
+        ib = _get_integer_part(b)
+        fb = b[len(ib):]
+        if ib == _SMALLEST_INTEGER:
+            return ib + _midpoint("", fb)
+        if ib < b:
+            return ib
+        res = _decrement_integer(ib)
+        if res is None:
+            raise ValueError("cannot decrement")
+        return res
+    if b is None:
+        ia = _get_integer_part(a)
+        fa = a[len(ia):]
+        i = _increment_integer(ia)
+        return ia + _midpoint(fa, None) if i is None else i
+    ia = _get_integer_part(a)
+    fa = a[len(ia):]
+    ib = _get_integer_part(b)
+    fb = b[len(ib):]
+    if ia == ib:
+        return ia + _midpoint(fa, fb)
+    i = _increment_integer(ia)
+    if i is None:
+        raise ValueError("cannot increment")
+    if i < b:
+        return i
+    return ia + _midpoint(fa, None)
+
+
+def get_indices_above(below: str | None, n: int) -> list[str]:
+    """Generate n valid IndexKeys strictly above ``below``."""
+    if n <= 0:
+        return []
+    result: list[str] = []
+    c = _key_between(below, None)
+    result.append(c)
+    for _ in range(n - 1):
+        c = _key_between(c, None)
+        result.append(c)
+    return result
+
+
+def get_indices_between(below: str | None, above: str | None, n: int) -> list[str]:
+    """Generate n valid IndexKeys strictly between ``below`` and ``above``."""
+    if n <= 0:
+        return []
+    if below is None and above is None:
+        # Generate n keys starting from a1
+        result = ["a1"]
+        c = "a1"
+        for _ in range(n - 1):
+            c = _key_between(c, None)
+            result.append(c)
+        return result
+    if above is None:
+        return get_indices_above(below, n)
+    if below is None:
+        result: list[str] = []
+        c = _key_between(None, above)
+        result.append(c)
+        for _ in range(n - 1):
+            c = _key_between(None, c)
+            result.append(c)
+        result.reverse()
+        return result
+    # Both bounds
+    mid = n // 2
+    c = _key_between(below, above)
+    return get_indices_between(below, c, mid) + [c] + get_indices_between(c, above, n - mid - 1)
+
+
+def get_first_indices(n: int) -> list[str]:
+    """Generate n valid IndexKeys starting from the beginning."""
+    return get_indices_between(None, None, n)
 
 
 # ===========================================================================

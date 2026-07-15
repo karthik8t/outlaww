@@ -19,10 +19,44 @@ from app.api.dependencies import (
     get_workflow_runner,
     user_id_for,
 )
+from app.schema.diagram_graph import DiagramGraph
 from app.schema.models import Diagram, diagram_to_tldraw_records, validate_tldraw_records
+from app.schema.tldraw_records import graph_to_tldraw_records_flat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+#  Helper: Diagram → tldraw records (new pipeline with graph field)
+# ---------------------------------------------------------------------------
+
+def _diagram_to_records(diagram_data: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """Convert a diagram dict to tldraw records, preferring the new graph pipeline."""
+    # Try the new pipeline first (graph field)
+    graph_data = diagram_data.get("graph")
+    if graph_data:
+        try:
+            graph = DiagramGraph.model_validate(graph_data)
+            records = graph_to_tldraw_records_flat(graph)
+            is_valid, errs = validate_tldraw_records(records)
+            if not is_valid:
+                logger.warning(f"[chat] new pipeline validation errors: {errs}")
+            return records
+        except Exception as exc:
+            logger.error(f"[chat] new pipeline failed: {exc}")
+
+    # Fallback to old pipeline (store field)
+    try:
+        diagram_model = Diagram(**diagram_data)
+        records = diagram_to_tldraw_records(diagram_model)
+        is_valid, errs = validate_tldraw_records(records)
+        if not is_valid:
+            logger.warning(f"[chat] old pipeline validation errors: {errs}")
+        return records
+    except Exception as exc:
+        logger.error(f"[chat] old pipeline failed: {exc}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -201,16 +235,9 @@ async def chat(req: ChatRequest) -> ChatResponse:
     tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            # Convert dict back to Diagram model for record generation
-            try:
-                diagram_model = Diagram(**d)
-                records = diagram_to_tldraw_records(diagram_model)
-                is_valid, errs = validate_tldraw_records(records)
-                if not is_valid:
-                    logger.warning(f"[chat] diagram {d.get('id', '?')} validation errors: {errs}")
+            records = _diagram_to_records(d)
+            if records:
                 tldraw_records_map[d["id"]] = records
-            except Exception as exc:
-                logger.error(f"[chat] failed to build tldraw records for diagram: {exc}")
 
     return ChatResponse(
         session_id=session_id,
@@ -280,15 +307,9 @@ async def get_diagrams(session_id: str) -> DiagramsResponse:
     tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            try:
-                diagram_model = Diagram(**d)
-                records = diagram_to_tldraw_records(diagram_model)
-                is_valid, errs = validate_tldraw_records(records)
-                if not is_valid:
-                    logger.warning(f"[diagrams] diagram {d.get('id', '?')} validation errors: {errs}")
+            records = _diagram_to_records(d)
+            if records:
                 tldraw_records_map[d["id"]] = records
-            except Exception as exc:
-                logger.error(f"[diagrams] failed to build tldraw records for diagram: {exc}")
 
     return DiagramsResponse(
         session_id=session_id,
@@ -387,12 +408,9 @@ async def _stream_gen(
         tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
         for d in diagrams:
             if isinstance(d, dict):
-                try:
-                    diagram_model = Diagram(**d)
-                    records = diagram_to_tldraw_records(diagram_model)
+                records = _diagram_to_records(d)
+                if records:
                     tldraw_records_map[d["id"]] = records
-                except Exception as exc:
-                    logger.error(f"[stream] failed to build tldraw records: {exc}")
 
         yield _sse("workflow_complete", {
             "dispatch_result": dispatch_result,

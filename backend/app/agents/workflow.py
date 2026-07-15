@@ -20,9 +20,10 @@ from google.adk.workflow import node
 
 from app.agents.action_registry import ActionRegistry
 from app.agents.agent_registry import AgentRegistry
+from app.schema.diagram_graph import DiagramGraph
+from app.schema.tldraw_records import graph_to_tldraw_records_flat
 from app.schema.models import (
     Diagram,
-    LLMShape,
     MarkdownArtifact,
     MarkdownEditOperation,
     MarkdownFrontmatter,
@@ -32,8 +33,6 @@ from app.schema.models import (
     RouteTarget,
     RouterOutput,
     StateSchema,
-    build_diagram_from_llm,
-    llm_shapes_to_store,
 )
 
 logger = logging.getLogger(__name__)
@@ -202,41 +201,23 @@ def _apply_markdown_edits(
 def _persist_diagram_output(
     ctx: Context, output: dict[str, Any], user_message: str
 ) -> None:
-    """Create a new Diagram from CreateDiagramOutput and persist to state."""
+    """Create a new Diagram from DiagramGraph and persist to state."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
 
-    # Parse the LLM's shape list
-    shapes_raw = output.get("shapes", [])
-    shapes = []
-    for s in shapes_raw:
-        if isinstance(s, dict):
-            # Determine shape type and parse accordingly
-            shape_type = s.get("type", "geo")
-            try:
-                from app.schema.models import (
-                    LLMGeoShape, LLMTextShape, LLMArrowShape,
-                    LLMFrameShape, LLMNoteShape,
-                )
-                shape_cls = {
-                    "geo": LLMGeoShape,
-                    "text": LLMTextShape,
-                    "arrow": LLMArrowShape,
-                    "frame": LLMFrameShape,
-                    "note": LLMNoteShape,
-                }.get(shape_type, LLMGeoShape)
-                shapes.append(shape_cls.model_validate(s))
-            except Exception:
-                logger.warning(f"[persist] failed to parse shape: {s}")
-                continue
-        elif isinstance(s, LLMShape):
-            shapes.append(s)
+    # Parse the LLM's graph output
+    graph_data = output  # output IS the DiagramGraph dict
+    try:
+        graph = DiagramGraph.model_validate(graph_data)
+    except Exception:
+        logger.warning(f"[persist] failed to parse DiagramGraph: {graph_data}")
+        return
 
-    # Build the Diagram with a proper TLStore via conversion function
-    diagram = build_diagram_from_llm(
-        shapes,
-        name=output.get("name", "") or user_message[:80],
-        description=output.get("description", ""),
+    # Store the graph dict in the Diagram model (for API record generation)
+    diagram = Diagram(
+        name=graph.name or user_message[:80],
+        description=graph.description,
+        graph=graph.model_dump(mode="json"),
     )
 
     diagrams.append(diagram)
@@ -253,7 +234,7 @@ def _persist_diagram_output(
 
 
 def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
-    """Replace the active diagram with the new shape list from edit/patch agents."""
+    """Replace the active diagram with the new graph from edit/patch agents."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
     diagram_id = active.get("active_diagram_id", "")
@@ -272,40 +253,17 @@ def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
     if target is None:
         return
 
-    # Parse the LLM's shape list (complete replacement)
-    shapes_raw = output.get("shapes", [])
-    shapes = []
-    for s in shapes_raw:
-        if isinstance(s, dict):
-            shape_type = s.get("type", "geo")
-            try:
-                from app.schema.models import (
-                    LLMGeoShape, LLMTextShape, LLMArrowShape,
-                    LLMFrameShape, LLMNoteShape,
-                )
-                shape_cls = {
-                    "geo": LLMGeoShape,
-                    "text": LLMTextShape,
-                    "arrow": LLMArrowShape,
-                    "frame": LLMFrameShape,
-                    "note": LLMNoteShape,
-                }.get(shape_type, LLMGeoShape)
-                shapes.append(shape_cls.model_validate(s))
-            except Exception:
-                logger.warning(f"[persist] failed to parse shape for edit: {s}")
-                continue
-        elif isinstance(s, LLMShape):
-            shapes.append(s)
+    # Parse the LLM's graph output (complete replacement)
+    try:
+        graph = DiagramGraph.model_validate(output)
+    except Exception:
+        logger.warning(f"[persist] failed to parse DiagramGraph for edit: {output}")
+        return
 
-    # Rebuild the store with the new shapes (preserving diagram name/id)
-    new_store = llm_shapes_to_store(
-        shapes,
-        name=target.name,
-        description=target.description,
-    )
-
-    # Replace in the list
-    target.store = new_store
+    # Update the diagram with the new graph
+    target.graph = graph.model_dump(mode="json")
+    target.name = graph.name or target.name
+    target.description = graph.description or target.description
     target.updated_at = datetime.utcnow()
     diagrams[target_idx] = target
     _save_diagrams(ctx.state, diagrams)
