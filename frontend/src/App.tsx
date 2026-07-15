@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Tldraw, type Editor } from "tldraw"
-import "tldraw/tldraw.css"
+import { useCallback, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
+import { D2DiagramView } from "@/components/D2DiagramView"
 import {
   GitBranch,
   Plus,
@@ -446,45 +445,6 @@ function MarkdownViewer({
 }
 
 // ---------------------------------------------------------------------------
-//  Tldraw Canvas — uses pre-built records from backend
-// ---------------------------------------------------------------------------
-
-function TldrawCanvas({
-  diagram,
-  records,
-}: {
-  diagram: { store: TLStore } | null
-  records: Record<string, unknown>[] | null
-}) {
-  const editorRef = useRef<Editor | null>(null)
-
-  // Sync diagram into the editor store whenever records change
-  useEffect(() => {
-    const editor = editorRef.current
-    if (!editor) return
-    if (!records || records.length === 0) return
-
-    // Put pre-built records directly — no transformation needed
-    editor.store.put(records as Parameters<typeof editor.store.put>[0])
-  }, [records])
-
-  return (
-    <div className="flex-1 relative w-full h-full overflow-hidden">
-      <Tldraw
-        hideUi={false}
-        onMount={(editor) => {
-          editorRef.current = editor
-          // Load initial diagram if available
-          if (records && records.length > 0) {
-            editor.store.put(records as Parameters<typeof editor.store.put>[0])
-          }
-        }}
-      />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 //  Top Bar
 // ---------------------------------------------------------------------------
 
@@ -533,10 +493,12 @@ export default function App() {
     [session.markdownDocs, session.selectedDocId],
   )
 
-  const selectedDiagramRecords = useMemo(() => {
-    if (!selectedDiagram) return null
-    return session.tldrawRecordsMap[selectedDiagram.id] || null
-  }, [selectedDiagram, session.tldrawRecordsMap])
+  // Get D2 source from the diagram
+  const d2Source = useMemo(() => {
+    if (!selectedDiagram) return ""
+    // The diagram object from backend now has d2_source field
+    return (selectedDiagram as any).d2_source || ""
+  }, [selectedDiagram])
 
   const projectName = useMemo(() => {
     if (selectedDiagram?.name) return selectedDiagram.name
@@ -584,7 +546,17 @@ export default function App() {
           {selectedDoc ? (
             <MarkdownViewer doc={selectedDoc} />
           ) : (
-            <TldrawCanvas diagram={selectedDiagram} records={selectedDiagramRecords} />
+            <D2DiagramView
+              d2Source={d2Source}
+              diagramId={selectedDiagram?.id}
+              onD2SourceChange={(newSource) => {
+                // If user edits D2 source directly, update the diagram
+                if (selectedDiagram) {
+                  // This would need backend API to update
+                  console.log("D2 source changed:", newSource)
+                }
+              }}
+            />
           )}
         </section>
       </main>

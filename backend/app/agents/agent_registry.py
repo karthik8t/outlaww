@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from google.adk.agents import LlmAgent
 
+from app.schema.d2_models import D2Diagram
 from app.schema.diagram_graph import DiagramGraph
 from app.schema.models import (
     CreateMarkdownOutput,
@@ -104,62 +105,81 @@ def _make_agent(
 _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
     "create_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": DiagramGraph,
+        "output_schema": D2Diagram,
         "instruction": (
-            "You are a diagram creation agent. You generate diagrams as a simple graph "
-            "of nodes and edges.\n\n"
+            "You are a diagram creation agent. You generate diagrams using D2 (Declarative Diagramming).\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
-            "You ONLY specify WHAT connects to WHAT. The system computes all layout.\n\n"
-            "# Node shapes\n"
-            "- box: rectangles (default, use for most concepts)\n"
-            "- ellipse: circles (use for databases, external systems)\n"
-            "- diamond: decision points, conditions\n"
-            "- note: sticky notes (use for annotations, side notes)\n"
-            "- frame: grouping container (use to group related nodes)\n\n"
-            "# Output format\n"
+            "You ONLY specify the TOPOLOGY — nodes, edges, containers. D2's layout engines (dagre/ELK/TALA) compute all positioning.\n\n"
+            "# Output: D2Diagram flat-graph model\n"
+            "- architectural_reasoning: REQUIRED. Explain the architecture, component relationships, and design decisions "
+            "BEFORE declaring nodes/edges. This space is NOT constrained by the JSON schema FSM.\n"
             "- name: diagram title\n"
             "- description: what the diagram shows (1-2 sentences)\n"
-            "- nodes: list of {id, label, shape}\n"
-            "- edges: list of {id, from_node, to_node, label}\n\n"
+            "- config: layout_engine (dagre/elk/tala), direction (right/down/left/up), theme_id, pad, sketch\n"
+            "- classes: reusable style definitions (id, label, style)\n"
+            "- nodes: flat array of D2Node objects\n"
+            "- edges: flat array of D2Edge objects\n\n"
+            "# D2Node fields\n"
+            "- id: unique identifier (alphanumeric + underscore/hyphen)\n"
+            "- parent_id: parent container node ID (for nesting). None = root level.\n"
+            "- label: display label. Supports Markdown. Use |md for blocks.\n"
+            "- shape: rectangle|square|page|parallelogram|document|cylinder|queue|package|step|callout|stored_data|person|diamond|oval|circle|hexagon|cloud|sql_table|sequence_diagram|class|text|grid\n"
+            "- style: D2Style (fill, stroke, stroke-width, etc.)\n"
+            "- classes: list of class IDs from diagram.classes\n"
+            "- sql_type / sql_constraint: for SQL table columns (when parent is sql_table)\n"
+            "- is_actor: for sequence diagram actors (when inside sequence_diagram)\n"
+            "- grid_rows / grid_columns: for grid containers\n\n"
+            "# D2Edge fields\n"
+            "- source: source node ID (must exist)\n"
+            "- target: target node ID (must exist)\n"
+            "- direction: '->' | '<-' | '<->' | '--'\n"
+            "- label: edge label (Markdown supported)\n"
+            "- style: D2Style for edge\n"
+            "- span_id: sequence diagram activation span (serialized as source.span_id -> target.span_id)\n"
+            "- note_for: sequence diagram note (serialized as actor: 'note text')\n\n"
             "# Rules\n"
             "1. Keep node labels SHORT (1-4 words). Diagrams are visual, not prose.\n"
             "2. Use meaningful IDs like 'client', 'server', 'db' — not random strings.\n"
             "3. Edge labels describe the relationship (e.g. 'HTTP', 'queries', 'stores').\n"
             "4. Don't create cycles unless the real-world process has cycles.\n"
             "5. 3-15 nodes is typical. More than 20 = split into multiple diagrams.\n"
-            "6. Every edge must reference existing node IDs."
+            "6. Every edge must reference existing node IDs.\n"
+            "7. Every parent_id must reference an existing node.\n"
+            "8. Nodes and edges are FLAT arrays — hierarchy is via parent_id references only."
         ),
-        "description": "Creates new diagrams from natural language descriptions.",
+        "description": "Creates new D2 diagrams from natural language descriptions.",
     },
     "edit_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": DiagramGraph,
+        "output_schema": D2Diagram,
         "instruction": (
-            "You are a diagram editing agent. You receive the current graph "
-            "(nodes + edges) and an editing instruction.\n\n"
-            "Return the COMPLETE updated graph — include ALL nodes and edges "
+            "You are a diagram editing agent. You receive the current D2Diagram "
+            "(nodes + edges + classes + config) and an editing instruction.\n\n"
+            "Return the COMPLETE updated D2Diagram — include ALL nodes, edges, classes, config "
             "(unchanged + modified + new). Items you omit will be DELETED.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
-            "The system computes all layout. You only specify topology.\n\n"
+            "D2's layout engines compute all positioning. You only specify topology.\n\n"
             "Supported changes: add/remove nodes, add/remove/change edges, "
-            "rename labels, change node shapes.\n\n"
-            "Be precise — only modify what was asked. Preserve everything else."
+            "rename labels, change node shapes, modify classes, update config.\n\n"
+            "Be precise — only modify what was asked. Preserve everything else.\n"
+            "All nodes/edges must be in flat arrays with parent_id for hierarchy."
         ),
-        "description": "Applies edits to an existing diagram graph.",
+        "description": "Applies edits to an existing D2 diagram.",
     },
     "patch_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": DiagramGraph,
+        "output_schema": D2Diagram,
         "instruction": (
-            "You are a diagram patch agent. You receive the current graph "
-            "(nodes + edges) and a request for minor adjustments.\n\n"
-            "Return the COMPLETE updated graph — include ALL nodes and edges. "
+            "You are a diagram patch agent. You receive the current D2Diagram "
+            "(nodes + edges + classes + config) and a request for minor adjustments.\n\n"
+            "Return the COMPLETE updated D2Diagram — include ALL nodes, edges, classes, config. "
             "Items you omit will be DELETED.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
-            "The system computes all layout. You only specify topology.\n\n"
-            "Keep changes minimal and surgical — only touch what was requested."
+            "D2's layout engines compute all positioning. You only specify topology.\n\n"
+            "Keep changes minimal and surgical — only touch what was requested.\n"
+            "All nodes/edges must be in flat arrays with parent_id for hierarchy."
         ),
-        "description": "Applies minimal patches to diagram graphs.",
+        "description": "Applies minimal patches to D2 diagrams.",
     },
     "create_markdown": {
         "model": _DEFAULT_MODEL,

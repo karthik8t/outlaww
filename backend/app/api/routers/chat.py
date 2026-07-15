@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
 import logging
 import time
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -19,41 +21,61 @@ from app.api.dependencies import (
     get_workflow_runner,
     user_id_for,
 )
-from app.schema.diagram_graph import DiagramGraph
+from app.schema.d2_models import D2Diagram, RenderOptions
+from app.schema.d2_serializer import serialize_d2
+from app.schema.d2_renderer import render_cli, render_sse_response, RenderOptions as RendererOptions
 from app.schema.models import Diagram, diagram_to_tldraw_records, validate_tldraw_records
-from app.schema.tldraw_records import graph_to_tldraw_records_flat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-#  Helper: Diagram → tldraw records (new pipeline with graph field)
+#  Helper: Diagram → D2 source + rendered SVG (new pipeline with D2)
 # ---------------------------------------------------------------------------
 
-def _diagram_to_records(diagram_data: dict[str, Any]) -> list[dict[str, Any]] | None:
-    """Convert a diagram dict to tldraw records, preferring the new graph pipeline."""
-    # Try the new pipeline first (graph field)
+def _diagram_to_records(diagram_data: dict[str, Any]) -> dict[str, Any] | None:
+    """
+    Convert a diagram dict to D2 source and rendered SVG.
+    
+    Returns dict with:
+    - d2_source: str (the D2 source code)
+    - svg: bytes (rendered SVG)
+    - tldraw_records: empty list (deprecated)
+    """
+    # Try D2 pipeline first (graph field contains D2Diagram)
     graph_data = diagram_data.get("graph")
     if graph_data:
         try:
-            graph = DiagramGraph.model_validate(graph_data)
-            records = graph_to_tldraw_records_flat(graph)
-            is_valid, errs = validate_tldraw_records(records)
-            if not is_valid:
-                logger.warning(f"[chat] new pipeline validation errors: {errs}")
-            return records
+            from app.schema.d2_models import D2Diagram
+            from app.schema.d2_serializer import serialize_d2
+            from app.schema.d2_renderer import render_cli_sync
+            
+            d2_diagram = D2Diagram.model_validate(graph_data)
+            d2_source = serialize_d2(d2_diagram)
+            svg_bytes = render_cli_sync(d2_diagram)
+            
+            return {
+                "d2_source": d2_source,
+                "svg": svg_bytes,
+                "tldraw_records": [],  # deprecated
+            }
         except Exception as exc:
-            logger.error(f"[chat] new pipeline failed: {exc}")
+            logger.error(f"[chat] D2 pipeline failed: {exc}")
 
     # Fallback to old pipeline (store field)
     try:
+        from app.schema.models import Diagram, diagram_to_tldraw_records, validate_tldraw_records
         diagram_model = Diagram(**diagram_data)
         records = diagram_to_tldraw_records(diagram_model)
         is_valid, errs = validate_tldraw_records(records)
         if not is_valid:
             logger.warning(f"[chat] old pipeline validation errors: {errs}")
-        return records
+        return {
+            "d2_source": "",
+            "svg": b"",
+            "tldraw_records": records,
+        }
     except Exception as exc:
         logger.error(f"[chat] old pipeline failed: {exc}")
         return None
@@ -95,7 +117,8 @@ class ChatResponse(BaseModel):
     structured_output: Any = None
     reflection: Any = None
     diagrams: list[Any] = []
-    tldraw_records: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    d2_sources: dict[str, str] = Field(default_factory=dict)  # diagram_id -> D2 source
+    svgs: dict[str, bytes] = Field(default_factory=dict)      # diagram_id -> SVG bytes
     markdown_docs: list[Any] = []
     active_ids: dict[str, str] = {}
 
@@ -120,7 +143,8 @@ class SessionsListResponse(BaseModel):
 class DiagramsResponse(BaseModel):
     session_id: str
     diagrams: list[Any] = []
-    tldraw_records: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    d2_sources: dict[str, str] = Field(default_factory=dict)
+    svgs: dict[str, bytes] = Field(default_factory=dict)
     active_diagram_id: str = ""
 
 
@@ -231,13 +255,16 @@ async def chat(req: ChatRequest) -> ChatResponse:
     docs = await runner.get_markdown_docs()
     active = await runner.get_active_ids()
 
-    # Build pre-built tldraw records for each diagram
-    tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+    # Build D2 sources and SVGs for each diagram
+    d2_sources: dict[str, str] = {}
+    svgs: dict[str, bytes] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            records = _diagram_to_records(d)
-            if records:
-                tldraw_records_map[d["id"]] = records
+            result = _diagram_to_records(d)
+            if result:
+                d2_sources[d["id"]] = result.get("d2_source", "")
+                if result.get("svg"):
+                    svgs[d["id"]] = result["svg"]
 
     return ChatResponse(
         session_id=session_id,
@@ -248,7 +275,8 @@ async def chat(req: ChatRequest) -> ChatResponse:
         structured_output=structured_output,
         reflection=reflection,
         diagrams=diagrams,
-        tldraw_records=tldraw_records_map,
+        d2_sources=d2_sources,
+        svgs=svgs,
         markdown_docs=docs,
         active_ids=active,
     )
@@ -303,18 +331,22 @@ async def get_diagrams(session_id: str) -> DiagramsResponse:
     diagrams = await runner.get_diagrams()
     active = await runner.get_active_ids()
 
-    # Build pre-built tldraw records for each diagram
-    tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+    # Build D2 sources and SVGs for each diagram
+    d2_sources: dict[str, str] = {}
+    svgs: dict[str, bytes] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            records = _diagram_to_records(d)
-            if records:
-                tldraw_records_map[d["id"]] = records
+            result = _diagram_to_records(d)
+            if result:
+                d2_sources[d["id"]] = result.get("d2_source", "")
+                if result.get("svg"):
+                    svgs[d["id"]] = result["svg"]
 
     return DiagramsResponse(
         session_id=session_id,
         diagrams=diagrams,
-        tldraw_records=tldraw_records_map,
+        d2_sources=d2_sources,
+        svgs=svgs,
         active_diagram_id=active.get("active_diagram_id", ""),
     )
 
@@ -355,6 +387,152 @@ async def list_agents() -> AgentsResponse:
     """List all available agent names."""
     registry = get_agent_registry()
     return AgentsResponse(agents=registry.list_agents())
+
+
+# ---------------------------------------------------------------------------
+#  D2 Render Endpoint
+# ---------------------------------------------------------------------------
+
+class RenderRequest(BaseModel):
+    """Request to render a D2 diagram."""
+    d2_source: str = Field(..., description="D2 source code")
+    format: Literal["svg", "png", "pdf", "gif", "pptx"] = "svg"
+    theme_id: Optional[int] = None
+    dark_theme_id: Optional[int] = None
+    layout_engine: Literal["dagre", "elk", "tala"] = "dagre"
+    direction: Literal["right", "down", "left", "up"] = "right"
+    pad: int = 100
+    sketch: bool = False
+    animate_interval: Optional[int] = None
+    scale: float = 1.0
+
+
+class RenderResponse(BaseModel):
+    """Response from render endpoint."""
+    svg: Optional[str] = None  # base64 encoded for SVG
+    png_base64: Optional[str] = None
+    pdf_base64: Optional[str] = None
+    content_type: str = ""
+    size_bytes: int = 0
+
+
+@router.post("/render", response_model=RenderResponse)
+async def render_diagram(req: RenderRequest) -> RenderResponse:
+    """Render D2 source to SVG/PNG/PDF.
+    
+    Used for on-demand rendering of D2 source code.
+    """
+    from app.schema.d2_models import D2Diagram, RenderOptions
+    from app.schema.d2_serializer import serialize_d2
+    from app.schema.d2_renderer import render_cli, D2RenderError
+    
+    try:
+        # Parse and validate D2 source by creating a minimal diagram
+        # In practice, the client sends D2 source directly
+        # We just need to render it
+        from app.schema.d2_renderer import render_cli_sync
+        
+        # For simplicity, we'll use the CLI directly with the provided source
+        # This bypasses the D2Diagram model validation
+        import subprocess
+        
+        args = ["d2"]
+        if req.theme_id is not None:
+            args.extend(["-t", str(req.theme_id)])
+        if req.dark_theme_id is not None:
+            args.extend(["--dark-theme", str(req.dark_theme_id)])
+        if req.layout_engine:
+            args.extend(["--layout", req.layout_engine])
+        args.extend(["-d", req.direction])
+        if req.pad != 100:
+            args.extend(["-p", str(req.pad)])
+        if req.sketch:
+            args.append("--sketch")
+        if req.animate_interval is not None:
+            args.extend(["--animate-interval", str(req.animate_interval)])
+        args.extend(["-f", req.format])
+        if req.scale != 1.0 and req.format in ("png", "jpg", "jpeg"):
+            args.extend(["-s", str(req.scale)])
+        args.extend(["-", "-"])
+        
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate(input=req.d2_source.encode("utf-8"))
+        
+        if proc.returncode != 0:
+            raise HTTPException(status_code=400, detail=f"D2 render failed: {stderr.decode('utf-8', errors='replace')}")
+        
+        if req.format == "svg":
+            return RenderResponse(
+                svg=stdout.decode("utf-8"),
+                content_type="image/svg+xml",
+                size_bytes=len(stdout),
+            )
+        else:
+            import base64
+            b64 = base64.b64encode(stdout).decode("ascii")
+            if req.format == "png":
+                return RenderResponse(png_base64=b64, content_type="image/png", size_bytes=len(stdout))
+            elif req.format == "pdf":
+                return RenderResponse(pdf_base64=b64, content_type="application/pdf", size_bytes=len(stdout))
+            else:
+                return RenderResponse(content_type=f"application/{req.format}", size_bytes=len(stdout))
+                
+    except Exception as e:
+        logger.error(f"[render] failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+#  D2 SSE Stream Endpoint (progressive rendering)
+# ---------------------------------------------------------------------------
+
+@router.post("/render/stream")
+async def render_stream(req: RenderRequest) -> StreamingResponse:
+    """Stream D2 rendering as SSE chunks.
+    
+    Yields progressive SVG output for real-time preview.
+    """
+    from app.schema.d2_renderer import render_sse_response
+    from app.schema.d2_models import D2Diagram, RenderOptions
+    
+    # For streaming, we need a D2Diagram - parse the source as a minimal diagram
+    # In practice, the client would send a diagram ID and we'd fetch from session
+    # For now, create a minimal diagram wrapper
+    try:
+        # We can't easily parse arbitrary D2 source back to D2Diagram
+        # So we'll stream using the CLI directly
+        from app.schema.d2_renderer import stream_svg_chunks
+        
+        # Create a minimal D2Diagram with the source embedded in a text node
+        # This is a workaround - ideally the diagram is already stored as D2Diagram
+        diagram = D2Diagram(
+            architectural_reasoning="Streaming render of provided D2 source.",
+            nodes=[D2Node(id="source", label=req.d2_source, shape="text")],
+            edges=[],
+        )
+        
+        options = RenderOptions(
+            format=req.format,
+            theme_id=req.theme_id,
+            dark_theme_id=req.dark_theme_id,
+            layout_engine=req.layout_engine,
+            direction=req.direction,
+            pad=req.pad,
+            sketch=req.sketch,
+            animate_interval=req.animate_interval,
+            scale=req.scale,
+        )
+        
+        return await render_sse_response(diagram, options)
+        
+    except Exception as e:
+        logger.error(f"[render/stream] failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -404,19 +582,23 @@ async def _stream_gen(
         docs = await runner.get_markdown_docs()
         active = await runner.get_active_ids()
 
-        # Build pre-built tldraw records for each diagram
-        tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+        # Build D2 sources and SVGs for each diagram
+        d2_sources: dict[str, str] = {}
+        svgs: dict[str, bytes] = {}
         for d in diagrams:
             if isinstance(d, dict):
-                records = _diagram_to_records(d)
-                if records:
-                    tldraw_records_map[d["id"]] = records
+                result = _diagram_to_records(d)
+                if result:
+                    d2_sources[d["id"]] = result.get("d2_source", "")
+                    if result.get("svg"):
+                        svgs[d["id"]] = result["svg"]
 
         yield _sse("workflow_complete", {
             "dispatch_result": dispatch_result,
             "reflection": reflection,
             "diagrams": diagrams,
-            "tldraw_records": tldraw_records_map,
+            "d2_sources": d2_sources,
+            "svgs": {k: v.hex() for k, v in svgs.items()},  # hex encode bytes for JSON
             "markdown_docs": docs,
             "active_ids": active,
         })

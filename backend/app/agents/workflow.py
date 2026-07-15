@@ -20,8 +20,8 @@ from google.adk.workflow import node
 
 from app.agents.action_registry import ActionRegistry
 from app.agents.agent_registry import AgentRegistry
-from app.schema.diagram_graph import DiagramGraph
-from app.schema.tldraw_records import graph_to_tldraw_records_flat
+from app.schema.d2_models import D2Diagram
+from app.schema.d2_serializer import serialize_d2
 from app.schema.models import (
     Diagram,
     MarkdownArtifact,
@@ -201,23 +201,27 @@ def _apply_markdown_edits(
 def _persist_diagram_output(
     ctx: Context, output: dict[str, Any], user_message: str
 ) -> None:
-    """Create a new Diagram from DiagramGraph and persist to state."""
+    """Create a new Diagram from D2Diagram and persist to state."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
 
-    # Parse the LLM's graph output
-    graph_data = output  # output IS the DiagramGraph dict
+    # Parse the LLM's graph output as D2Diagram
+    graph_data = output  # output IS the D2Diagram dict
     try:
-        graph = DiagramGraph.model_validate(graph_data)
+        d2_diagram = D2Diagram.model_validate(graph_data)
     except Exception:
-        logger.warning(f"[persist] failed to parse DiagramGraph: {graph_data}")
+        logger.warning(f"[persist] failed to parse D2Diagram: {graph_data}")
         return
 
-    # Store the graph dict in the Diagram model (for API record generation)
+    # Serialize to D2 source for rendering
+    d2_source = serialize_d2(d2_diagram)
+
+    # Store the D2Diagram dict in the Diagram model (for API record generation)
     diagram = Diagram(
-        name=graph.name or user_message[:80],
-        description=graph.description,
-        graph=graph.model_dump(mode="json"),
+        name=d2_diagram.name or user_message[:80],
+        description=d2_diagram.description,
+        graph=d2_diagram.model_dump(mode="json"),
+        d2_source=d2_source,
     )
 
     diagrams.append(diagram)
@@ -234,7 +238,7 @@ def _persist_diagram_output(
 
 
 def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
-    """Replace the active diagram with the new graph from edit/patch agents."""
+    """Replace the active diagram with the new D2Diagram from edit/patch agents."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
     diagram_id = active.get("active_diagram_id", "")
@@ -253,17 +257,21 @@ def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
     if target is None:
         return
 
-    # Parse the LLM's graph output (complete replacement)
+    # Parse the LLM's D2Diagram output (complete replacement)
     try:
-        graph = DiagramGraph.model_validate(output)
+        d2_diagram = D2Diagram.model_validate(output)
     except Exception:
-        logger.warning(f"[persist] failed to parse DiagramGraph for edit: {output}")
+        logger.warning(f"[persist] failed to parse D2Diagram for edit: {output}")
         return
 
-    # Update the diagram with the new graph
-    target.graph = graph.model_dump(mode="json")
-    target.name = graph.name or target.name
-    target.description = graph.description or target.description
+    # Serialize to D2 source
+    d2_source = serialize_d2(d2_diagram)
+
+    # Update the diagram with the new D2Diagram
+    target.graph = d2_diagram.model_dump(mode="json")
+    target.d2_source = d2_source
+    target.name = d2_diagram.name or target.name
+    target.description = d2_diagram.description or target.description
     target.updated_at = datetime.utcnow()
     diagrams[target_idx] = target
     _save_diagrams(ctx.state, diagrams)

@@ -26,7 +26,8 @@ export interface ChatResponse {
   structured_output: unknown
   reflection: unknown
   diagrams: Diagram[]
-  tldraw_records: Record<string, Record<string, unknown>[]>
+  d2_sources: Record<string, string>  // diagram_id -> D2 source code
+  svgs: Record<string, string>        // diagram_id -> SVG base64
   markdown_docs: MarkdownDoc[]
   active_ids: Record<string, string>
 }
@@ -61,7 +62,8 @@ export interface SessionsListResponse {
 export interface DiagramsResponse {
   session_id: string
   diagrams: Diagram[]
-  tldraw_records: Record<string, Record<string, unknown>[]>
+  d2_sources: Record<string, string>
+  svgs: Record<string, string>
   active_diagram_id: string
 }
 
@@ -69,41 +71,10 @@ export interface Diagram {
   id: string
   name: string
   description: string
-  store: TLStore
+  d2_source: string          // D2 source code for rendering
+  graph: Record<string, unknown>  // Full D2Diagram flat-graph JSON
   created_at: string
   updated_at: string
-}
-
-export interface TLStore {
-  document: { id: string; name: string; [k: string]: unknown }
-  page: Record<string, TLPage>
-  shape: Record<string, TLShape>
-  asset: Record<string, TLAsset>
-  [k: string]: unknown
-}
-
-export interface TLPage {
-  id: string
-  name: string
-  [k: string]: unknown
-}
-
-export interface TLShape {
-  id: string
-  type: string
-  x: number
-  y: number
-  parentId: string
-  index: string
-  props: Record<string, unknown>
-  [k: string]: unknown
-}
-
-export interface TLAsset {
-  id: string
-  type: string
-  props: Record<string, unknown>
-  [k: string]: unknown
 }
 
 export interface MarkdownDocsResponse {
