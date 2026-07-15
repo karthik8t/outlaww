@@ -140,6 +140,18 @@ export function useSession() {
     } catch { /* ignore */ }
   }, [])
 
+  // Fetch a specific diagram's D2 source
+  const fetchDiagramSource = useCallback(async (diagramId: string) => {
+    const sid = sessionIdRef.current
+    if (!sid) return
+    try {
+      const res = await api.getDiagrams(sid)
+      if (res.d2_sources?.[diagramId]) {
+        setD2Sources(prev => ({ ...prev, [diagramId]: res.d2_sources[diagramId] }))
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   const refreshDocs = useCallback(async () => {
     const sid = sessionIdRef.current
     if (!sid) return
@@ -265,5 +277,6 @@ export function useSession() {
     refreshSessions,
     refreshDiagrams,
     refreshDocs,
+    fetchDiagramSource,
   }
 }

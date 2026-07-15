@@ -16,6 +16,7 @@ interface D2DiagramViewProps {
   d2Source: string
   diagramId?: string
   onD2SourceChange?: (source: string) => void
+  fetchDiagramSource?: (diagramId: string) => Promise<void>
   className?: string
 }
 
@@ -39,6 +40,28 @@ export function D2DiagramView({
 
   const svgRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Fetch diagram source from backend
+  const fetchDiagramSource = useCallback(async (diagramId: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await fetch(`/api/chat/diagrams/${diagramId}`)
+      if (!res.ok) throw new Error("Failed to fetch diagram")
+      const data = await res.json()
+      // The API returns { diagrams: [...], d2_sources: {...} }
+      const diagram = data.diagrams?.find((d: any) => d.id === diagramId)
+      if (diagram?.d2_source) {
+        onD2SourceChange?.(diagram.d2_source)
+      } else if (data.d2_sources?.[diagramId]) {
+        onD2SourceChange?.(data.d2_sources[diagramId])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch diagram source")
+    } finally {
+      setLoading(false)
+    }
+  }, [onD2SourceChange])
 
   const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.ctrlKey && !e.metaKey) return
@@ -396,8 +419,13 @@ export function D2DiagramView({
           )}
 
           {!svg && !loading && !error && !d2Source && (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-4 p-4">
               <p className="text-center">No diagram source</p>
+              {diagramId && (
+                <Button variant="outline" size="sm" onClick={() => fetchDiagramSource(diagramId)}>
+                  Fetch from server
+                </Button>
+              )}
             </div>
           )}
         </div>

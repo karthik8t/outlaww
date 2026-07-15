@@ -560,6 +560,7 @@ export default function App() {
                   console.log("D2 source changed:", newSource)
                 }
               }}
+              fetchDiagramSource={session.fetchDiagramSource}
             />
           )}
         </section>
