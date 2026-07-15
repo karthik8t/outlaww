@@ -796,7 +796,7 @@ class RouterOutput(BaseModel):
     target: RouteTarget
     action_name: str = ""         # set when target == ACTION
     reasoning: str = ""
-    user_message: str = ""        # friendly message when target == GENERIC
+    unmodified_user_input: str = ""        # friendly message when target == GENERIC
 
 
 # ===========================================================================
