@@ -496,9 +496,13 @@ export default function App() {
   // Get D2 source from the diagram
   const d2Source = useMemo(() => {
     if (!selectedDiagram) return ""
-    // The diagram object from backend now has d2_source field
+    // First try the d2Sources mapping from the session hook
+    if (session.d2Sources && session.d2Sources[selectedDiagram.id]) {
+      return session.d2Sources[selectedDiagram.id]
+    }
+    // Fallback to diagram's own d2_source field
     return (selectedDiagram as any).d2_source || ""
-  }, [selectedDiagram])
+  }, [selectedDiagram, session.d2Sources])
 
   const projectName = useMemo(() => {
     if (selectedDiagram?.name) return selectedDiagram.name

@@ -47,6 +47,7 @@ export function useSession() {
   // ---- data from backend ----
   const [sessions, setSessions] = useState<api.SessionListItem[]>([])
   const [diagrams, setDiagrams] = useState<api.Diagram[]>([])
+  const [d2Sources, setD2Sources] = useState<Record<string, string>>({}) // diagram_id -> D2 source
   const [markdownDocs, setMarkdownDocs] = useState<api.MarkdownDoc[]>([])
   const [actions, setActions] = useState<api.AppAction[]>([])
   const [agents, setAgents] = useState<string[]>([])
@@ -88,6 +89,7 @@ export function useSession() {
       .then(([diagRes, mdRes, sessRes]) => {
         if (diagRes) {
           setDiagrams(diagRes.diagrams)
+          if (diagRes.d2_sources) setD2Sources(diagRes.d2_sources)
         }
         if (mdRes) setMarkdownDocs(mdRes.markdown_docs)
         // Rehydrate chat from session events (optional)
@@ -134,6 +136,7 @@ export function useSession() {
     try {
       const res = await api.getDiagrams(sid)
       setDiagrams(res.diagrams)
+      if (res.d2_sources) setD2Sources(res.d2_sources)
     } catch { /* ignore */ }
   }, [])
 
@@ -183,6 +186,7 @@ export function useSession() {
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
       }
+      if (res.d2_sources) setD2Sources(res.d2_sources)
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("chat error:", err)
@@ -224,6 +228,7 @@ export function useSession() {
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
       }
+      if (res.d2_sources) setD2Sources(res.d2_sources)
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("action error:", err)
@@ -239,6 +244,7 @@ export function useSession() {
     // data
     sessions,
     diagrams,
+    d2Sources,
     markdownDocs,
     actions,
     agents,

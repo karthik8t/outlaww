@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { D2 } from "@terrastruct/d2"
-import { Minimize, Maximize, Download, Copy, RefreshCw } from "lucide-react"
+import { Minimize, Maximize, Download, Copy, RefreshCw, Code } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -32,6 +32,7 @@ export function D2DiagramView({
   const [theme, setTheme] = useState<ThemeId>(0)
   const [layoutEngine, setLayoutEngine] = useState<"dagre" | "elk" | "tala">("dagre")
   const [zoom, setZoom] = useState(1)
+  const [showSource, setShowSource] = useState(true)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
@@ -333,9 +334,14 @@ export function D2DiagramView({
             <Button variant="outline" size="icon" onClick={handleDownloadPng} title="Download PNG">
               <Download className="w-4 h-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={renderDiagram} disabled={loading} title="Re-render">
-              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-            </Button>
+            <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowSource(!showSource)}
+                title={showSource ? "Hide D2 source" : "Show D2 source"}
+              >
+                <Code className="w-4 h-4" />
+              </Button>
           </div>
         </div>
 
@@ -397,17 +403,22 @@ export function D2DiagramView({
         </div>
 
         {/* D2 Source Panel (collapsible) */}
-        {onD2SourceChange && (
+        {showSource && (
           <div className="border-t border-border bg-background/50 shrink-0">
             <div className="flex items-center justify-between p-2 bg-muted/50">
               <span className="text-xs font-mono text-muted-foreground">D2 Source</span>
-              <Button variant="ghost" size="icon" onClick={handleCopySource} title="Copy source">
-                <Copy className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={handleCopySource} title="Copy source">
+                  <Copy className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setShowSource(false)} title="Hide D2 source">
+                  <Code className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <textarea
               value={d2Source}
-              onChange={e => onD2SourceChange(e.target.value)}
+              onChange={e => onD2SourceChange?.(e.target.value)}
               className="w-full h-48 p-3 font-mono text-xs bg-background border-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0"
               spellCheck={false}
               placeholder="// Edit D2 source directly..."
