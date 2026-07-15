@@ -8,6 +8,8 @@ services:
     environment:
       - D2_BINARY=/usr/local/bin/d2
       - PYTHONUNBUFFERED=1
+      # Ollama configuration
+      - OLLAMA_HOST=http://host.docker.internal:11434
     volumes:
       - ./backend/app:/app/app:ro
     healthcheck:
@@ -17,8 +19,11 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    # For Linux: uncomment below to access host's ollama
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
 
-  # Frontend development server (optional - comment out for production)
+  # Frontend development server (optional)
   frontend:
     build:
       context: ./frontend

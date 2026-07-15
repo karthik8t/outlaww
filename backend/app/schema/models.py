@@ -351,6 +351,7 @@ class Diagram(BaseModel):
     name: str = ""
     description: str = ""
     graph: Optional[dict[str, Any]] = Field(default=None, description="Canonical DiagramGraph (nodes + edges). Used for new diagrams.")
+    d2_source: str = Field(default="", description="Serialized D2 source code for rendering")
     store: TLStore = Field(default_factory=TLStore)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
