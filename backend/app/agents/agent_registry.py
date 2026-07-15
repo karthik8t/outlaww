@@ -12,7 +12,6 @@ from app.schema.models import (
     EditMarkdownOutput,
     ExplainerOutput,
     GapSuggestionOutput,
-    PatchDiagramOutput,
     ReflectionOutput,
     ResearchOutput,
     RouterOutput,
@@ -106,15 +105,25 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
         "model": _DEFAULT_MODEL,
         "output_schema": CreateDiagramOutput,
         "instruction": (
-            "You are a diagram creation agent. Generate tldraw-compatible diagram "
-            "structures based on user descriptions.\n\n"
-            "Produce shapes with correct type, position (x, y), parentId referencing "
-            "a page id, proper z-ordering via index, and type-specific props.\n\n"
-            "Supported types: rectangle, ellipse, arrow, text, draw, frame, group, "
-            "note, image, video, bookmark, embed, line, highlight.\n\n"
-            "Use meaningful names for frames and notes. Prefer clean layouts with "
-            "proper spacing."
-
+            "You are a diagram creation agent. You generate tldraw-compatible diagrams "
+            "as a list of shapes.\n\n"
+            "# Shape types (use the 'type' field to pick the right props)\n"
+            "- geo: boxes, circles, diamonds, triangles — set 'props.geo' to the shape\n"
+            "- text: standalone text labels\n"
+            "- arrow: connections between shapes (use 'start/end' with boundShapeId)\n"
+            "- frame: grouping containers with a name\n"
+            "- note: sticky notes\n\n"
+            "# Rules\n"
+            "1. Each shape needs: id (any unique string), type, x, y, props\n"
+            "2. Place shapes with clear spatial layout — spread them out, don't stack\n"
+            "3. For arrows: set start/end type='binding' with boundShapeId referencing another shape's id\n"
+            "4. Use frames to group related concepts\n"
+            "5. Keep text concise — diagram labels, not paragraphs\n"
+            "6. Use meaningful geo.text for boxes (short labels inside shapes)\n"
+            "7. Start positions from (100, 100) and space shapes ~200-300px apart\n"
+            "8. IDs can be anything unique like 'box1', 'label1', 'arrow1' — prefix is auto-added\n\n"
+            "# Output\n"
+            "Return: name, description, shapes (the list)"
         ),
         "description": "Creates new tldraw diagrams from natural language descriptions.",
     },
@@ -122,25 +131,25 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
         "model": _DEFAULT_MODEL,
         "output_schema": EditDiagramOutput,
         "instruction": (
-            "You are a diagram editing agent. You receive the current TLStore "
-            "snapshot and an editing instruction.\n\n"
-            "Produce a list of operations: add_shape, remove_shape, update_shape, "
-            "move_shape, add_page, remove_page.\n\n"
-            "Be precise — only modify what the user asked to change. Preserve all "
-            "existing shapes and properties unless explicitly told to modify them."
-
+            "You are a diagram editing agent. You receive the current diagram state "
+            "and an editing instruction.\n\n"
+            "Return the COMPLETE updated shapes list — include ALL shapes (unchanged + modified + new). "
+            "Shapes you omit will be DELETED from the diagram.\n\n"
+            "Supported changes: move/resize shapes, change colors/text, add new shapes, "
+            "remove shapes, rearrange layout, change arrow connections.\n\n"
+            "Be precise — only modify what was asked. Preserve everything else."
         ),
         "description": "Applies edits to an existing tldraw diagram.",
     },
     "patch_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": PatchDiagramOutput,
+        "output_schema": EditDiagramOutput,
         "instruction": (
-            "You are a diagram patch agent. You receive the current TLStore "
-            "snapshot and a patch description for minor adjustments.\n\n"
-            "Produce minimal patch operations: patch_shape, patch_page, patch_asset.\n\n"
-            "Keep changes minimal and surgical — do not rewrite the entire diagram."
-
+            "You are a diagram patch agent. You receive the current diagram state "
+            "and a request for minor adjustments (colors, spacing, text changes, etc.).\n\n"
+            "Return the COMPLETE updated shapes list — include ALL shapes. "
+            "Shapes you omit will be DELETED.\n\n"
+            "Keep changes minimal and surgical — only touch what was requested."
         ),
         "description": "Applies minimal patches to diagram styles and properties.",
     },

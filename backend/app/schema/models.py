@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -379,6 +379,265 @@ class Diagram(BaseModel):
 
 
 # ===========================================================================
+#  LLM-Friendly Shape Models (discriminated unions)
+# ===========================================================================
+# These are what the LLM actually generates.  Much simpler than TLShape —
+# no index, meta, bounds, connecting, updatedAt, etc.  The conversion
+# function `llm_shapes_to_store()` maps them to a proper TLStore.
+
+
+class LLMGeoProps(BaseModel):
+    """Props for geo shapes (rectangle, ellipse, diamond, triangle, …)."""
+    geo: Literal[
+        "rectangle", "ellipse", "diamond", "triangle", "trapezoid",
+        "parallelogram", "rhombus", "hexagon", "octagon", "star",
+    ] = "rectangle"
+    text: str = ""
+    color: Literal["black", "blue", "green", "orange", "yellow", "violet", "red"] = "black"
+    fill: Literal["none", "semi", "solid"] = "none"
+    w: float = 200
+    h: float = 200
+
+
+class LLMTextProps(BaseModel):
+    """Props for standalone text labels."""
+    text: str = ""
+    color: Literal["black", "blue", "green", "orange", "yellow", "violet", "red"] = "black"
+    size: Literal["s", "m", "l", "xl"] = "m"
+    w: Optional[float] = None
+
+
+class LLMArrowTerminal(BaseModel):
+    """An arrow endpoint (point or binding)."""
+    type: Literal["binding", "point"] = "binding"
+    boundShapeId: str = ""
+    normalizedAnchor: dict[str, float] = Field(
+        default_factory=lambda: {"x": 0.5, "y": 0.5},
+        description="Center of the shape",
+    )
+    isExact: bool = False
+
+
+class LLMArrowProps(BaseModel):
+    """Props for arrows connecting two shapes."""
+    start: LLMArrowTerminal = LLMArrowTerminal()
+    end: LLMArrowTerminal = LLMArrowTerminal()
+    color: Literal["black", "blue", "green", "orange", "yellow", "violet", "red"] = "black"
+    arrowheadEnd: Literal["none", "arrow", "triangle", "square", "dot"] = "arrow"
+    arrowheadStart: Literal["none", "arrow", "triangle", "square", "dot"] = "none"
+    text: str = ""
+
+
+class LLMFrameProps(BaseModel):
+    """Props for grouping frames."""
+    name: str = ""
+    w: float = 400
+    h: float = 300
+
+
+class LLMNoteProps(BaseModel):
+    """Props for sticky notes."""
+    text: str = ""
+    color: Literal["yellow", "orange", "mint", "violet", "blue", "green", "red", "black"] = "yellow"
+    size: Literal["s", "m", "l"] = "m"
+
+
+# -- Base shape (shared fields) ---
+
+class LLMShapeBase(BaseModel):
+    """Fields every LLM shape must have."""
+    id: str = Field(description="Unique shape ID, e.g. 'shape:box1' or 'box1' (prefix auto-added)")
+    x: float = Field(default=0.0, description="X position on the page")
+    y: float = Field(default=0.0, description="Y position on the page")
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _fix_shape_id(cls, v: str) -> str:
+        return _prefixed_id("shape", v)
+
+
+# -- Concrete shape types ---
+
+class LLMGeoShape(LLMShapeBase):
+    type: Literal["geo"] = "geo"
+    props: LLMGeoProps = LLMGeoProps()
+
+
+class LLMTextShape(LLMShapeBase):
+    type: Literal["text"] = "text"
+    props: LLMTextProps = LLMTextProps()
+
+
+class LLMArrowShape(LLMShapeBase):
+    type: Literal["arrow"] = "arrow"
+    props: LLMArrowProps = LLMArrowProps()
+
+
+class LLMFrameShape(LLMShapeBase):
+    type: Literal["frame"] = "frame"
+    props: LLMFrameProps = LLMFrameProps()
+
+
+class LLMNoteShape(LLMShapeBase):
+    type: Literal["note"] = "note"
+    props: LLMNoteProps = LLMNoteProps()
+
+
+# -- Discriminated union ---
+
+LLMShape = Annotated[
+    Union[LLMGeoShape, LLMTextShape, LLMArrowShape, LLMFrameShape, LLMNoteShape],
+    Field(discriminator="type"),
+]
+
+
+# ===========================================================================
+#  LLM Output Models (what the LLM generates → list-based)
+# ===========================================================================
+
+class CreateDiagramOutput(BaseModel):
+    """Output schema for the create_diagram agent.
+
+    The LLM generates a *list* of shapes — far easier than a nested dict.
+    The backend converts this to a proper TLStore via llm_shapes_to_store().
+    """
+    name: str = Field(default="", description="Title of the diagram")
+    description: str = Field(default="", description="Short explanation of the diagram")
+    shapes: list[LLMShape] = Field(
+        default_factory=list,
+        description="List of shapes in the diagram. Each shape has a type, position, and props.",
+    )
+
+
+class EditDiagramOutput(BaseModel):
+    """Output schema for the edit_diagram agent."""
+    shapes: list[LLMShape] = Field(
+        default_factory=list,
+        description="The COMPLETE set of shapes for the diagram after editing. "
+                    "All existing shapes must be included (unchanged or modified), "
+                    "plus any new shapes. Omitted shapes will be deleted.",
+    )
+    reasoning: str = ""
+
+
+# ===========================================================================
+#  Conversion: LLM list → proper TLStore
+# ===========================================================================
+
+def llm_shapes_to_store(
+    shapes: list[LLMShape],
+    *,
+    name: str = "",
+    description: str = "",
+) -> TLStore:
+    """Convert an LLM-generated shape list into a full TLStore.
+
+    The LLM only worries about shapes — this function builds the
+    document, page, and shape records that tldraw expects.
+    """
+    page_id = "page:page"
+
+    store = TLStore(
+        document=TLDocument(id="document:document", name=name or "Untitled", gridSize=10),
+        page={page_id: TLPage(id=page_id, name="Page 1")},
+    )
+
+    for i, llm_shape in enumerate(shapes):
+        # Build z-ordering index
+        index = f"a{i:02d}"
+
+        if isinstance(llm_shape, LLMGeoShape):
+            shape = TLShape(
+                id=llm_shape.id,
+                type="geo",
+                x=llm_shape.x,
+                y=llm_shape.y,
+                parentId=page_id,
+                index=index,
+                props=llm_shape.props.model_dump(mode="json"),
+            )
+        elif isinstance(llm_shape, LLMTextShape):
+            shape = TLShape(
+                id=llm_shape.id,
+                type="text",
+                x=llm_shape.x,
+                y=llm_shape.y,
+                parentId=page_id,
+                index=index,
+                props=llm_shape.props.model_dump(mode="json"),
+            )
+        elif isinstance(llm_shape, LLMArrowShape):
+            # Convert LLM arrow terminals to TLShape props format
+            start = llm_shape.props.start
+            end = llm_shape.props.end
+            arrow_props = {
+                "color": llm_shape.props.color,
+                "arrowheadStart": llm_shape.props.arrowheadStart,
+                "arrowheadEnd": llm_shape.props.arrowheadEnd,
+                "text": llm_shape.props.text,
+                "start": {
+                    "type": start.type,
+                    "boundShapeId": start.boundShapeId,
+                    "normalizedAnchor": start.normalizedAnchor,
+                    "isExact": start.isExact,
+                },
+                "end": {
+                    "type": end.type,
+                    "boundShapeId": end.boundShapeId,
+                    "normalizedAnchor": end.normalizedAnchor,
+                    "isExact": end.isExact,
+                },
+            }
+            shape = TLShape(
+                id=llm_shape.id,
+                type="arrow",
+                x=llm_shape.x,
+                y=llm_shape.y,
+                parentId=page_id,
+                index=index,
+                props=arrow_props,
+            )
+        elif isinstance(llm_shape, LLMFrameShape):
+            shape = TLShape(
+                id=llm_shape.id,
+                type="frame",
+                x=llm_shape.x,
+                y=llm_shape.y,
+                parentId=page_id,
+                index=index,
+                props=llm_shape.props.model_dump(mode="json"),
+            )
+        elif isinstance(llm_shape, LLMNoteShape):
+            shape = TLShape(
+                id=llm_shape.id,
+                type="note",
+                x=llm_shape.x,
+                y=llm_shape.y,
+                parentId=page_id,
+                index=index,
+                props=llm_shape.props.model_dump(mode="json"),
+            )
+        else:
+            # Unknown shape type — skip with warning
+            continue
+
+        store.shape[shape.id] = shape
+
+    return store
+
+
+def build_diagram_from_llm(
+    shapes: list[LLMShape],
+    *,
+    name: str = "",
+    description: str = "",
+) -> Diagram:
+    """Build a full Diagram from an LLM-generated shape list."""
+    store = llm_shapes_to_store(shapes, name=name, description=description)
+    return Diagram(name=name, description=description, store=store)
+
+
+# ===========================================================================
 #  Markdown Artifact
 # ===========================================================================
 
@@ -681,47 +940,6 @@ class Reflections(BaseModel):
 # ===========================================================================
 #  Agent Output Schemas
 # ===========================================================================
-
-class DiagramOperation(BaseModel):
-    """A single operation to apply to a tldraw store."""
-    op: str  # add_shape | remove_shape | update_shape | move_shape | add_page | remove_page
-    shape_id: str = ""
-    page_id: str = ""
-    name: str = ""
-    x: float = 0.0
-    y: float = 0.0
-    shape: Optional[TLShape] = None
-    patch: dict[str, Any] = Field(default_factory=dict)
-
-
-class CreateDiagramOutput(BaseModel):
-    """Deterministic output for the create_diagram agent."""
-    page_name: str = "Page 1"
-    shapes: list[TLShape] = []
-    assets: list[TLAsset] = []
-    description: str = ""
-
-
-class EditDiagramOutput(BaseModel):
-    """Deterministic output for the edit_diagram agent."""
-    operations: list[DiagramOperation] = []
-    reasoning: str = ""
-
-
-class PatchDiagramOperation(BaseModel):
-    """A minimal patch operation."""
-    op: str  # patch_shape | patch_page | patch_asset
-    shape_id: str = ""
-    page_id: str = ""
-    asset_id: str = ""
-    props_patch: dict[str, Any] = Field(default_factory=dict)
-    name: str = ""
-
-
-class PatchDiagramOutput(BaseModel):
-    """Deterministic output for the patch_diagram agent."""
-    patches: list[PatchDiagramOperation] = []
-    reasoning: str = ""
 
 
 class CreateMarkdownOutput(BaseModel):

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 from typing import Any
 
 from google.adk import Context
@@ -20,8 +21,7 @@ from google.adk.workflow import node
 from app.agents.action_registry import ActionRegistry
 from app.agents.agent_registry import AgentRegistry
 from app.schema.models import (
-    Diagram,
-    DiagramOperation,
+    LLMShape,
     MarkdownArtifact,
     MarkdownEditOperation,
     MarkdownFrontmatter,
@@ -31,7 +31,8 @@ from app.schema.models import (
     RouteTarget,
     RouterOutput,
     StateSchema,
-    TLShape,
+    build_diagram_from_llm,
+    llm_shapes_to_store,
 )
 
 logger = logging.getLogger(__name__)
@@ -156,33 +157,6 @@ def _save_active_ids(state: dict[str, Any], ids: dict[str, str]) -> None:
     state[_ACTIVE_IDS_KEY] = ids
 
 
-def _apply_diagram_operations(
-    diagram: Diagram, operations: list[DiagramOperation]
-) -> Diagram:
-    """Apply a list of DiagramOperation patches to an existing diagram."""
-    for op in operations:
-        if op.op == "add_shape" and op.shape:
-            diagram.add_shape(op.shape, page_id=op.page_id or None)
-        elif op.op == "remove_shape":
-            diagram.remove_shape(op.shape_id)
-        elif op.op == "update_shape" and op.shape_id in diagram.store.shape:
-            shape = diagram.store.shape[op.shape_id]
-            for k, v in op.patch.items():
-                if hasattr(shape, k):
-                    setattr(shape, k, v)
-                elif isinstance(shape.props, dict):
-                    shape.props[k] = v
-        elif op.op == "move_shape" and op.shape_id in diagram.store.shape:
-            shape = diagram.store.shape[op.shape_id]
-            shape.x = op.x
-            shape.y = op.y
-        elif op.op == "add_page":
-            diagram.add_page(name=op.name or "Page")
-        elif op.op == "remove_page" and op.page_id in diagram.store.page:
-            del diagram.store.page[op.page_id]
-    return diagram
-
-
 def _apply_markdown_edits(
     doc: MarkdownArtifact, edits: list[MarkdownEditOperation]
 ) -> MarkdownArtifact:
@@ -231,23 +205,38 @@ def _persist_diagram_output(
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
 
-    # Build shapes list
+    # Parse the LLM's shape list
     shapes_raw = output.get("shapes", [])
     shapes = []
     for s in shapes_raw:
         if isinstance(s, dict):
-            shapes.append(TLShape.model_validate(s))
-        elif isinstance(s, TLShape):
+            # Determine shape type and parse accordingly
+            shape_type = s.get("type", "geo")
+            try:
+                from app.schema.models import (
+                    LLMGeoShape, LLMTextShape, LLMArrowShape,
+                    LLMFrameShape, LLMNoteShape,
+                )
+                shape_cls = {
+                    "geo": LLMGeoShape,
+                    "text": LLMTextShape,
+                    "arrow": LLMArrowShape,
+                    "frame": LLMFrameShape,
+                    "note": LLMNoteShape,
+                }.get(shape_type, LLMGeoShape)
+                shapes.append(shape_cls.model_validate(s))
+            except Exception:
+                logger.warning(f"[persist] failed to parse shape: {s}")
+                continue
+        elif isinstance(s, LLMShape):
             shapes.append(s)
 
-    diagram = Diagram(
-        name=output.get("page_name", "") or user_message[:80],
+    # Build the Diagram with a proper TLStore via conversion function
+    diagram = build_diagram_from_llm(
+        shapes,
+        name=output.get("name", "") or user_message[:80],
         description=output.get("description", ""),
     )
-    # Add a default page
-    page = diagram.add_page(name=output.get("page_name", "Page 1"))
-    for shape in shapes:
-        diagram.add_shape(shape, page_id=page.id)
 
     diagrams.append(diagram)
     _save_diagrams(ctx.state, diagrams)
@@ -263,7 +252,7 @@ def _persist_diagram_output(
 
 
 def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
-    """Apply edit operations to the active diagram and persist to state."""
+    """Replace the active diagram with the new shape list from edit/patch agents."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
     diagram_id = active.get("active_diagram_id", "")
@@ -273,23 +262,51 @@ def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
 
     # Find the target diagram
     target = None
-    for d in diagrams:
+    target_idx = -1
+    for i, d in enumerate(diagrams):
         if d.id == diagram_id:
             target = d
+            target_idx = i
             break
     if target is None:
         return
 
-    # Parse operations
-    ops_raw = output.get("operations", [])
-    operations = []
-    for op in ops_raw:
-        if isinstance(op, dict):
-            operations.append(DiagramOperation.model_validate(op))
-        elif isinstance(op, DiagramOperation):
-            operations.append(op)
+    # Parse the LLM's shape list (complete replacement)
+    shapes_raw = output.get("shapes", [])
+    shapes = []
+    for s in shapes_raw:
+        if isinstance(s, dict):
+            shape_type = s.get("type", "geo")
+            try:
+                from app.schema.models import (
+                    LLMGeoShape, LLMTextShape, LLMArrowShape,
+                    LLMFrameShape, LLMNoteShape,
+                )
+                shape_cls = {
+                    "geo": LLMGeoShape,
+                    "text": LLMTextShape,
+                    "arrow": LLMArrowShape,
+                    "frame": LLMFrameShape,
+                    "note": LLMNoteShape,
+                }.get(shape_type, LLMGeoShape)
+                shapes.append(shape_cls.model_validate(s))
+            except Exception:
+                logger.warning(f"[persist] failed to parse shape for edit: {s}")
+                continue
+        elif isinstance(s, LLMShape):
+            shapes.append(s)
 
-    _apply_diagram_operations(target, operations)
+    # Rebuild the store with the new shapes (preserving diagram name/id)
+    new_store = llm_shapes_to_store(
+        shapes,
+        name=target.name,
+        description=target.description,
+    )
+
+    # Replace in the list
+    target.store = new_store
+    target.updated_at = datetime.utcnow()
+    diagrams[target_idx] = target
     _save_diagrams(ctx.state, diagrams)
 
     # Update reflection

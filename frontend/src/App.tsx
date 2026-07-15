@@ -454,12 +454,17 @@ function diagramToRecords(diagram: { store: TLStore }) {
   const { store } = diagram
   const records: unknown[] = []
 
+  // Document record
   if (store.document) {
     records.push({ ...store.document, typeName: "document" as const })
   }
+
+  // Page records
   for (const page of Object.values(store.page || {})) {
     records.push({ ...page, typeName: "page" as const })
   }
+
+  // Shape records — backend builds proper shape dicts via llm_shapes_to_store()
   for (const shape of Object.values(store.shape || {})) {
     records.push({
       id: shape.id,
@@ -478,9 +483,12 @@ function diagramToRecords(diagram: { store: TLStore }) {
       createdAt: (shape as TLShape & { createdAt?: number }).createdAt || Date.now(),
     })
   }
+
+  // Asset records
   for (const asset of Object.values(store.asset || {})) {
     records.push({ ...asset, typeName: "asset" as const })
   }
+
   return records
 }
 
