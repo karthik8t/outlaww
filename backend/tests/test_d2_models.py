@@ -362,7 +362,7 @@ def test_serialize_with_classes():
     d2_source = serialize_d2(diagram)
     assert "class service" in d2_source
     assert "class database" in d2_source
-    assert "fill: #e3f2fd" in d2_source
+    assert 'fill: "#e3f2fd"' in d2_source
     assert "class: service" in d2_source
     assert "class: database" in d2_source
 
@@ -391,15 +391,15 @@ def test_serialize_style_block():
     )
 
     d2_source = serialize_d2(diagram)
-    assert "style: {" in d2_source
-    assert "fill: #ffffff" in d2_source
+    assert "style {" in d2_source
+    assert 'fill: "#ffffff"' in d2_source
     assert "stroke-width: 3" in d2_source
     assert "stroke-dash: 2" in d2_source
     assert "border-radius: 8" in d2_source
     assert "double-border: true" in d2_source
     assert "font-size: 16" in d2_source
-    assert "font-color: #333333" in d2_source
-    assert "text-transform: uppercase" in d2_source
+    assert 'font-color: "#333333"' in d2_source
+    assert 'text-transform: "uppercase"' in d2_source
 
 
 def test_serialize_root_style():
@@ -473,7 +473,7 @@ def test_complex_nested_containers():
     diagram = D2Diagram(
         architectural_reasoning="AWS multi-region deployment with VPCs and subnets demonstrating deep nesting.",
         nodes=[
-            D2Node(id="aws", label="AWS", shape="cloud"),
+            D2Node(id="aws", label="AWS", shape="oval"),
             D2Node(id="us_east", label="us-east-1", parent_id="aws"),
             D2Node(id="vpc_main", label="Main VPC", parent_id="us_east"),
             D2Node(id="subnet_public", label="Public Subnet", parent_id="vpc_main"),

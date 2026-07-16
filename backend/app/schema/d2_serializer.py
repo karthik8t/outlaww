@@ -1,7 +1,7 @@
 """D2 Serializer: Converts flat D2Diagram model to valid D2 source code.
 
 Handles:
-- Tree reconstruction from flat nodes via parent_id
+- Tree reconstruction from flat nodes (parent_id references)
 - ID/label escaping per D2 syntax rules
 - Markdown block formatting (|md ... |)
 - Style blocks with kebab-case keys
@@ -66,7 +66,6 @@ class D2Serializer:
             return '""'
         if cls._ID_PATTERN.match(text):
             return text
-        # ContainsQuote = '"' in text
         if '"' in text:
             return f"'{text}'"
         return f'"{text}"'
@@ -107,6 +106,11 @@ class D2Serializer:
         for key, value in style_dict.items():
             if isinstance(value, bool):
                 val_str = "true" if value else "false"
+            elif isinstance(value, str):
+                # Quote string values (especially colors and keywords)
+                val_str = f'"{value}"'
+            elif isinstance(value, (int, float)):
+                val_str = str(value)
             else:
                 val_str = str(value)
             lines.append(f"{ind}{key}: {val_str}")
@@ -115,7 +119,7 @@ class D2Serializer:
             return None
 
         block_indent = "  " * (indent - 1)
-        return f"{block_indent}style: {{\n" + "\n".join(lines) + f"\n{block_indent}}}"
+        return f"{block_indent}style {{\n" + "\n".join(lines) + f"\n{block_indent}}}"
 
     # -------------------------------------------------------------------------
     # Node Serialization
@@ -157,9 +161,7 @@ class D2Serializer:
         inner_ind = "  " * (indent + 1)
 
         if node.shape:
-            # Map cloud to a valid D2 shape if needed
-            shape = node.shape
-            lines.append(f"{inner_ind}shape: {shape}")
+            lines.append(f"{inner_ind}shape: {node.shape}")
 
         if node.classes:
             # Fix: class assignment without brackets
@@ -228,18 +230,15 @@ class D2Serializer:
             return f"{actor}: {note_text}"
 
         # Standard edge - fix reverse arrow direction
-        # D2 uses -> for forward, <- for reverse. Ensure correct direction.
         direction = edge.direction
         if direction == "<-":
             # Reverse arrow: swap source and target, use ->
             src, tgt = tgt, src
             direction = "->"
         elif direction == "<->":
-            # Bidirectional - keep as is
-            pass
+            pass  # Bidirectional - keep as is
         elif direction == "--":
-            # Undirected - keep as is
-            pass
+            pass  # Undirected
 
         # Standard edge
         parts = [f"{src} {direction} {tgt}"]
@@ -308,6 +307,11 @@ class D2Serializer:
 
     def to_d2(self) -> str:
         """Generate complete D2 source code."""
+        # Validate references before serializing
+        errors = self.diagram.validate_references()
+        if errors:
+            raise ValueError(f"Diagram validation failed: {'; '.join(errors)}")
+
         sections: list[str] = []
 
         # 1. Architectural reasoning (as comment)
@@ -328,13 +332,14 @@ class D2Serializer:
                 sections.extend(self._serialize_class(cls))
             sections.append("")
 
-# 4. Ensure at least one page exists (required by D2 CLI)
-        # D2 requires an explicit page declaration when all objects are nested in containers
-        sections.append("# Page declaration (required by D2)")
-        sections.append("page: page1 {")
-        sections.append("  layout: auto")
-        sections.append("}")
-        sections.append("")
+        # 4. Page declaration - only add if no page nodes exist
+        page_nodes = [n for n in self.diagram.nodes if n.shape == "page"]
+        if not page_nodes:
+            sections.append("# Page declaration (required by D2)")
+            sections.append("page: page1 {")
+            sections.append("  layout: auto")
+            sections.append("}")
+            sections.append("")
 
         # 4. Root nodes (tree traversal)
         for root_node in self._tree.get(None, []):
@@ -353,6 +358,7 @@ class D2Serializer:
 # -------------------------------------------------------------------------
 # Convenience Function
 # -------------------------------------------------------------------------
+
 
 def serialize_d2(diagram: D2Diagram) -> str:
     """Serialize a D2Diagram to D2 source code."""

@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 ShapeType = Literal[
     "rectangle", "square", "page", "parallelogram", "document",
     "cylinder", "queue", "package", "step", "callout", "stored_data",
-    "person", "diamond", "oval", "circle", "hexagon", "cloud",
+    "person", "diamond", "oval", "circle", "hexagon", "ellipse",
     "sql_table", "sequence_diagram", "class", "text", "grid",
 ]
 
@@ -33,7 +33,7 @@ DiagramDirection = Literal["right", "down", "left", "up"]
 
 SQLConstraint = Literal["primary_key", "foreign_key", "unique"]
 
-FillPattern = Literal["dots", "lines", "grain", "none"]
+FillPattern = Literal["dots", "lines", "grain", "crosshatch", "horizontal", "vertical", "none"]
 
 TextTransform = Literal["uppercase", "lowercase", "title", "none"]
 
@@ -80,13 +80,13 @@ class D2Style(BaseModel):
     # Animation
     animated: Optional[bool] = None
 
-    # Root-level styles (diagram background/frame)
-    root_fill: Optional[str] = Field(None, serialization_alias="fill", min_length=1)
-    root_fill_pattern: Optional[FillPattern] = Field(None, serialization_alias="fill-pattern")
-    root_stroke: Optional[str] = Field(None, serialization_alias="stroke", min_length=1)
-    root_stroke_width: Optional[int] = Field(None, serialization_alias="stroke-width")
-    root_stroke_dash: Optional[int] = Field(None, serialization_alias="stroke-dash")
-    root_double_border: Optional[bool] = Field(None, serialization_alias="double-border")
+    # Root-level styles (diagram background/frame) - use different aliases to avoid conflict with shape-level
+    diagram_fill: Optional[str] = Field(None, serialization_alias="fill", min_length=1)
+    diagram_fill_pattern: Optional[FillPattern] = Field(None, serialization_alias="fill-pattern")
+    diagram_stroke: Optional[str] = Field(None, serialization_alias="stroke", min_length=1)
+    diagram_stroke_width: Optional[int] = Field(None, serialization_alias="stroke-width")
+    diagram_stroke_dash: Optional[int] = Field(None, serialization_alias="stroke-dash")
+    diagram_double_border: Optional[bool] = Field(None, serialization_alias="double-border")
 
     def to_d2_dict(self) -> dict[str, str | int | bool]:
         """Convert to D2-compatible dict with kebab-case keys, excluding None and empty strings."""
