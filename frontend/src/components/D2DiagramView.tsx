@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 
 type RenderMode = "wasm" | "cli" | "sse"
@@ -24,6 +23,7 @@ export function D2DiagramView({
   d2Source,
   diagramId,
   onD2SourceChange,
+  fetchDiagramSource,
   className,
 }: D2DiagramViewProps) {
   const [svg, setSvg] = useState<string>("")
@@ -40,28 +40,6 @@ export function D2DiagramView({
 
   const svgRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-
-  // Fetch diagram source from backend
-  const fetchDiagramSource = useCallback(async (diagramId: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const res = await fetch(`/api/chat/diagrams/${diagramId}`)
-      if (!res.ok) throw new Error("Failed to fetch diagram")
-      const data = await res.json()
-      // The API returns { diagrams: [...], d2_sources: {...} }
-      const diagram = data.diagrams?.find((d: any) => d.id === diagramId)
-      if (diagram?.d2_source) {
-        onD2SourceChange?.(diagram.d2_source)
-      } else if (data.d2_sources?.[diagramId]) {
-        onD2SourceChange?.(data.d2_sources[diagramId])
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch diagram source")
-    } finally {
-      setLoading(false)
-    }
-  }, [onD2SourceChange])
 
   const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.ctrlKey && !e.metaKey) return
@@ -238,33 +216,31 @@ export function D2DiagramView({
             {/* Render Mode Selector */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <RadioGroup
-                  value={renderMode}
-                  onValueChange={v => setRenderMode(v as RenderMode)}
-                  className="flex items-center gap-2"
-                >
-                  <RadioGroupItem value="wasm" className="hidden sm:flex" />
-                  <RadioGroupItem value="cli" className="hidden sm:flex" />
-                  <RadioGroupItem value="sse" className="hidden sm:flex" />
-                </RadioGroup>
+                <Select value={renderMode} onValueChange={v => setRenderMode(v as RenderMode)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Render" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="wasm">WASM — Browser (instant)</SelectItem>
+                    <SelectItem value="cli">CLI — Server (full fidelity)</SelectItem>
+                    <SelectItem value="sse">SSE — Streaming</SelectItem>
+                  </SelectContent>
+                </Select>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 <div className="space-y-1 p-1">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <RadioGroupItem value="wasm" />
+                  <div className="flex items-center gap-2">
                     <span className="text-sm">WASM</span>
                     <span className="text-xs text-muted-foreground">Browser (instant)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <RadioGroupItem value="cli" />
+                  </div>
+                  <div className="flex items-center gap-2">
                     <span className="text-sm">CLI</span>
                     <span className="text-xs text-muted-foreground">Server (full fidelity)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <RadioGroupItem value="sse" />
+                  </div>
+                  <div className="flex items-center gap-2">
                     <span className="text-sm">SSE</span>
                     <span className="text-xs text-muted-foreground">Streaming</span>
-                  </label>
+                  </div>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -293,12 +269,12 @@ export function D2DiagramView({
             {/* Layout Engine Selector */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Select value={layoutEngine} onValueChange={v => setLayoutEngine(v as "dagre" | "elk" | "tala")}>
+                <Select value={layoutEngine} onValueChange={v => setLayoutEngine(v as "dagre" | "elk")}>
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Layout" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(["dagre", "elk", "tala"] as const).map(l => (
+                    {(["dagre", "elk"] as const).map(l => (
                       <SelectItem key={l} value={l}>
                         {layoutNames[l]}
                       </SelectItem>
@@ -358,13 +334,13 @@ export function D2DiagramView({
               <Download className="w-4 h-4" />
             </Button>
             <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowSource(!showSource)}
-                title={showSource ? "Hide D2 source" : "Show D2 source"}
-              >
-                <Code className="w-4 h-4" />
-              </Button>
+              variant="outline"
+              size="icon"
+              onClick={() => setShowSource(!showSource)}
+              title={showSource ? "Hide D2 source" : "Show D2 source"}
+            >
+              <Code className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
@@ -422,7 +398,7 @@ export function D2DiagramView({
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-4 p-4">
               <p className="text-center">No diagram source</p>
               {diagramId && (
-                <Button variant="outline" size="sm" onClick={() => fetchDiagramSource(diagramId)}>
+                <Button variant="outline" size="sm" onClick={() => fetchDiagramSource?.(diagramId)}>
                   Fetch from server
                 </Button>
               )}
