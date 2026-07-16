@@ -121,7 +121,7 @@ export function D2DiagramView({
         result = svgResult
       } else if (renderMode === "cli") {
         // Server CLI rendering
-        const res = await fetch("/api/chat/render", {
+        const res = await fetch("/chat/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -138,7 +138,7 @@ export function D2DiagramView({
         result = await res.text()
       } else if (renderMode === "sse") {
         // SSE streaming - fallback to CLI for now
-        const res = await fetch("/api/chat/render", {
+        const res = await fetch("/chat/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
