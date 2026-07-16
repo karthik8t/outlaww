@@ -51,11 +51,11 @@ class D2Style(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     # Shape fills
-    fill: Optional[str] = None
+    fill: Optional[str] = Field(None, min_length=1)
     fill_pattern: Optional[FillPattern] = Field(None, serialization_alias="fill-pattern")
 
     # Strokes
-    stroke: Optional[str] = None
+    stroke: Optional[str] = Field(None, min_length=1)
     stroke_width: Optional[int] = Field(None, serialization_alias="stroke-width", ge=1, le=15)
     stroke_dash: Optional[int] = Field(None, serialization_alias="stroke-dash", ge=0, le=10)
 
@@ -71,7 +71,7 @@ class D2Style(BaseModel):
     # Typography
     font: Optional[FontStyle] = None
     font_size: Optional[int] = Field(None, serialization_alias="font-size", ge=8, le=100)
-    font_color: Optional[str] = Field(None, serialization_alias="font-color")
+    font_color: Optional[str] = Field(None, serialization_alias="font-color", min_length=1)
     bold: Optional[bool] = None
     italic: Optional[bool] = None
     underline: Optional[bool] = None
@@ -81,18 +81,18 @@ class D2Style(BaseModel):
     animated: Optional[bool] = None
 
     # Root-level styles (diagram background/frame)
-    root_fill: Optional[str] = Field(None, serialization_alias="fill")
+    root_fill: Optional[str] = Field(None, serialization_alias="fill", min_length=1)
     root_fill_pattern: Optional[FillPattern] = Field(None, serialization_alias="fill-pattern")
-    root_stroke: Optional[str] = Field(None, serialization_alias="stroke")
+    root_stroke: Optional[str] = Field(None, serialization_alias="stroke", min_length=1)
     root_stroke_width: Optional[int] = Field(None, serialization_alias="stroke-width")
     root_stroke_dash: Optional[int] = Field(None, serialization_alias="stroke-dash")
     root_double_border: Optional[bool] = Field(None, serialization_alias="double-border")
 
     def to_d2_dict(self) -> dict[str, str | int | bool]:
-        """Convert to D2-compatible dict with kebab-case keys, excluding None."""
+        """Convert to D2-compatible dict with kebab-case keys, excluding None and empty strings."""
         data = self.model_dump(exclude_none=True, by_alias=True)
-        # Convert bool to lowercase strings for D2
-        return {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in data.items()}
+        # Filter out empty strings and convert bool to lowercase strings for D2
+        return {k: (str(v).lower() if isinstance(v, bool) else v) for k, v in data.items() if v != ""}
 
 
 # ============================================================================

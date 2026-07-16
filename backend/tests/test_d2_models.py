@@ -263,8 +263,8 @@ def test_serialize_simple_diagram():
 
     # Check key elements present
     assert "vars:" in d2_source
-    assert "layout-engine: dagre" in d2_source
-    assert "direction: right" in d2_source
+    # layout-engine: dagre is default, so omitted
+    # direction: right is default, so omitted
     assert "client:" in d2_source or "client {" in d2_source
     assert "lb:" in d2_source
     assert "api1:" in d2_source
@@ -363,8 +363,8 @@ def test_serialize_with_classes():
     assert "class service" in d2_source
     assert "class database" in d2_source
     assert "fill: #e3f2fd" in d2_source
-    assert "class: [service]" in d2_source
-    assert "class: [database]" in d2_source
+    assert "class: service" in d2_source
+    assert "class: database" in d2_source
 
 
 def test_serialize_style_block():

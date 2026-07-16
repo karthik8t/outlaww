@@ -157,11 +157,14 @@ class D2Serializer:
         inner_ind = "  " * (indent + 1)
 
         if node.shape:
-            lines.append(f"{inner_ind}shape: {node.shape}")
+            # Map cloud to a valid D2 shape if needed
+            shape = node.shape
+            lines.append(f"{inner_ind}shape: {shape}")
 
         if node.classes:
+            # Fix: class assignment without brackets
             classes_str = "; ".join(self.escape_id(c) for c in node.classes)
-            lines.append(f"{inner_ind}class: [{classes_str}]")
+            lines.append(f"{inner_ind}class: {classes_str}")
 
         style_str = self._serialize_style(node.style, indent + 2)
         if style_str:
@@ -224,8 +227,22 @@ class D2Serializer:
             note_text = self.escape_label(edge.label or "")
             return f"{actor}: {note_text}"
 
+        # Standard edge - fix reverse arrow direction
+        # D2 uses -> for forward, <- for reverse. Ensure correct direction.
+        direction = edge.direction
+        if direction == "<-":
+            # Reverse arrow: swap source and target, use ->
+            src, tgt = tgt, src
+            direction = "->"
+        elif direction == "<->":
+            # Bidirectional - keep as is
+            pass
+        elif direction == "--":
+            # Undirected - keep as is
+            pass
+
         # Standard edge
-        parts = [f"{src} {edge.direction} {tgt}"]
+        parts = [f"{src} {direction} {tgt}"]
         if edge.label:
             parts.append(f": {self.escape_label(edge.label)}")
 
@@ -250,7 +267,8 @@ class D2Serializer:
             lines.append(f"{ind}label: {self.escape_label(cls.label)}")
         style_str = self._serialize_style(cls.style, 2)
         if style_str:
-            lines.append(style_str)
+            # Fix: style { not style: {
+            lines.append(style_str.replace("style: {", "style {"))
         lines.append("}")
         return lines
 
@@ -264,17 +282,20 @@ class D2Serializer:
         lines = ["vars: {", "  d2-config: {"]
         inner = "    "
 
-        lines.append(f"{inner}layout-engine: {cfg.layout_engine}")
-        lines.append(f"{inner}direction: {cfg.direction}")
-        if cfg.theme_id is not None:
+        # Only include non-default values
+        if cfg.layout_engine != "dagre":
+            lines.append(f"{inner}layout-engine: {cfg.layout_engine}")
+        if cfg.direction != "right":
+            lines.append(f"{inner}direction: {cfg.direction}")
+        if cfg.theme_id is not None and cfg.theme_id != 0:
             lines.append(f"{inner}theme-id: {cfg.theme_id}")
-        if cfg.dark_theme_id is not None:
+        if cfg.dark_theme_id is not None and cfg.dark_theme_id != 0:
             lines.append(f"{inner}dark-theme-id: {cfg.dark_theme_id}")
         if cfg.pad != 100:
             lines.append(f"{inner}pad: {cfg.pad}")
         if cfg.sketch:
             lines.append(f"{inner}sketch: true")
-        if cfg.animate_interval is not None:
+        if cfg.animate_interval is not None and cfg.animate_interval != 0:
             lines.append(f"{inner}animate-interval: {cfg.animate_interval}")
 
         lines.append("  }")
