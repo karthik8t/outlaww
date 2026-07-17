@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
@@ -408,6 +409,7 @@ export function ReactFlowDiagramView({
   const initialEdges = edges.length > 0 ? edges : undefined
 
   return (
+    <ReactFlowProvider>
     <TooltipProvider>
       <div className={cn("flex flex-col h-full bg-background", className)}>
         {/* Toolbar */}
@@ -554,5 +556,6 @@ export function ReactFlowDiagramView({
         )}
       </div>
     </TooltipProvider>
+    </ReactFlowProvider>
   )
 }
