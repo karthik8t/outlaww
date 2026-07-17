@@ -66,7 +66,7 @@ export default function SessionsPage() {
       {/* Header */}
       <header className="flex items-center justify-between px-8 h-16 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
-          <span className="font-bold text-xl text-foreground">O</span>
+          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="font-bold text-xl text-foreground cursor-pointer">O</button>
           <span className="text-sm font-semibold text-foreground uppercase tracking-widest">
             Sessions
           </span>

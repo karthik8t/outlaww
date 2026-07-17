@@ -16,13 +16,7 @@ import {
   FileText,
   Terminal,
   FolderClosed,
-  AlertTriangle,
-  CheckCircle2,
-  Ban,
-  Lightbulb,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 // ============================================================================
 // Shared types
@@ -138,25 +132,11 @@ function getNodeConfig(nodeType: string): NodeTypeConfig {
   return NODE_TYPE_CONFIG[nodeType] || DEFAULT_NODE_CONFIG
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  normal: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20 dark:border-green-500/30",
-  warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 dark:border-amber-500/30",
-  error: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20 dark:border-red-500/30",
-  proposed: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 dark:border-blue-500/30",
-}
-
 const STATUS_DOTS: Record<string, string> = {
   normal: "bg-green-500",
   warning: "bg-amber-500",
   error: "bg-red-500",
   proposed: "bg-blue-500",
-}
-
-const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  normal: CheckCircle2,
-  warning: AlertTriangle,
-  error: Ban,
-  proposed: Lightbulb,
 }
 
 // ============================================================================
@@ -195,7 +175,7 @@ function NodeHandle({ h, layoutDirection }: { h: HandleConfig; layoutDirection?:
         height: 10,
         borderWidth: 2,
         opacity: 0,
-        transition: "opacity 0.15s ease, transform 0.15s ease",
+        transition: "opacity 0.15s ease",
       }}
       className="!border-border !bg-background !z-10 group-hover:!opacity-100"
     />
@@ -234,44 +214,7 @@ const GROUP_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>
 }
 
 // ============================================================================
-// Status Badge
-// ============================================================================
-
-function StatusBadge({ status }: { status: string }) {
-  const StatusIcon = STATUS_ICONS[status] || CheckCircle2
-  return (
-    <span className={cn(
-      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-mono font-medium leading-none border",
-      STATUS_STYLES[status] || STATUS_STYLES.normal,
-    )}>
-      <StatusIcon className="w-2.5 h-2.5" />
-      {status}
-    </span>
-  )
-}
-
-// ============================================================================
-// Tech Stack Badge
-// ============================================================================
-
-function TechBadge({ children, variant, dotColor }: { children: React.ReactNode; variant?: "default" | "muted"; dotColor?: string }) {
-  return (
-    <Badge
-      variant={variant === "default" ? "default" : "outline"}
-      className={cn(
-        "text-[9px] font-mono font-medium h-5 px-1.5 gap-1",
-        variant === "muted" && "border-muted-foreground/20 text-muted-foreground/70",
-        dotColor && "pl-1",
-      )}
-    >
-      {dotColor && <span className={cn("w-1.5 h-1.5 rounded-full", dotColor)} />}
-      {children}
-    </Badge>
-  )
-}
-
-// ============================================================================
-// Card Node — redesigned with shadcn, shows purpose/reasoning
+// Card Node — Swiss minimalistic with sharp lines
 // ============================================================================
 
 function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -288,19 +231,14 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
 
   const hasDbInfo = !!data.tableName
 
-  const tooltipContent = [
-    data.reasoning && `Why: ${data.reasoning}`,
-    data.architectureBenefit && `Benefit: ${data.architectureBenefit}`,
-    data.designJustification && `Justification: ${data.designJustification}`,
-  ].filter(Boolean).join("\n\n")
-
   return (
     <div
       className={cn(
-        "group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200",
+        "group relative border bg-background text-foreground transition-all duration-150",
+        "rounded-sm",
         cfg.dashed ? "border-dashed" : "border-solid",
         "min-w-[240px] max-w-[340px]",
-        selected ? "ring-2 ring-ring shadow-md" : "hover:shadow-md",
+        selected ? "ring-1 ring-ring" : "hover:shadow-sm",
         theme.border,
       )}
     >
@@ -308,99 +246,98 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
 
-      {/* Accent bar */}
-      <div className={cn("absolute top-0 left-0 right-0 h-0.5 rounded-t-lg", theme.accentBg)} />
+      {/* Swiss accent bar — 4px solid top bar */}
+      <div className={cn("h-1", theme.accentBg)} />
 
-      <div className="p-3 pt-3">
-        {/* Header: Icon + Type Badge + Status */}
-        <div className="flex items-start justify-between gap-2 mb-2.5">
+      <div className="p-3">
+        {/* Header: Icon + Type label + Status dot */}
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {IconComponent && (
-              <div className={cn("flex items-center justify-center w-5 h-5 rounded", theme.light)}>
-                <IconComponent className={cn("w-3 h-3 stroke-[2]", theme.accent)} />
-              </div>
+              <IconComponent className={cn("w-3.5 h-3.5 stroke-[2]", theme.accent)} />
             )}
-            <Badge variant="outline" className={cn(
-              "text-[9px] font-mono uppercase tracking-wider px-1.5 h-4.5 leading-none",
-              theme.badgeText, theme.badge, "border-transparent",
+            <span className={cn(
+              "inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider font-medium leading-none",
+              "rounded-sm",
+              theme.badge, theme.badgeText,
             )}>
               {cfg.label}
-            </Badge>
+            </span>
           </div>
-          {data.statusState && data.statusState !== "normal" && (
-            <StatusBadge status={data.statusState} />
-          )}
-          {data.statusState === "normal" && (
-            <span className={cn("w-2 h-2 rounded-full mt-0.5", STATUS_DOTS[data.statusState])} />
+          {data.statusState && (
+            <span className={cn("w-2 h-2 rounded-sm shrink-0", STATUS_DOTS[data.statusState])} />
           )}
         </div>
 
         {/* Label + Subtitle */}
         <div className="mb-1.5">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground leading-snug">
+          <h3 className="text-sm font-semibold text-foreground leading-snug">
             {data.label}
           </h3>
           {data.subtitle && (
-            <p className="text-[11px] text-muted-foreground/70 leading-normal mt-0.5 line-clamp-2">
+            <p className="text-xs text-muted-foreground leading-normal mt-0.5 line-clamp-2">
               {data.subtitle}
             </p>
           )}
         </div>
 
-        {/* Architecture purpose — key info line */}
+        {/* Purpose — clean text, no decoration */}
         {data.purpose && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="text-[11px] text-muted-foreground/60 leading-relaxed line-clamp-2 cursor-help italic border-l-2 pl-2 border-border/60">
-                {data.purpose}
-              </p>
-            </TooltipTrigger>
-            {tooltipContent && (
-              <TooltipContent side="top" className="max-w-[280px] whitespace-pre-line text-xs">
-                {tooltipContent}
-              </TooltipContent>
-            )}
-          </Tooltip>
+          <p className="text-[11px] text-muted-foreground/60 leading-relaxed line-clamp-2 mb-1">
+            {data.purpose}
+          </p>
         )}
 
         {/* Tech stack */}
         {hasTech && (
-          <div className="mt-2.5 pt-2 border-t border-border/50">
-            <div className="flex flex-wrap gap-1">
-              {data.languageRuntime !== "none" && (
-                <TechBadge dotColor="bg-sky-500">{data.languageRuntime}</TechBadge>
-              )}
-              {data.frameworkLibrary !== "none" && (
-                <TechBadge dotColor="bg-violet-500">{data.frameworkLibrary}</TechBadge>
-              )}
-              {data.databaseEngine !== "none" && (
-                <TechBadge variant="default" dotColor="bg-cyan-500">{data.databaseEngine}</TechBadge>
-              )}
-              {data.cloudServiceName !== "none" && (
-                <TechBadge dotColor="bg-orange-500">{data.cloudServiceName}</TechBadge>
-              )}
-              {data.cloudTier !== "none" && (
-                <TechBadge>{data.cloudTier}</TechBadge>
-              )}
-              {data.metadataTags && data.metadataTags.slice(0, 2).map((tag, i) => (
-                <TechBadge key={i}>{tag}</TechBadge>
-              ))}
-              {data.metadataTags && data.metadataTags.length > 2 && (
-                <TechBadge>+{data.metadataTags.length - 2}</TechBadge>
-              )}
-            </div>
+          <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border">
+            {data.languageRuntime !== "none" && (
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+                {data.languageRuntime}
+              </span>
+            )}
+            {data.frameworkLibrary !== "none" && (
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+                {data.frameworkLibrary}
+              </span>
+            )}
+            {data.databaseEngine !== "none" && (
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border bg-muted text-muted-foreground">
+                {data.databaseEngine}
+              </span>
+            )}
+            {data.cloudServiceName !== "none" && (
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+                {data.cloudServiceName}
+              </span>
+            )}
+            {data.cloudTier !== "none" && (
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm text-muted-foreground">
+                {data.cloudTier}
+              </span>
+            )}
+            {data.metadataTags && data.metadataTags.slice(0, 2).map((tag, i) => (
+              <span key={i} className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+                {tag}
+              </span>
+            ))}
+            {data.metadataTags && data.metadataTags.length > 2 && (
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm text-muted-foreground">
+                +{data.metadataTags.length - 2}
+              </span>
+            )}
           </div>
         )}
 
         {/* DB Schema */}
         {hasDbInfo && (
           <div className={cn(
-            "mt-2 pt-2 text-[10px] font-mono text-muted-foreground/60 truncate",
-            hasTech && "border-t border-border/50",
+            "mt-2 pt-2 text-[10px] font-mono text-muted-foreground truncate",
+            hasTech && "border-t border-border",
           )}>
-            <span className="font-semibold text-muted-foreground/80">{data.tableName}</span>
+            <span className="font-semibold text-foreground/70">{data.tableName}</span>
             {data.columns && data.columns.length > 0 && (
-              <span className="text-muted-foreground/40"> ({data.columns.join(", ")})</span>
+              <span className="text-muted-foreground/50"> ({data.columns.join(", ")})</span>
             )}
           </div>
         )}
@@ -410,7 +347,7 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
 }
 
 // ============================================================================
-// Container Node — for groups/zones/clusters/boundaries
+// Container Node — Swiss minimalistic groups
 // ============================================================================
 
 function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -423,11 +360,11 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
   return (
     <div
       className={cn(
-        "group w-full h-full rounded-xl border transition-shadow relative",
+        "group w-full h-full rounded-sm border transition-shadow relative",
         cfg.dashed ? "border-dashed" : "border-solid",
         theme.border,
         theme.light,
-        selected && "ring-2 ring-ring shadow-md",
+        selected && "ring-1 ring-ring",
       )}
     >
       {handles.map((h) => (
@@ -435,16 +372,15 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
       ))}
 
       {/* Accent bar */}
-      <div className={cn("absolute top-0 left-0 right-0 h-0.5 rounded-t-xl", theme.accentBg)} />
+      <div className={cn("h-1 rounded-t-sm", theme.accentBg)} />
 
       {/* Drag handle header */}
       <div
         className={cn(
           "rf-group-drag-handle",
-          "flex items-center gap-2 px-3 py-2 rounded-t-[10px]",
+          "flex items-center gap-2 px-3 py-1.5",
           "border-b cursor-grab active:cursor-grabbing select-none",
           theme.border,
-          "bg-background/40 dark:bg-background/10",
         )}
       >
         <GroupIcon className={cn("w-3.5 h-3.5 stroke-[2] shrink-0", theme.accent)} />
@@ -456,17 +392,12 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
             — {data.subtitle}
           </span>
         )}
-        {data.purpose && (
-          <span className="text-[10px] text-muted-foreground/40 truncate hidden lg:inline italic">
-            {data.purpose}
-          </span>
-        )}
-        <Badge variant="secondary" className={cn(
-          "ml-auto text-[8px] font-mono uppercase tracking-wider h-4.5 px-1.5 shrink-0",
-          theme.badgeText, theme.badge, "border-0",
+        <span className={cn(
+          "ml-auto px-1.5 py-[2px] text-[8px] font-mono uppercase tracking-wider shrink-0 rounded-sm",
+          theme.badge, theme.badgeText,
         )}>
           {cfg.label}
-        </Badge>
+        </span>
       </div>
     </div>
   )
@@ -483,8 +414,8 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
   return (
     <div
       className={cn(
-        "relative min-w-[300px] min-h-[120px] rounded-xl border-2 border-dashed transition-shadow",
-        selected && "ring-2 ring-ring shadow-md",
+        "relative min-w-[300px] min-h-[120px] rounded-sm border-2 border-dashed transition-shadow",
+        selected && "ring-1 ring-ring",
         theme.border,
         theme.light,
       )}
@@ -492,14 +423,13 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
       <div className={cn(
         "flex items-center gap-2 px-3 py-1.5 border-b border-dashed",
         theme.border,
-        "bg-background/30",
       )}>
-        <Badge variant="outline" className={cn(
-          "text-[8px] font-mono uppercase tracking-widest h-4 px-1 leading-none",
-          theme.badgeText, theme.badge, "border-transparent",
+        <span className={cn(
+          "text-[8px] font-mono uppercase tracking-widest font-semibold leading-none",
+          theme.badgeText,
         )}>
           {cfg.label}
-        </Badge>
+        </span>
         <span className="text-xs font-medium text-foreground/70 truncate">{data.label}</span>
       </div>
       {data.title && (
@@ -509,12 +439,12 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
       )}
       {data.description && (
         <div className="px-3 py-1.5">
-          <p className="text-xs text-muted-foreground/70">{data.description}</p>
+          <p className="text-xs text-muted-foreground">{data.description}</p>
         </div>
       )}
       {data.purpose && !data.title && !data.description && (
         <div className="px-3 py-2">
-          <p className="text-[11px] text-muted-foreground/50 italic">{data.purpose}</p>
+          <p className="text-[11px] text-muted-foreground/60">{data.purpose}</p>
         </div>
       )}
     </div>
@@ -531,17 +461,17 @@ function SwimlaneNode({ data, selected }: { data: NodeData; selected?: boolean }
   return (
     <div
       className={cn(
-        "relative flex rounded-xl border border-border/60 bg-muted/20 transition-shadow min-h-[80px]",
+        "relative flex rounded-sm border border-border bg-muted/20 transition-shadow min-h-[80px]",
         isHorizontal ? "flex-row" : "flex-col",
-        selected && "ring-2 ring-ring shadow-md",
+        selected && "ring-1 ring-ring",
       )}
     >
       <div
         className={cn(
-          "flex items-center justify-center font-semibold text-muted-foreground bg-background/40",
+          "flex items-center justify-center font-semibold text-muted-foreground",
           isHorizontal
-            ? "w-7 min-h-full border-r border-border/60 text-[9px] [writing-mode:vertical-rl] tracking-widest uppercase"
-            : "h-6 w-full border-b border-border/60 text-[9px] tracking-widest uppercase",
+            ? "w-7 min-h-full border-r border-border text-[9px] [writing-mode:vertical-rl] tracking-widest uppercase"
+            : "h-6 w-full border-b border-border text-[9px] tracking-widest uppercase",
         )}
       >
         {data.label || "Swimlane"}
@@ -675,7 +605,7 @@ export function CustomEdge(props: EdgeProps) {
             y={-10}
             width={labelW}
             height={18}
-            rx={4}
+            rx={3}
             className="fill-background stroke-border"
             strokeWidth={0.75}
           />
@@ -698,7 +628,7 @@ export function CustomEdge(props: EdgeProps) {
             y={-7}
             width={protocolW}
             height={13}
-            rx={3}
+            rx={2}
             className="fill-muted/80 stroke-border/40"
             strokeWidth={0.5}
           />

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
@@ -58,11 +59,15 @@ function IconRail({
   diagramCount: number
   docCount: number
 }) {
+  const navigate = useNavigate()
   return (
     <aside className="hidden md:flex w-16 flex-col bg-background border-r border-border z-40 h-full shrink-0">
-      <div className="p-4 border-b border-border flex items-center justify-center h-16">
+      <button
+        onClick={() => navigate("/")}
+        className="w-full p-4 border-b border-border flex items-center justify-center h-16 cursor-pointer"
+      >
         <span className="font-bold text-xl text-foreground">O</span>
-      </div>
+      </button>
 
       <div className="py-6 flex-1 flex flex-col items-center gap-3 overflow-y-auto no-scrollbar">
         {SIDEBAR_ITEMS.map((item) => {
