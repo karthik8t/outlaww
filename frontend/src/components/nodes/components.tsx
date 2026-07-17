@@ -69,6 +69,12 @@ interface NodeTypeConfig {
 }
 
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
+  // ── Dedicated group / container types ───────────────────────────────────
+  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-100 dark:bg-blue-900/40",   badgeText: "text-blue-700 dark:text-blue-300",   accent: "text-blue-600 dark:text-blue-400",   border: "border-blue-300 dark:border-blue-600",   light: "bg-blue-50/20 dark:bg-blue-950/10",   accentBg: "bg-blue-300 dark:bg-blue-600"   } },
+  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-300 dark:border-violet-600/70", light: "bg-violet-50/20 dark:bg-violet-950/10", accentBg: "bg-violet-300 dark:bg-violet-600" } },
+  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-100 dark:bg-amber-900/40",  badgeText: "text-amber-700 dark:text-amber-300",  accent: "text-amber-600 dark:text-amber-400",  border: "border-amber-300 dark:border-amber-600/70",  light: "bg-amber-50/20 dark:bg-amber-950/10",  accentBg: "bg-amber-300 dark:bg-amber-600"  } },
+  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40",   badgeText: "text-cyan-700 dark:text-cyan-300",   accent: "text-cyan-600 dark:text-cyan-400",   border: "border-cyan-300 dark:border-cyan-600/70",   light: "bg-cyan-50/20 dark:bg-cyan-950/10",   accentBg: "bg-cyan-300 dark:bg-cyan-600"   } },
+  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-100 dark:bg-teal-900/40",   badgeText: "text-teal-700 dark:text-teal-300",   accent: "text-teal-600 dark:text-teal-400",   border: "border-teal-300 dark:border-teal-600/70",   light: "bg-teal-50/20 dark:bg-teal-950/10",   accentBg: "bg-teal-300 dark:bg-teal-600"   } },
   // ── Legacy generic group ────────────────────────────────────────────────
   group: {
     label: "Group",
@@ -83,15 +89,18 @@ const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
       accentBg: "bg-gray-400 dark:bg-gray-500",
     },
   },
+  // ── C4 types ────────────────────────────────────────────────────────────
   c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-400 dark:bg-indigo-500" } },
   c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-400 dark:bg-indigo-500" } },
   c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-400 dark:bg-violet-500" } },
   c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-100 dark:bg-purple-900/40", badgeText: "text-purple-700 dark:text-purple-300", accent: "text-purple-600 dark:text-purple-400", border: "border-purple-400 dark:border-purple-500", light: "bg-purple-50/50 dark:bg-purple-950/20", accentBg: "bg-purple-400 dark:bg-purple-500" } },
   c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-100 dark:bg-fuchsia-900/40", badgeText: "text-fuchsia-700 dark:text-fuchsia-300", accent: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-300 dark:border-fuchsia-500/60", light: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10", accentBg: "bg-fuchsia-400 dark:bg-fuchsia-500" } },
+  // ── Flow types ──────────────────────────────────────────────────────────
   flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-100 dark:bg-amber-900/40", badgeText: "text-amber-700 dark:text-amber-300", accent: "text-amber-600 dark:text-amber-400", border: "border-amber-400 dark:border-amber-500", light: "bg-amber-50/50 dark:bg-amber-950/20", accentBg: "bg-amber-400 dark:bg-amber-500" } },
   flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-red-100 dark:bg-red-900/40", badgeText: "text-red-700 dark:text-red-300", accent: "text-red-600 dark:text-red-400", border: "border-red-400 dark:border-red-500", light: "bg-red-50/50 dark:bg-red-950/20", accentBg: "bg-red-400 dark:bg-red-500" } },
   flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-100 dark:bg-emerald-900/40", badgeText: "text-emerald-700 dark:text-emerald-300", accent: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-400 dark:border-emerald-500", light: "bg-emerald-50/50 dark:bg-emerald-950/20", accentBg: "bg-emerald-400 dark:bg-emerald-500" } },
   flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/30", accentBg: "bg-gray-400 dark:bg-gray-500" } },
+  // ── Cloud types ─────────────────────────────────────────────────────────
   cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-100 dark:bg-blue-900/40", badgeText: "text-blue-700 dark:text-blue-300", accent: "text-blue-600 dark:text-blue-400", border: "border-blue-400 dark:border-blue-500", light: "bg-blue-50/50 dark:bg-blue-950/20", accentBg: "bg-blue-400 dark:bg-blue-500" } },
   cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40", badgeText: "text-cyan-700 dark:text-cyan-300", accent: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-400 dark:border-cyan-500", light: "bg-cyan-50/50 dark:bg-cyan-950/20", accentBg: "bg-cyan-400 dark:bg-cyan-500" } },
   cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-400 dark:bg-violet-500" } },
@@ -334,25 +343,38 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
   const cfg = getNodeConfig(nodeType)
   const { theme } = cfg
   const meta = GROUP_LABEL_CONFIG[nodeType]
+  const handles = (data.handles || []) as HandleConfig[]
+  const layoutDirection = data.layoutDirection
 
   return (
     // w-full h-full: fills whatever size React Flow gives this node's wrapper.
     // The wrapper's size comes from the ELK-computed width/height we set on
     // the node object, so the container precisely fits its children.
+    // group class enables handles to show up on hover.
     <div
       className={cn(
-        "w-full h-full rounded-xl border-2 transition-shadow overflow-hidden",
+        "group w-full h-full rounded-xl border-2 transition-shadow relative",
         cfg.dashed ? "border-dashed" : "border-solid",
         selected && "ring-2 ring-ring shadow-md",
         theme.border,
         theme.light,
       )}
     >
-      {/* Header bar — label at top of container */}
+      {/* Direction-aware handles for group connection support */}
+      {handles.map((h) => (
+        <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
+      ))}
+
+      {/*
+        rf-group-drag-handle — React Flow's dragHandle selector.
+        Dragging this bar moves the entire group (parent + all children).
+        cursor-grab gives a visual affordance that this is the drag target.
+      */}
       <div
         className={cn(
-          "flex items-center gap-1.5 px-3 py-1.5",
-          "border-b",
+          "rf-group-drag-handle",
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-t-[10px]",
+          "border-b cursor-grab active:cursor-grabbing select-none",
           cfg.dashed ? "border-dashed" : "border-solid",
           theme.border,
         )}
@@ -377,6 +399,7 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
     </div>
   )
 }
+
 
 // ============================================================================
 // Group Node — container for children (legacy 'group' type)

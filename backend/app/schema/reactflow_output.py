@@ -47,10 +47,12 @@ class ReactFlowNodeOutput(BaseModel):
 
     # Interaction flags
     draggable: bool = Field(default=True)
+    dragHandle: Optional[str] = Field(default=None, description="CSS selector for the drag handle element.")
     selectable: bool = Field(default=True)
     deletable: bool = Field(default=True)
     focusable: bool = Field(default=False)
     hidden: bool = Field(default=False)
+
 
     # Z-index / stacking
     zIndex: int = Field(default=0, description="Computed stacking order (boundary=0, swimlane=1, system=10, actor=20).")
