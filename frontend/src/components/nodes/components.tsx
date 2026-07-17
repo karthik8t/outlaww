@@ -1,5 +1,22 @@
-import { Handle, Position, BaseEdge, getBezierPath, getSmoothStepPath, getStraightPath, getEdgeCenter, type EdgeProps, type NodeProps } from "@xyflow/react"
+import { Handle, Position, BaseEdge, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, type NodeProps } from "@xyflow/react"
 import { cn } from "@/lib/utils"
+import {
+  User,
+  Globe,
+  Smartphone,
+  Server,
+  Database,
+  Layers,
+  Cpu,
+  Router,
+  Shuffle,
+  Shield,
+  Settings,
+  Cloud,
+  FileText,
+  Terminal,
+  FolderClosed
+} from "lucide-react"
 
 // ============================================================================
 // Shared types — matches the post-processor's camelCase data shape
@@ -70,11 +87,11 @@ interface NodeTypeConfig {
 
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
   // ── Dedicated group / container types ───────────────────────────────────
-  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-100 dark:bg-blue-900/40",   badgeText: "text-blue-700 dark:text-blue-300",   accent: "text-blue-600 dark:text-blue-400",   border: "border-blue-300 dark:border-blue-600",   light: "bg-blue-50/20 dark:bg-blue-950/10",   accentBg: "bg-blue-300 dark:bg-blue-600"   } },
-  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-300 dark:border-violet-600/70", light: "bg-violet-50/20 dark:bg-violet-950/10", accentBg: "bg-violet-300 dark:bg-violet-600" } },
-  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-100 dark:bg-amber-900/40",  badgeText: "text-amber-700 dark:text-amber-300",  accent: "text-amber-600 dark:text-amber-400",  border: "border-amber-300 dark:border-amber-600/70",  light: "bg-amber-50/20 dark:bg-amber-950/10",  accentBg: "bg-amber-300 dark:bg-amber-600"  } },
-  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40",   badgeText: "text-cyan-700 dark:text-cyan-300",   accent: "text-cyan-600 dark:text-cyan-400",   border: "border-cyan-300 dark:border-cyan-600/70",   light: "bg-cyan-50/20 dark:bg-cyan-950/10",   accentBg: "bg-cyan-300 dark:bg-cyan-600"   } },
-  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-100 dark:bg-teal-900/40",   badgeText: "text-teal-700 dark:text-teal-300",   accent: "text-teal-600 dark:text-teal-400",   border: "border-teal-300 dark:border-teal-600/70",   light: "bg-teal-50/20 dark:bg-teal-950/10",   accentBg: "bg-teal-300 dark:bg-teal-600"   } },
+  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-100 dark:bg-blue-900/40",   badgeText: "text-blue-700 dark:text-blue-300",   accent: "text-blue-600 dark:text-blue-400",   border: "border-blue-300 dark:border-blue-600",   light: "bg-blue-50/20 dark:bg-blue-950/10",   accentBg: "bg-blue-500"   } },
+  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-300 dark:border-violet-600/70", light: "bg-violet-50/20 dark:bg-violet-950/10", accentBg: "bg-violet-500" } },
+  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-100 dark:bg-amber-900/40",  badgeText: "text-amber-700 dark:text-amber-300",  accent: "text-amber-600 dark:text-amber-400",  border: "border-amber-300 dark:border-amber-600/70",  light: "bg-amber-50/20 dark:bg-amber-950/10",  accentBg: "bg-amber-500"  } },
+  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40",   badgeText: "text-cyan-700 dark:text-cyan-300",   accent: "text-cyan-600 dark:text-cyan-400",   border: "border-cyan-300 dark:border-cyan-600/70",   light: "bg-cyan-50/20 dark:bg-cyan-950/10",   accentBg: "bg-cyan-500"   } },
+  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-100 dark:bg-teal-900/40",   badgeText: "text-teal-700 dark:text-teal-300",   accent: "text-teal-600 dark:text-teal-400",   border: "border-teal-300 dark:border-teal-600/70",   light: "bg-teal-50/20 dark:bg-teal-950/10",   accentBg: "bg-teal-500"   } },
   // ── Legacy generic group ────────────────────────────────────────────────
   group: {
     label: "Group",
@@ -86,34 +103,34 @@ const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
       accent: "text-gray-600 dark:text-gray-400",
       border: "border-gray-400 dark:border-gray-500",
       light: "bg-gray-50 dark:bg-gray-900/20",
-      accentBg: "bg-gray-400 dark:bg-gray-500",
+      accentBg: "bg-gray-400",
     },
   },
   // ── C4 types ────────────────────────────────────────────────────────────
-  c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-400 dark:bg-indigo-500" } },
-  c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-400 dark:bg-indigo-500" } },
-  c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-400 dark:bg-violet-500" } },
-  c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-100 dark:bg-purple-900/40", badgeText: "text-purple-700 dark:text-purple-300", accent: "text-purple-600 dark:text-purple-400", border: "border-purple-400 dark:border-purple-500", light: "bg-purple-50/50 dark:bg-purple-950/20", accentBg: "bg-purple-400 dark:bg-purple-500" } },
-  c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-100 dark:bg-fuchsia-900/40", badgeText: "text-fuchsia-700 dark:text-fuchsia-300", accent: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-300 dark:border-fuchsia-500/60", light: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10", accentBg: "bg-fuchsia-400 dark:bg-fuchsia-500" } },
+  c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
+  c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
+  c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
+  c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-100 dark:bg-purple-900/40", badgeText: "text-purple-700 dark:text-purple-300", accent: "text-purple-600 dark:text-purple-400", border: "border-purple-400 dark:border-purple-500", light: "bg-purple-50/50 dark:bg-purple-950/20", accentBg: "bg-violet-500" } },
+  c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-100 dark:bg-fuchsia-900/40", badgeText: "text-fuchsia-700 dark:text-fuchsia-300", accent: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-300 dark:border-fuchsia-500/60", light: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10", accentBg: "bg-fuchsia-500" } },
   // ── Flow types ──────────────────────────────────────────────────────────
-  flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-100 dark:bg-amber-900/40", badgeText: "text-amber-700 dark:text-amber-300", accent: "text-amber-600 dark:text-amber-400", border: "border-amber-400 dark:border-amber-500", light: "bg-amber-50/50 dark:bg-amber-950/20", accentBg: "bg-amber-400 dark:bg-amber-500" } },
-  flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-red-100 dark:bg-red-900/40", badgeText: "text-red-700 dark:text-red-300", accent: "text-red-600 dark:text-red-400", border: "border-red-400 dark:border-red-500", light: "bg-red-50/50 dark:bg-red-950/20", accentBg: "bg-red-400 dark:bg-red-500" } },
-  flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-100 dark:bg-emerald-900/40", badgeText: "text-emerald-700 dark:text-emerald-300", accent: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-400 dark:border-emerald-500", light: "bg-emerald-50/50 dark:bg-emerald-950/20", accentBg: "bg-emerald-400 dark:bg-emerald-500" } },
-  flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/30", accentBg: "bg-gray-400 dark:bg-gray-500" } },
+  flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-100 dark:bg-amber-900/40", badgeText: "text-amber-700 dark:text-amber-300", accent: "text-amber-600 dark:text-amber-400", border: "border-amber-400 dark:border-amber-500", light: "bg-amber-50/50 dark:bg-amber-950/20", accentBg: "bg-amber-500" } },
+  flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-red-100 dark:bg-red-900/40", badgeText: "text-red-700 dark:text-red-300", accent: "text-red-600 dark:text-red-400", border: "border-red-400 dark:border-red-500", light: "bg-red-50/50 dark:bg-red-950/20", accentBg: "bg-red-500" } },
+  flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-100 dark:bg-emerald-900/40", badgeText: "text-emerald-700 dark:text-emerald-300", accent: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-400 dark:border-emerald-500", light: "bg-emerald-50/50 dark:bg-emerald-950/20", accentBg: "bg-emerald-500" } },
+  flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/30", accentBg: "bg-gray-500" } },
   // ── Cloud types ─────────────────────────────────────────────────────────
-  cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-100 dark:bg-blue-900/40", badgeText: "text-blue-700 dark:text-blue-300", accent: "text-blue-600 dark:text-blue-400", border: "border-blue-400 dark:border-blue-500", light: "bg-blue-50/50 dark:bg-blue-950/20", accentBg: "bg-blue-400 dark:bg-blue-500" } },
-  cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40", badgeText: "text-cyan-700 dark:text-cyan-300", accent: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-400 dark:border-cyan-500", light: "bg-cyan-50/50 dark:bg-cyan-950/20", accentBg: "bg-cyan-400 dark:bg-cyan-500" } },
-  cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-400 dark:bg-violet-500" } },
-  cloudNetwork:  { label: "Network",  dashed: false, zIndex: 10, theme: { badge: "bg-teal-100 dark:bg-teal-900/40", badgeText: "text-teal-700 dark:text-teal-300", accent: "text-teal-600 dark:text-teal-400", border: "border-teal-400 dark:border-teal-500", light: "bg-teal-50/50 dark:bg-teal-950/20", accentBg: "bg-teal-400 dark:bg-teal-500" } },
-  cloudMessaging:{ label: "Messaging",dashed: false, zIndex: 10, theme: { badge: "bg-orange-100 dark:bg-orange-900/40", badgeText: "text-orange-700 dark:text-orange-300", accent: "text-orange-600 dark:text-orange-400", border: "border-orange-400 dark:border-orange-500", light: "bg-orange-50/50 dark:bg-orange-950/20", accentBg: "bg-orange-400 dark:bg-orange-500" } },
-  cloudSecurity: { label: "Security", dashed: false, zIndex: 10, theme: { badge: "bg-slate-200 dark:bg-slate-700", badgeText: "text-slate-600 dark:text-slate-300", accent: "text-slate-600 dark:text-slate-400", border: "border-slate-400 dark:border-slate-500", light: "bg-slate-50 dark:bg-slate-950/20", accentBg: "bg-slate-400 dark:bg-slate-500" } },
-  cloudAnalytics:{ label: "Analytics",dashed: false, zIndex: 10, theme: { badge: "bg-pink-100 dark:bg-pink-900/40", badgeText: "text-pink-700 dark:text-pink-300", accent: "text-pink-600 dark:text-pink-400", border: "border-pink-400 dark:border-pink-500", light: "bg-pink-50/50 dark:bg-pink-950/20", accentBg: "bg-pink-400 dark:bg-pink-500" } },
-  cloudBoundary: { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-500 dark:text-gray-400", accent: "text-gray-500 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/20", accentBg: "bg-gray-300 dark:bg-gray-600" } },
+  cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-100 dark:bg-blue-900/40", badgeText: "text-blue-700 dark:text-blue-300", accent: "text-blue-600 dark:text-blue-400", border: "border-blue-400 dark:border-blue-500", light: "bg-blue-50/50 dark:bg-blue-950/20", accentBg: "bg-blue-500" } },
+  cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40", badgeText: "text-cyan-700 dark:text-cyan-300", accent: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-400 dark:border-cyan-500", light: "bg-cyan-50/50 dark:bg-cyan-950/20", accentBg: "bg-cyan-500" } },
+  cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
+  cloudNetwork:  { label: "Network",  dashed: false, zIndex: 10, theme: { badge: "bg-teal-100 dark:bg-teal-900/40", badgeText: "text-teal-700 dark:text-teal-300", accent: "text-teal-600 dark:text-teal-400", border: "border-teal-400 dark:border-teal-500", light: "bg-teal-50/50 dark:bg-teal-950/20", accentBg: "bg-teal-500" } },
+  cloudMessaging:{ label: "Messaging",dashed: false, zIndex: 10, theme: { badge: "bg-orange-100 dark:bg-orange-900/40", badgeText: "text-orange-700 dark:text-orange-300", accent: "text-orange-600 dark:text-orange-400", border: "border-orange-400 dark:border-orange-500", light: "bg-orange-50/50 dark:bg-orange-950/20", accentBg: "bg-orange-500" } },
+  cloudSecurity: { label: "Security", dashed: false, zIndex: 10, theme: { badge: "bg-slate-200 dark:bg-slate-700", badgeText: "text-slate-600 dark:text-slate-300", accent: "text-slate-600 dark:text-slate-400", border: "border-slate-400 dark:border-slate-500", light: "bg-slate-50 dark:bg-slate-950/20", accentBg: "bg-slate-500" } },
+  cloudAnalytics:{ label: "Analytics",dashed: false, zIndex: 10, theme: { badge: "bg-pink-100 dark:bg-pink-900/40", badgeText: "text-pink-700 dark:text-pink-300", accent: "text-pink-600 dark:text-pink-400", border: "border-pink-400 dark:border-pink-500", light: "bg-pink-50/50 dark:bg-pink-950/20", accentBg: "bg-pink-500" } },
+  cloudBoundary: { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-500 dark:text-gray-400", accent: "text-gray-500 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/20", accentBg: "bg-gray-500" } },
 }
 
 const DEFAULT_NODE_CONFIG: NodeTypeConfig = {
   label: "Node", dashed: false, zIndex: 10,
-  theme: { badge: "bg-gray-100 dark:bg-gray-800", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/10", accentBg: "bg-gray-400 dark:bg-gray-500" },
+  theme: { badge: "bg-gray-100 dark:bg-gray-800", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/10", accentBg: "bg-gray-500" },
 }
 
 function getNodeConfig(nodeType: string): NodeTypeConfig {
@@ -131,14 +148,6 @@ const STATUS_CLASSES: Record<string, string> = {
 // Dynamic handle position — derives correct edge from layout direction
 // ============================================================================
 
-/**
- * Given the current layout direction and whether this handle is a source or
- * target, return the correct React Flow Position enum value.
- *
- * Layout flow:  TB = top→bottom,  LR = left→right,  BT = bottom→top,  RL = right→left
- * Source handle = the "exit" side of the node (where the arrow leaves)
- * Target handle = the "entry" side of the node (where the arrow arrives)
- */
 function resolveHandlePosition(layoutDirection: string | undefined, handleType: "source" | "target"): Position {
   const dir = layoutDirection?.toUpperCase() || "LR"
 
@@ -149,15 +158,7 @@ function resolveHandlePosition(layoutDirection: string | undefined, handleType: 
   return handleType === "source" ? Position.Right : Position.Left
 }
 
-/**
- * For a given layout direction, return the style offset for placing a handle
- * at the correct cardinal edge center. We override x/y from the backend data
- * because the backend data may be stale (set during a different direction).
- */
 function handleStyle(position: Position): React.CSSProperties {
-  // Centers the handle on the edge it belongs to.
-  // React Flow will further offset it by its own logic, we just need the
-  // percentage-based position to put it at the midpoint of the edge.
   switch (position) {
     case Position.Top:    return { left: "50%", top: 0,    transform: "translate(-50%, -50%)" }
     case Position.Bottom: return { left: "50%", bottom: 0, top: "auto", transform: "translate(-50%, 50%)" }
@@ -185,7 +186,6 @@ function NodeHandle({ h, layoutDirection }: { h: HandleConfig; layoutDirection?:
         width: 10,
         height: 10,
         borderWidth: 2,
-        // Invisible at rest; parent has `group` class so hover reveals them
         opacity: 0,
         transition: "opacity 0.15s ease, transform 0.15s ease",
       }}
@@ -195,7 +195,37 @@ function NodeHandle({ h, layoutDirection }: { h: HandleConfig; layoutDirection?:
 }
 
 // ============================================================================
-// Card Node — standard card for all content-bearing nodes
+// Lucide Icon Mapping
+// ============================================================================
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  user: User,
+  browser: Globe,
+  mobile: Smartphone,
+  server: Server,
+  database: Database,
+  queue: Layers,
+  microservice: Cpu,
+  router: Router,
+  "load-balancer": Shuffle,
+  shield: Shield,
+  gear: Settings,
+  cloud: Cloud,
+  file: FileText,
+  terminal: Terminal,
+}
+
+const GROUP_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  deploymentGroup: Globe,
+  serviceGroup: Layers,
+  domainGroup: FolderClosed,
+  dataGroup: Database,
+  networkGroup: Router,
+  c4Boundary: Shield,
+  cloudBoundary: Cloud,
+}
+
+// ============================================================================
+// Card Node — standard card for all content-bearing nodes (Swiss clean look)
 // ============================================================================
 
 function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -204,21 +234,15 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
   const handles = (data.handles || []) as HandleConfig[]
   const layoutDirection = data.layoutDirection
 
-  // Determine which side the accent stripe should be on:
-  // In LR mode, nodes flow left→right so the stripe stays on the left.
-  // In RL mode, nodes flow right→left so the stripe should be on the right.
-  // In TB/BT modes, the stripe stays on the left as a visual marker.
-  const stripeOnRight = layoutDirection?.toUpperCase() === "RL"
+  const IconComponent = data.icon ? ICON_MAP[data.icon] : null
 
   return (
     <div
       className={cn(
-        // `group` enables the CSS group-hover to show handles on hover
-        "group relative rounded-xl border bg-card text-card-foreground shadow-sm transition-shadow",
+        "group relative rounded-lg border bg-background text-foreground shadow-sm transition-all duration-200",
         cfg.dashed ? "border-dashed" : "border-solid",
-        "min-w-[220px] max-w-[300px]",
-        selected && "ring-2 ring-ring shadow-md",
-        !selected && "hover:shadow-md hover:shadow-black/5",
+        "min-w-[240px] max-w-[320px]",
+        selected ? "ring-2 ring-ring shadow-md" : "hover:shadow-md hover:shadow-slate-100 dark:hover:shadow-none",
         theme.border,
       )}
     >
@@ -227,81 +251,74 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
 
-      {/* Accent stripe — left or right depending on flow direction */}
+      {/* Swiss Accent Bar — 4px horizontal top bar representing node type theme */}
       <div
-        className={cn(
-          "absolute top-0 bottom-0 w-1 rounded-l-xl",
-          stripeOnRight ? "right-0 rounded-l-none rounded-r-xl" : "left-0",
-          theme.accentBg,
-        )}
+        className={cn("absolute top-0 left-0 right-0 h-1 rounded-t-[7px]", theme.accentBg)}
       />
 
-      {/* Content — padded away from the stripe */}
-      <div className={cn("p-3", stripeOnRight ? "pr-4" : "pl-4")}>
-        {/* Header row: type badge + status dot */}
-        <div className="flex items-center justify-between mb-2">
-          <span className={cn(
-            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-widest",
-            theme.badge, theme.badgeText
-          )}>
-            {data.icon && <span className="text-xs">{data.icon}</span>}
+      {/* Content — spacious and cleanly aligned */}
+      <div className="p-4 pt-4">
+        {/* Header row: Type category label + Status Urgency Dot */}
+        <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100 dark:border-slate-800/60">
+          <span className="inline-flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-wider font-semibold text-muted-foreground">
+            {IconComponent && <IconComponent className="w-3.5 h-3.5 stroke-[2] text-muted-foreground" />}
             {cfg.label}
-            {/* Type qualifier (e.g. "Container", "Actor") */}
             {data.statusState && (
-              <span className="text-[9px] font-medium opacity-70 normal-case tracking-normal capitalize">
-                {nodeType.replace(/^(c4|flow|cloud)/, " ").trim()}
+              <span className="opacity-60 font-normal lowercase tracking-normal">
+                ({nodeType.replace(/^(c4|flow|cloud)/, "").trim()})
               </span>
             )}
           </span>
           {data.statusState && (
             <span className={cn(
-              "w-2 h-2 rounded-full flex-shrink-0",
+              "w-1.5 h-1.5 rounded-full flex-shrink-0",
               STATUS_CLASSES[data.statusState] || STATUS_CLASSES.normal
             )} />
           )}
         </div>
 
         {/* Primary label + subtitle */}
-        <div className="mb-2">
-          <h3 className={cn("text-sm font-semibold leading-tight", theme.accent)}>
+        <div className="mb-3">
+          <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-snug">
             {data.label}
           </h3>
           {data.subtitle && (
-            <p className="text-xs text-muted-foreground leading-snug mt-0.5 line-clamp-2">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal mt-0.5 line-clamp-2">
               {data.subtitle}
             </p>
           )}
         </div>
 
-        {/* Tech stack tags */}
-        <div className="flex flex-wrap gap-1">
+        {/* Tech stack tags — flat, high-contrast, typographic layout */}
+        <div className="flex flex-wrap gap-1 mt-2">
           {data.languageRuntime && data.languageRuntime !== "none" && (
-            <Tag theme={theme}>{data.languageRuntime}</Tag>
+            <Tag>{data.languageRuntime}</Tag>
           )}
           {data.frameworkLibrary && data.frameworkLibrary !== "none" && (
-            <Tag className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">{data.frameworkLibrary}</Tag>
+            <Tag>{data.frameworkLibrary}</Tag>
           )}
           {data.databaseEngine && data.databaseEngine !== "none" && (
-            <Tag className="bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300">{data.databaseEngine}</Tag>
+            <Tag className="font-bold border-slate-300 dark:border-slate-600">{data.databaseEngine}</Tag>
           )}
           {data.cloudServiceName && data.cloudServiceName !== "none" && (
-            <Tag className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">{data.cloudServiceName}</Tag>
+            <Tag>{data.cloudServiceName}</Tag>
           )}
           {data.cloudTier && data.cloudTier !== "none" && (
-            <Tag theme={theme}>{data.cloudTier}</Tag>
+            <Tag>{data.cloudTier}</Tag>
           )}
-          {data.metadataTags && data.metadataTags.slice(0, 3).map((tag, i) => (
-            <Tag key={i} className="bg-muted text-muted-foreground border border-border">{tag}</Tag>
+          {data.metadataTags && data.metadataTags.slice(0, 3).map((tag: string, i: number) => (
+            <Tag key={i}>{tag}</Tag>
           ))}
           {data.metadataTags && data.metadataTags.length > 3 && (
-            <Tag className="bg-muted text-muted-foreground">+{data.metadataTags.length - 3}</Tag>
+            <Tag>+{data.metadataTags.length - 3}</Tag>
           )}
         </div>
 
+        {/* DB Schema row */}
         {data.tableName && (
-          <div className="mt-1.5 text-[10px] font-mono text-muted-foreground truncate">
-            {data.tableName}
-            {data.columns && data.columns.length > 0 && ` (${data.columns.join(", ")})`}
+          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 text-[10px] font-mono text-muted-foreground truncate">
+            <span className="font-semibold text-slate-600 dark:text-slate-400">table:</span> {data.tableName}
+            {data.columns && data.columns.length > 0 && ` [${data.columns.join(", ")}]`}
           </div>
         )}
       </div>
@@ -309,55 +326,36 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
   )
 }
 
-function Tag({ children, className, theme }: { children: React.ReactNode; className?: string; theme?: NodeTheme }) {
+function Tag({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={cn("px-1.5 py-0.5 text-[10px] font-medium rounded", theme?.badge, theme?.badgeText, className)}>
+    <span
+      className={cn(
+        "px-1.5 py-0.5 text-[9px] font-mono font-medium rounded border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400",
+        className
+      )}
+    >
       {children}
     </span>
   )
 }
 
 // ============================================================================
-// Container Node — renders all dedicated group/container types
-// Each variant gets a distinct visual treatment so hierarchy is immediately
-// readable at a glance:
-//   deploymentGroup — large dashed blue border, prominent zone label
-//   serviceGroup    — solid violet border, cluster label
-//   domainGroup     — dashed amber border, domain label
-//   dataGroup       — solid cyan border, data tier label
-//   networkGroup    — dashed teal border, network zone label
-//   c4Boundary / cloudBoundary — C4 notation fallbacks
+// Container Node — renders all dedicated group/container types (Swiss clean look)
 // ============================================================================
-
-const GROUP_LABEL_CONFIG: Record<string, { icon: string; size: string }> = {
-  deploymentGroup: { icon: "🌐", size: "text-[11px]" },
-  serviceGroup:    { icon: "⚙️", size: "text-[10px]" },
-  domainGroup:     { icon: "🔷", size: "text-[10px]" },
-  dataGroup:       { icon: "🗄️", size: "text-[10px]" },
-  networkGroup:    { icon: "🔗", size: "text-[10px]" },
-  c4Boundary:      { icon: "⬡", size: "text-[10px]" },
-  cloudBoundary:   { icon: "☁️", size: "text-[10px]" },
-}
 
 function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
   const cfg = getNodeConfig(nodeType)
   const { theme } = cfg
-  const meta = GROUP_LABEL_CONFIG[nodeType]
+  const GroupIcon = GROUP_ICON_MAP[nodeType] || FolderClosed
   const handles = (data.handles || []) as HandleConfig[]
   const layoutDirection = data.layoutDirection
 
   return (
-    // w-full h-full: fills whatever size React Flow gives this node's wrapper.
-    // The wrapper's size comes from the ELK-computed width/height we set on
-    // the node object, so the container precisely fits its children.
-    // group class enables handles to show up on hover.
     <div
       className={cn(
-        "group w-full h-full rounded-xl border-2 transition-shadow relative",
+        "group w-full h-full rounded-xl border border-slate-300 dark:border-slate-700/80 transition-shadow relative bg-slate-50/40 dark:bg-slate-950/5",
         cfg.dashed ? "border-dashed" : "border-solid",
         selected && "ring-2 ring-ring shadow-md",
-        theme.border,
-        theme.light,
       )}
     >
       {/* Direction-aware handles for group connection support */}
@@ -368,30 +366,27 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
       {/*
         rf-group-drag-handle — React Flow's dragHandle selector.
         Dragging this bar moves the entire group (parent + all children).
-        cursor-grab gives a visual affordance that this is the drag target.
       */}
       <div
         className={cn(
           "rf-group-drag-handle",
-          "flex items-center gap-1.5 px-3 py-1.5 rounded-t-[10px]",
-          "border-b cursor-grab active:cursor-grabbing select-none",
-          cfg.dashed ? "border-dashed" : "border-solid",
-          theme.border,
+          "flex items-center gap-1.5 px-3.5 py-2 rounded-t-[10px]",
+          "border-b cursor-grab active:cursor-grabbing select-none bg-slate-100/50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800",
         )}
       >
-        {meta && <span className="text-sm leading-none">{meta.icon}</span>}
-        <span className={cn("font-bold uppercase tracking-widest", meta?.size ?? "text-[10px]", theme.accent)}>
+        <GroupIcon className={cn("w-3.5 h-3.5 stroke-[2]", theme.accent)} />
+        <span className={cn("font-mono font-bold uppercase tracking-wider text-[9px] text-slate-700 dark:text-slate-300")}>
           {data.label}
         </span>
         {data.subtitle && (
-          <span className="text-[10px] text-muted-foreground font-normal normal-case tracking-normal ml-1">
-            {data.subtitle}
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal ml-1">
+            — {data.subtitle}
           </span>
         )}
         {/* Type badge pinned to far right */}
         <span className={cn(
-          "ml-auto px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider shrink-0",
-          theme.badge, theme.badgeText
+          "ml-auto px-1.5 py-0.5 rounded text-[8px] font-mono uppercase tracking-wider shrink-0 border border-slate-200/50 dark:border-slate-800 bg-background/50",
+          theme.badgeText
         )}>
           {cfg.label}
         </span>
@@ -399,7 +394,6 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
     </div>
   )
 }
-
 
 // ============================================================================
 // Group Node — container for children (legacy 'group' type)
@@ -482,11 +476,13 @@ function DiagramNode(props: NodeProps) {
   const isSwimlane = type === "flowSwimlane"
   const isLegacyGroup = type === "group"
 
-  if (isContainer) return <ContainerNode data={data as NodeData} selected={selected} nodeType={type || "group"} />
-  if (isSwimlane)  return <SwimlaneNode data={data as NodeData} selected={selected} />
-  if (isLegacyGroup) return <GroupNode data={data as NodeData} selected={selected} nodeType={type || "group"} />
+  const nodeData = data as any as NodeData
 
-  return <CardNode data={data as NodeData} selected={selected} nodeType={type || "c4Container"} />
+  if (isContainer) return <ContainerNode data={nodeData} selected={selected} nodeType={type || "group"} />
+  if (isSwimlane)  return <SwimlaneNode data={nodeData} selected={selected} />
+  if (isLegacyGroup) return <GroupNode data={nodeData} selected={selected} nodeType={type || "group"} />
+
+  return <CardNode data={nodeData} selected={selected} nodeType={type || "c4Container"} />
 }
 
 export const nodeTypes = {
@@ -567,7 +563,6 @@ export function CustomEdge(props: EdgeProps) {
   })
 
   // Use the path midpoint provided by the path helper (more accurate than getEdgeCenter)
-  // and offset the protocol label below the main label
   const hasLabel = !!label
   const hasProtocol = !!(edgeData?.protocol && edgeData.protocol !== "none")
   const labelStr = label as string | undefined

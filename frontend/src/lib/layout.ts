@@ -120,17 +120,72 @@ export async function layoutNodes(
     }
   }
 
-  // Group edges by their lowest common ancestor (LCA) node ID
+  // Group edges by their lowest common ancestor (LCA) node ID.
+  // To resolve group-to-group layout dependencies, we also propagate virtual edges
+  // between the ancestor container nodes at every level where they are siblings.
   const edgesByLCA: Record<string, any[]> = {}
   const rootEdges: any[] = []
 
   for (const edge of edges) {
     const lca = getEdgeLCA(edge.source, edge.target, parentOf)
+
+    // 1. Add the original edge at the LCA level
     if (lca) {
       if (!edgesByLCA[lca]) edgesByLCA[lca] = []
       edgesByLCA[lca].push(edge)
     } else {
       rootEdges.push(edge)
+    }
+
+    // 2. Propagate virtual layout edges up to siblings under the same parent.
+    // This allows ELK to layout parent groups in the correct order based on
+    // connection flows of their nested children.
+    let s: string | null = edge.source
+    const sAncestors: string[] = []
+    while (s) {
+      sAncestors.push(s)
+      s = parentOf[s]
+    }
+
+    let t: string | null = edge.target
+    const tAncestors: string[] = []
+    while (t) {
+      tAncestors.push(t)
+      t = parentOf[t]
+    }
+
+    for (const sAns of sAncestors) {
+      for (const tAns of tAncestors) {
+        const sParent = parentOf[sAns]
+        const tParent = parentOf[tAns]
+        if (sParent === tParent && sAns !== tAns) {
+          const parentKey = sParent ?? "root"
+          const isRoot = parentKey === "root"
+          
+          if (isRoot) {
+            const exists = rootEdges.some((e: any) => e.source === sAns && e.target === tAns)
+            if (!exists) {
+              rootEdges.push({
+                id: `virtual-${sAns}-${tAns}`,
+                source: sAns,
+                target: tAns,
+                isVirtual: true,
+              })
+            }
+          } else {
+            if (!edgesByLCA[parentKey]) edgesByLCA[parentKey] = []
+            const exists = edgesByLCA[parentKey].some((e: any) => e.source === sAns && e.target === tAns)
+            if (!exists) {
+              edgesByLCA[parentKey].push({
+                id: `virtual-${sAns}-${tAns}`,
+                source: sAns,
+                target: tAns,
+                isVirtual: true,
+              })
+            }
+          }
+        }
+      }
     }
   }
 
@@ -165,7 +220,7 @@ export async function layoutNodes(
       // Assign LCA edges belonging to this container
       const lcaEdges = edgesByLCA[node.id] || []
       elkNode.edges = lcaEdges.map(e => ({
-        id: `inner-${e.id}`,
+        id: e.isVirtual ? e.id : `inner-${e.id}`,
         sources: [e.source],
         targets: [e.target]
       }))
@@ -183,7 +238,11 @@ export async function layoutNodes(
       "elk.layered.spacing.nodeNodeBetweenLayers": "120",
     },
     children: rootNodes.map(buildElkNode),
-    edges: rootEdges.map(e => ({ id: `root-${e.id}`, sources: [e.source], targets: [e.target] })),
+    edges: rootEdges.map(e => ({
+      id: e.isVirtual ? e.id : `root-${e.id}`,
+      sources: [e.source],
+      targets: [e.target]
+    })),
   }
 
 

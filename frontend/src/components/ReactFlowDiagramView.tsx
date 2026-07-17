@@ -347,7 +347,7 @@ export function ReactFlowCanvas({
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={runLayout}>
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => runLayout()}>
                     <Layout className="w-3.5 h-3.5" />
                   </Button>
                 </TooltipTrigger>
