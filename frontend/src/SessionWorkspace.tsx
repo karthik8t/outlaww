@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
 import { ReactFlowDiagramView } from "@/components/ReactFlowDiagramView"
+
 
 import {
   GitBranch,
@@ -13,7 +15,6 @@ import {
   Terminal,
   User,
   Bot,
-  CheckCircle,
   Send,
   Paperclip,
   Download,
@@ -124,65 +125,131 @@ function IconRail({
 // ---------------------------------------------------------------------------
 
 function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
-  if (msg.role === "system") {
+  if (msg.isError) {
     return (
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="flex items-center gap-2 text-red-600">
           <Terminal className="w-3.5 h-3.5" />
-          <span className="text-[10px] font-mono uppercase tracking-widest">
-            System · {msg.timestamp}
+          <span className="text-[10px] font-mono uppercase tracking-widest font-semibold">
+            System Error · {msg.timestamp}
           </span>
         </div>
-        <div className="bg-background border border-border rounded p-3 text-sm text-foreground font-mono whitespace-pre-wrap">
-          {msg.text}
-        </div>
-      </div>
-    )
-  }
-
-  if (msg.role === "user") {
-    return (
-      <div className="flex flex-col gap-1.5 items-end">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span className="text-[10px] font-mono uppercase tracking-widest">
-            User · {msg.timestamp}
-          </span>
-          <User className="w-3.5 h-3.5" />
-        </div>
-        <div className="bg-primary text-primary-foreground rounded-lg rounded-tr-none p-3 text-sm max-w-[85%]">
-          {msg.text}
+        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg p-3 text-sm text-red-850 dark:text-red-305 font-mono whitespace-pre-wrap">
+          {msg.agentText}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Bot className="w-3.5 h-3.5 text-blue-600" />
-        <span className="text-[10px] font-mono uppercase tracking-widest text-blue-600">
-          {msg.routedTo || "AI Agent"} · {msg.timestamp}
-        </span>
-      </div>
-      <div className="bg-background border border-border rounded-lg p-3 text-sm text-foreground space-y-3">
-        <p className="whitespace-pre-wrap">{msg.text}</p>
-        {msg.structuredOutput && (
-          <details className="group">
-            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-              Show structured output
-            </summary>
-            <pre className="bg-muted p-2 rounded border border-border font-mono text-xs text-muted-foreground mt-2 overflow-x-auto max-h-48 overflow-y-auto">
-              {JSON.stringify(msg.structuredOutput, null, 2)}
-            </pre>
-          </details>
-        )}
-        <div className="flex items-center gap-2 pt-2 border-t border-border">
-          <CheckCircle className="w-4 h-4 text-green-600" />
-          <span className="text-xs font-semibold text-foreground">
-            Handled by {msg.routedTo || "agent"}
-          </span>
+    <div className="flex flex-col gap-4">
+      {/* 1. User Message (if present) */}
+      {msg.userText && (
+        <div className="flex flex-col gap-1.5 items-end">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <span className="text-[10px] font-mono uppercase tracking-widest">
+              User · {msg.timestamp}
+            </span>
+            <User className="w-3.5 h-3.5" />
+          </div>
+          <div className="bg-primary text-primary-foreground rounded-lg rounded-tr-none px-3.5 py-2 text-sm max-w-[85%] shadow-sm">
+            {msg.userText}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* 2. AI Consolidated Response Card */}
+      {(msg.agentText || msg.reflectionSummary || msg.agentsInvolved.length > 0) && (
+        <div className="flex flex-col gap-2">
+          {/* Header & Pipeline Trail */}
+          <div className="flex items-center justify-between text-muted-foreground px-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <div className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider">
+                {msg.agentsInvolved.map((agent, index) => (
+                  <span key={index} className="flex items-center gap-1">
+                    {index > 0 && <span className="opacity-40 text-slate-400">→</span>}
+                    <span className={cn(
+                      "font-semibold",
+                      agent === msg.routedTo ? "text-blue-600 dark:text-blue-400" : "text-slate-500"
+                    )}>
+                      {agent.replace(/^(outlaww_|flow_|c4_)/, "").replace(/_workflow$/, "").replace(/_/g, " ")}
+                    </span>
+                  </span>
+                ))}
+                {msg.agentsInvolved.length === 0 && (
+                  <span className="text-slate-500 font-semibold">AI Agent</span>
+                )}
+              </div>
+            </div>
+            <span className="text-[9px] font-mono tracking-widest shrink-0">
+              {msg.timestamp}
+            </span>
+          </div>
+
+          {/* Response Container (Swiss clean look) */}
+          <div className="bg-background border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-4">
+            
+            {/* Reflection Summary Callout (highlighted outcome of the turn) */}
+            {msg.reflectionSummary && (
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="inline-flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 w-4 h-4 rounded text-[9px] font-bold">✓</span>
+                  <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
+                    Outcome Summary
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">
+                  {msg.reflectionSummary}
+                </p>
+              </div>
+            )}
+
+            {/* Main Agent Explanation/Text */}
+            {msg.agentText && (
+              <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap font-sans">
+                {msg.agentText}
+              </div>
+            )}
+
+            {/* Reflection goals / next steps checklist */}
+            {msg.reflectionGoals && msg.reflectionGoals.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                <span className="text-[9px] font-mono uppercase tracking-wider font-semibold text-slate-400 block mb-2">
+                  Identified Goals & Next Steps
+                </span>
+                <div className="space-y-1.5">
+                  {msg.reflectionGoals.map((goal, index) => (
+                    <div key={index} className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        disabled
+                        checked={false}
+                        className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                      />
+                      <span className="text-xs text-muted-foreground leading-tight">
+                        {goal}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Structured output drawer */}
+            {msg.structuredOutput && (
+              <details className="group pt-1">
+                <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none">
+                  Show details & structured output
+                </summary>
+                <pre className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-border font-mono text-[11px] text-slate-600 dark:text-slate-400 mt-2.5 overflow-x-auto max-h-48 overflow-y-auto">
+                  {JSON.stringify(msg.structuredOutput, null, 2)}
+                </pre>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

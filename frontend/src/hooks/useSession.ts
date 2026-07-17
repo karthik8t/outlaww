@@ -16,13 +16,90 @@ import * as api from "@/lib/api"
 
 export interface ChatMsg {
   id: string
-  role: "system" | "user" | "agent"
-  text: string
   timestamp: string
-  actions?: string[]
-  routedTo?: string
+  userText?: string
+  agentText?: string
+  agentsInvolved: string[]
+  reflectionSummary?: string
+  reflectionGoals?: string[]
   structuredOutput?: Record<string, unknown>
+  routedTo?: string
+  isError?: boolean
 }
+
+export function groupEventsIntoTurns(events: any[]): ChatMsg[] {
+  const turns: ChatMsg[] = []
+  let currentTurn: ChatMsg | null = null
+
+  for (const e of events) {
+    const isUser = e.author === "user"
+    const timeStr = e.timestamp
+      ? new Date(e.timestamp * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+
+    if (isUser) {
+      if (currentTurn) {
+        turns.push(currentTurn)
+      }
+      currentTurn = {
+        id: e.id || `turn-${Date.now()}-${Math.random()}`,
+        timestamp: timeStr,
+        userText: e.text,
+        agentsInvolved: [],
+      }
+    } else {
+      if (!currentTurn) {
+        currentTurn = {
+          id: e.id || `turn-${Date.now()}-${Math.random()}`,
+          timestamp: timeStr,
+          agentsInvolved: [],
+        }
+      }
+
+      const author = e.author
+      if (author && author !== "user") {
+        if (!currentTurn.agentsInvolved.includes(author)) {
+          currentTurn.agentsInvolved.push(author)
+        }
+      }
+
+      if (author === "reflection") {
+        let out = e.output
+        if (typeof out === "string") {
+          try { out = JSON.parse(out) } catch { /* ignore */ }
+        }
+        if (out && typeof out === "object") {
+          if (out.summary) {
+            currentTurn.reflectionSummary = out.summary
+          }
+          if (Array.isArray(out.new_goals) && out.new_goals.length > 0) {
+            currentTurn.reflectionGoals = out.new_goals
+          }
+        }
+      }
+
+      if (e.text && author !== "router" && author !== "reflection" && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
+        currentTurn.agentText = e.text
+        currentTurn.routedTo = author
+      }
+      if (e.output && author !== "router" && author !== "reflection" && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
+        let out = e.output
+        if (typeof out === "string") {
+          try { out = JSON.parse(out) } catch { /* ignore */ }
+        }
+        currentTurn.structuredOutput = out
+        currentTurn.routedTo = author
+      }
+    }
+  }
+
+  if (currentTurn) {
+    turns.push(currentTurn)
+  }
+
+  return turns
+}
+
 
 export function useSession() {
   const { sessionId: routeSessionId } = useParams<{ sessionId: string }>()
@@ -82,20 +159,9 @@ export function useSession() {
           if (diagRes.rf_data) setRfData(diagRes.rf_data)
         }
         if (mdRes) setMarkdownDocs(mdRes.markdown_docs)
-        // Rehydrate chat from session events (optional)
+        // Rehydrate chat from session events
         if (sessRes && sessRes.events.length > 0) {
-          const hist: ChatMsg[] = sessRes.events
-            .filter((e) => e.author && e.author !== "user")
-            .map((e, i) => ({
-              id: `hist-${i}`,
-              role: "agent" as const,
-              text: e.text || "",
-              timestamp: new Date(e.timestamp * 1000).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              routedTo: e.author,
-            }))
+          const hist = groupEventsIntoTurns(sessRes.events)
           setMessages(hist)
         }
       })
@@ -149,36 +215,62 @@ export function useSession() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || sending) return
 
-    const userMsg: ChatMsg = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      text: text.trim(),
+    const tempTurn: ChatMsg = {
+      id: `temp-${Date.now()}`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      userText: text.trim(),
+      agentsInvolved: [],
     }
-    setMessages((prev) => [...prev, userMsg])
+    setMessages((prev) => [...prev, tempTurn])
     setSending(true)
 
     try {
-      // Use existing sessionId or let backend create one
       const res = await api.sendChatMessage(sessionIdRef.current || crypto.randomUUID(), text)
 
-      // Update session ID if new
       if (!sessionIdRef.current) {
         setSessionId(res.session_id)
         navigate(`/session/${encodeURIComponent(res.session_id)}`, { replace: true })
       }
 
-      const agentMsg: ChatMsg = {
-        id: `agent-${Date.now()}`,
-        role: "agent",
-        text: res.final_text || "(no response)",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        routedTo: res.routed_to,
-        structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
-      }
-      setMessages((prev) => [...prev, agentMsg])
+      // Group response events into a single turn
+      const parsedTurns = groupEventsIntoTurns(res.events || [])
+      let finalTurn: ChatMsg
 
-      // Sync diagrams / docs from response
+      if (parsedTurns.length > 0) {
+        finalTurn = {
+          ...parsedTurns[0],
+          userText: text.trim(),
+        }
+      } else {
+        // Fallback if events list is empty
+        finalTurn = {
+          id: `agent-${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          userText: text.trim(),
+          agentText: res.final_text || "(no response)",
+          agentsInvolved: res.routed_to ? [res.routed_to] : ["agent"],
+          routedTo: res.routed_to,
+          structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
+        }
+      }
+
+      // Merge reflection fields if returned at top level
+      const ref = res.reflection as any
+      if (ref) {
+        if (ref.summary) {
+          finalTurn.reflectionSummary = ref.summary
+        }
+        if (Array.isArray(ref.new_goals) && ref.new_goals.length > 0) {
+          finalTurn.reflectionGoals = ref.new_goals
+        }
+      }
+
+      setMessages((prev) => {
+        const copy = [...prev]
+        copy[copy.length - 1] = finalTurn
+        return copy
+      })
+
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
       }
@@ -188,11 +280,17 @@ export function useSession() {
       console.error("chat error:", err)
       const errMsg: ChatMsg = {
         id: `err-${Date.now()}`,
-        role: "system",
-        text: `Error: ${err instanceof Error ? err.message : "unknown"}`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        userText: text.trim(),
+        agentText: `Error: ${err instanceof Error ? err.message : "unknown"}`,
+        agentsInvolved: [],
+        isError: true,
       }
-      setMessages((prev) => [...prev, errMsg])
+      setMessages((prev) => {
+        const copy = [...prev]
+        copy[copy.length - 1] = errMsg
+        return copy
+      })
     } finally {
       setSending(false)
     }
@@ -202,7 +300,15 @@ export function useSession() {
   const runAction = useCallback(async (actionName: string) => {
     if (sending) return
 
+    const tempTurn: ChatMsg = {
+      id: `temp-act-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      userText: `Action: ${actionName.replace(/_/g, " ")}`,
+      agentsInvolved: [],
+    }
+    setMessages((prev) => [...prev, tempTurn])
     setSending(true)
+
     try {
       const res = await api.sendAction(sessionIdRef.current || crypto.randomUUID(), actionName)
 
@@ -211,15 +317,41 @@ export function useSession() {
         navigate(`/session/${encodeURIComponent(res.session_id)}`, { replace: true })
       }
 
-      const agentMsg: ChatMsg = {
-        id: `action-${Date.now()}`,
-        role: "agent",
-        text: res.final_text || `Action "${actionName}" completed`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        routedTo: res.routed_to,
-        structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
+      const parsedTurns = groupEventsIntoTurns(res.events || [])
+      let finalTurn: ChatMsg
+
+      if (parsedTurns.length > 0) {
+        finalTurn = {
+          ...parsedTurns[0],
+          userText: `Action: ${actionName.replace(/_/g, " ")}`,
+        }
+      } else {
+        finalTurn = {
+          id: `action-${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          userText: `Action: ${actionName.replace(/_/g, " ")}`,
+          agentText: res.final_text || `Action "${actionName}" completed`,
+          agentsInvolved: res.routed_to ? [res.routed_to] : ["agent"],
+          routedTo: res.routed_to,
+          structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
+        }
       }
-      setMessages((prev) => [...prev, agentMsg])
+
+      const ref = res.reflection as any
+      if (ref) {
+        if (ref.summary) {
+          finalTurn.reflectionSummary = ref.summary
+        }
+        if (Array.isArray(ref.new_goals) && ref.new_goals.length > 0) {
+          finalTurn.reflectionGoals = ref.new_goals
+        }
+      }
+
+      setMessages((prev) => {
+        const copy = [...prev]
+        copy[copy.length - 1] = finalTurn
+        return copy
+      })
 
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
@@ -228,6 +360,19 @@ export function useSession() {
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("action error:", err)
+      const errMsg: ChatMsg = {
+        id: `err-act-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        userText: `Action: ${actionName.replace(/_/g, " ")}`,
+        agentText: `Error: ${err instanceof Error ? err.message : "unknown"}`,
+        agentsInvolved: [],
+        isError: true,
+      }
+      setMessages((prev) => {
+        const copy = [...prev]
+        copy[copy.length - 1] = errMsg
+        return copy
+      })
     } finally {
       setSending(false)
     }
