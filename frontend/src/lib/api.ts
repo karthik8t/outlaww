@@ -204,21 +204,3 @@ export async function renderD2Diagram(params: {
   }
   return res.text()
 }
-
-/** Create a shared clipboard entry for cross-device text sharing. */
-export async function createClipboard(text: string, ttlSeconds = 3600): Promise<{ code: string; url: string }> {
-  const res = await fetch(`${BASE_URL}/clipboard`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, ttl_seconds: ttlSeconds }),
-  })
-  if (!res.ok) throw new Error("Failed to create clipboard")
-  return res.json()
-}
-
-/** Retrieve clipboard text by code. */
-export async function getClipboard(code: string): Promise<{ text: string }> {
-  const res = await fetch(`${BASE_URL}/clipboard/${code}`)
-  if (!res.ok) throw new Error("Clipboard not found or expired")
-  return res.json()
-}
