@@ -335,24 +335,23 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
   const { theme } = cfg
   const meta = GROUP_LABEL_CONFIG[nodeType]
 
-  // Top-level deployment zones get more visual weight
-  const isTopLevel = nodeType === "deploymentGroup" || nodeType === "networkGroup"
-
   return (
+    // w-full h-full: fills whatever size React Flow gives this node's wrapper.
+    // The wrapper's size comes from the ELK-computed width/height we set on
+    // the node object, so the container precisely fits its children.
     <div
       className={cn(
-        "relative rounded-xl border-2 transition-shadow",
-        isTopLevel ? "min-w-[360px] min-h-[200px]" : "min-w-[240px] min-h-[140px]",
+        "w-full h-full rounded-xl border-2 transition-shadow overflow-hidden",
         cfg.dashed ? "border-dashed" : "border-solid",
         selected && "ring-2 ring-ring shadow-md",
         theme.border,
         theme.light,
       )}
     >
-      {/* Header bar — label pinned to top edge */}
+      {/* Header bar — label at top of container */}
       <div
         className={cn(
-          "absolute top-0 left-0 right-0 flex items-center gap-1.5 px-3 py-1.5",
+          "flex items-center gap-1.5 px-3 py-1.5",
           "border-b",
           cfg.dashed ? "border-dashed" : "border-solid",
           theme.border,
@@ -369,7 +368,7 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
         )}
         {/* Type badge pinned to far right */}
         <span className={cn(
-          "ml-auto px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider",
+          "ml-auto px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider shrink-0",
           theme.badge, theme.badgeText
         )}>
           {cfg.label}

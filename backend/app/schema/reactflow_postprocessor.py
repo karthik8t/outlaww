@@ -225,10 +225,16 @@ def postprocess(diagram: Diagram) -> ReactFlowDiagramOutput:
             type=node.type,
             data=node_data,
             parentId=node.parentNode or None,
+            # extent="parent" is NOT set — we set explicit width/height from ELK
+            # so React Flow can enforce bounds without the CSS min-size mismatch
             extent="parent" if has_parent else None,
-            expandParent=has_parent,
+            # expandParent MUST be False. When True, dragging a child auto-resizes
+            # the parent, which repositions other children, causing exponential
+            # feedback divergence. ELK handles container sizing, not drag events.
+            expandParent=False,
             zIndex=_compute_z_index(node),
             ariaLabel=node.data.label,
+            # Group/container nodes are NOT draggable — they are fixed backdrops
             draggable=not is_group,
             selectable=True,
             deletable=not is_group,
