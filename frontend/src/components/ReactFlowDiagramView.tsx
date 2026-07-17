@@ -25,7 +25,8 @@ import {
   ZoomIn,
   ZoomOut,
   Layout,
-  Settings,
+  PanelRight,
+  Map,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -33,6 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { nodeTypes, edgeTypes } from "@/components/nodes/components"
+import { layoutNodes } from "@/lib/layout"
 import "@xyflow/react/dist/style.css"
 
 // ============================================================================
@@ -71,11 +73,19 @@ export function ReactFlowCanvas({
   const reactFlowInstance = useReactFlow()
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Sync props to state
+  // Sync props to state — run ELK layout on new data
   useEffect(() => {
-    if (diagramData?.nodes) setNodes(diagramData.nodes)
-    if (diagramData?.edges) setEdges(diagramData.edges)
-    if (diagramData?.metadata?.layoutDirection) setLayoutDirection(diagramData.metadata.layoutDirection)
+    if (diagramData?.nodes) {
+      const dir = (diagramData.metadata?.layoutDirection as any) || "LR"
+      setLayoutDirection(dir)
+      setLoading(true)
+      layoutNodes(diagramData.nodes, diagramData.edges || [], dir).then((positioned) => {
+        setNodes(positioned)
+        setEdges(diagramData.edges || [])
+        setLoading(false)
+        setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
+      })
+    }
   }, [diagramData])
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -151,8 +161,17 @@ export function ReactFlowCanvas({
   }, [nodes, edges, layoutDirection, diagramId])
 
   const fitView = useCallback(() => {
-    reactFlowInstance?.fitView({ padding: 0.1 })
+    reactFlowInstance?.fitView({ padding: 0.2 })
   }, [reactFlowInstance])
+
+  const runLayout = useCallback(async () => {
+    if (nodes.length === 0) return
+    setLoading(true)
+    const positioned = await layoutNodes(nodes, edges, layoutDirection)
+    setNodes(positioned)
+    setLoading(false)
+    setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
+  }, [nodes, edges, layoutDirection, reactFlowInstance])
 
   const toggleMinimap = useCallback(() => setShowMinimap(p => !p), [])
   const toggleSidebar = useCallback(() => setShowSidebar(p => !p), [])
@@ -199,14 +218,17 @@ export function ReactFlowCanvas({
             <Separator orientation="vertical" className="h-6 mx-2" />
 
             {/* Actions */}
+            <Button variant="outline" size="icon" onClick={runLayout} title="Re-layout with ELK">
+              <Layout className="w-4 h-4" />
+            </Button>
             <Button variant="outline" size="icon" onClick={fitView} title="Fit view">
               <Maximize className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="icon" onClick={toggleMinimap} title={showMinimap ? "Hide minimap" : "Show minimap"}>
-              <Layout className="w-4 h-4" />
+              <Map className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="icon" onClick={toggleSidebar} title={showSidebar ? "Hide sidebar" : "Show sidebar"}>
-              <Settings className="w-4 h-4" />
+              <PanelRight className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="icon" onClick={handleDownload} title="Download JSON">
               <Download className="w-4 h-4" />
