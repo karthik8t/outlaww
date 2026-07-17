@@ -1,168 +1,43 @@
 """
-React Flow Transformer - Converts LLM diagram output to React Flow compatible JSON.
-Handles the transformation from ArchitectureDiagram to xyflow React Flow format.
+React Flow Transformer - Converts LLM diagram output to React Flow compatible model.
+Uses the post-processor to enrich clean LLM Diagram with computed rendering data.
+Returns typed ReactFlowDiagramOutput — never raw dicts.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-from app.schema.reactflow_models import (
-    ArchitectureDiagram,
-    ReactFlowNode,
-    ReactFlowEdge,
-    ComponentType,
-    EdgeType,
-    NodeData,
-)
+from typing import Any, Dict, Optional
+
+from app.schema.reactflow_models import Diagram
+from app.schema.reactflow_output import ReactFlowDiagramOutput
+from app.schema.reactflow_postprocessor import postprocess, postprocess_from_dict
 
 
-NODE_TYPE_MAPPING: Dict[ComponentType, str] = {
-    "c4Actor": "c4Actor",
-    "c4System": "c4System",
-    "c4Container": "c4Container",
-    "c4Component": "c4Component",
-    "c4Boundary": "c4Boundary",
-    "flowAction": "flowAction",
-    "flowDecision": "flowDecision",
-    "flowScreen": "flowScreen",
-    "flowSwimlane": "flowSwimlane",
-    "cloudCompute": "cloudCompute",
-    "cloudDatabase": "cloudDatabase",
-    "cloudStorage": "cloudStorage",
-    "cloudNetwork": "cloudNetwork",
-    "cloudMessaging": "cloudMessaging",
-    "cloudSecurity": "cloudSecurity",
-    "cloudAnalytics": "cloudAnalytics",
-    "cloudBoundary": "cloudBoundary",
-}
-
-EDGE_TYPE_MAPPING: Dict[EdgeType, str] = {
-    "default": "default",
-    "straight": "straight",
-    "step": "step",
-    "smoothstep": "smoothstep",
-    "simplebezier": "simplebezier",
-}
-
-HANDLE_POSITIONS = {
-    "top": {"x": 0.5, "y": 0},
-    "right": {"x": 1, "y": 0.5},
-    "bottom": {"x": 0.5, "y": 1},
-    "left": {"x": 0, "y": 0.5},
-    "true": {"x": 1, "y": 0.25},
-    "false": {"x": 1, "y": 0.75},
-}
+def transform_diagram(schema: Diagram) -> ReactFlowDiagramOutput:
+    """Post-process a Diagram and return the typed ReactFlowDiagramOutput."""
+    return postprocess(schema)
 
 
-def transform_node(node: ReactFlowNode) -> Dict[str, Any]:
-    """Transform a ReactFlowNode to React Flow node format."""
-    rf_type = NODE_TYPE_MAPPING.get(node.type, "default")
-
-    data = {
-        "label": node.data.label,
-        "subtitle": node.data.subtitle,
-        "languageRuntime": node.data.language_runtime,
-        "frameworkLibrary": node.data.framework_library,
-        "databaseEngine": node.data.database_engine,
-        "cloudServiceName": node.data.cloud_service_name,
-        "cloudTier": node.data.cloud_tier,
-        "icon": node.data.icon,
-        "statusState": node.data.status_state,
-        "layoutOrientation": node.data.layout_orientation,
-        "tableName": node.data.tableName,
-        "columns": node.data.columns,
-        "metadataTags": node.data.metadata_tags,
-        "reasoning": node.reasoning,
-        "purpose": node.purpose,
-        "architectureBenefit": node.architecture_benefit,
-        "designJustification": node.design_justification,
-        "postExtent": node.post_extent,
-        "postBorderStyle": node.post_borderStyle,
-    }
-
-    rf_node: Dict[str, Any] = {
-        "id": node.id,
-        "type": rf_type,
-        "data": data,
-    }
-
-    if node.parentNode:
-        rf_node["parentNode"] = node.parentNode
-        rf_node["extent"] = "parent"
-
-    return rf_node
-
-
-def transform_edge(edge: ReactFlowEdge) -> Dict[str, Any]:
-    """Transform a ReactFlowEdge to React Flow edge format."""
-    rf_type = EDGE_TYPE_MAPPING.get(edge.type, "default")
-
-    source_handle = edge.sourceHandle if edge.sourceHandle else None
-    target_handle = edge.targetHandle if edge.targetHandle else None
-
-    rf_edge: Dict[str, Any] = {
-        "id": edge.id,
-        "source": edge.source,
-        "target": edge.target,
-        "type": rf_type,
-        "label": edge.label,
-        "labelStyle": {"fontSize": 12, "fill": "#6b7280"},
-        "labelBgStyle": {"fill": "rgba(255,255,255,0.8)", "padding": 2, "borderRadius": 3},
-        "animated": edge.post_animated,
-        "data": {
-            "protocol": edge.protocol,
-            "flowDirection": edge.flow_direction,
-            "logicVariant": edge.logic_variant,
-            "reasoning": edge.reasoning,
-            "purpose": edge.purpose,
-            "dependencyBenefit": edge.dependency_benefit,
-            "couplingJustification": edge.coupling_justification,
-        },
-    }
-
-    if source_handle:
-        rf_edge["sourceHandle"] = source_handle
-    if target_handle:
-        rf_edge["targetHandle"] = target_handle
-
-    return rf_edge
-
-
-def transform_diagram(schema: ArchitectureDiagram) -> Dict[str, Any]:
-    """Transform ArchitectureDiagram to React Flow compatible format."""
-    nodes = [transform_node(n) for n in schema.nodes]
-    edges = [transform_edge(e) for e in schema.edges]
-
-    return {
-        "nodes": nodes,
-        "edges": edges,
-        "metadata": {
-            "layoutDirection": schema.metadata.layout_direction,
-        },
-    }
-
-
-def validate_and_transform(schema: ArchitectureDiagram) -> Dict[str, Any]:
-    """Validate references and transform to React Flow format."""
+def validate_and_transform(schema: Diagram) -> ReactFlowDiagramOutput:
+    """Validate references and transform to typed ReactFlowDiagramOutput."""
     errors = schema.validate_references()
     if errors:
         raise ValueError(f"Diagram validation failed: {'; '.join(errors)}")
     return transform_diagram(schema)
 
 
-def extract_reactflow_from_diagram(diagram_data: dict) -> Optional[Dict[str, Any]]:
-    """Extract React Flow data from a stored Diagram's graph field.
+def extract_reactflow_from_diagram(diagram_data: dict) -> Optional[ReactFlowDiagramOutput]:
+    """Extract React Flow typed model from a stored Diagram's graph field.
 
-    The graph field should contain an ArchitectureDiagram dict.
-    Returns { nodes, edges, metadata } or None if extraction fails.
+    The graph field should contain a Diagram dict (clean LLM schema).
+    Returns ReactFlowDiagramOutput or None if extraction fails.
     """
     graph = diagram_data.get("graph") or {}
     if not graph:
         return None
 
-    # Check if it has nodes/edges (React Flow schema)
     if "nodes" in graph and "edges" in graph:
         try:
-            schema = ArchitectureDiagram.model_validate(graph)
+            schema = Diagram.model_validate(graph)
             return validate_and_transform(schema)
         except Exception:
             return None

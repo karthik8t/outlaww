@@ -21,33 +21,22 @@ from app.api.dependencies import (
     get_workflow_runner,
     user_id_for,
 )
-from app.schema.reactflow_models import (
-    ArchitectureDiagram,
-    ReactFlowNode,
-    ReactFlowEdge,
-    NodeData,
-    DiagramMetadata,
-)
+from app.schema.reactflow_models import Diagram
+from app.schema.reactflow_output import ReactFlowDiagramOutput
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-#  Helper: Diagram → React Flow data
+#  Helper: Diagram → ReactFlowDiagramOutput
 # ---------------------------------------------------------------------------
 
-def _diagram_to_reactflow(diagram_data: dict[str, Any]) -> dict[str, Any] | None:
-    """Convert a diagram dict to React Flow compatible format."""
+def _diagram_to_reactflow(diagram_data: dict[str, Any]) -> ReactFlowDiagramOutput | None:
+    """Convert a stored Diagram dict to typed ReactFlowDiagramOutput."""
     from app.schema.reactflow_transformer import extract_reactflow_from_diagram
 
-    graph_data = diagram_data.get("graph")
-    if graph_data:
-        rf_result = extract_reactflow_from_diagram(diagram_data)
-        if rf_result:
-            return {"rf_data": rf_result}
-
-    return {"rf_data": None}
+    return extract_reactflow_from_diagram(diagram_data)
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +75,7 @@ class ChatResponse(BaseModel):
     structured_output: Any = None
     reflection: Any = None
     diagrams: list[Any] = []
-    rf_data: dict[str, Any] = Field(default_factory=dict, description="diagram_id -> React Flow data {nodes, edges, metadata}")
+    rf_data: dict[str, ReactFlowDiagramOutput] = Field(default_factory=dict, description="diagram_id -> post-processed ReactFlowDiagramOutput")
     markdown_docs: list[Any] = []
     active_ids: dict[str, str] = {}
 
@@ -111,7 +100,7 @@ class SessionsListResponse(BaseModel):
 class DiagramsResponse(BaseModel):
     session_id: str
     diagrams: list[Any] = []
-    rf_data: dict[str, Any] = Field(default_factory=dict)
+    rf_data: dict[str, ReactFlowDiagramOutput] = Field(default_factory=dict)
     active_diagram_id: str = ""
 
 
@@ -222,13 +211,13 @@ async def chat(req: ChatRequest) -> ChatResponse:
     docs = await runner.get_markdown_docs()
     active = await runner.get_active_ids()
 
-    # Build React Flow data for each diagram
-    rf_data: dict[str, Any] = {}
+    # Build typed ReactFlowDiagramOutput for each diagram
+    rf_data: dict[str, ReactFlowDiagramOutput] = {}
     for d in diagrams:
         if isinstance(d, dict):
             result = _diagram_to_reactflow(d)
-            if result and result.get("rf_data"):
-                rf_data[d["id"]] = result["rf_data"]
+            if result is not None:
+                rf_data[d["id"]] = result
 
     return ChatResponse(
         session_id=session_id,
@@ -294,13 +283,13 @@ async def get_diagrams(session_id: str) -> DiagramsResponse:
     diagrams = await runner.get_diagrams()
     active = await runner.get_active_ids()
 
-    # Build React Flow data for each diagram
-    rf_data: dict[str, Any] = {}
+    # Build typed ReactFlowDiagramOutput for each diagram
+    rf_data: dict[str, ReactFlowDiagramOutput] = {}
     for d in diagrams:
         if isinstance(d, dict):
             result = _diagram_to_reactflow(d)
-            if result and result.get("rf_data"):
-                rf_data[d["id"]] = result["rf_data"]
+            if result is not None:
+                rf_data[d["id"]] = result
 
     return DiagramsResponse(
         session_id=session_id,
@@ -403,8 +392,8 @@ async def _stream_gen(
         for d in diagrams:
             if isinstance(d, dict):
                 result = _diagram_to_reactflow(d)
-                if result and result.get("rf_data"):
-                    rf_data[d["id"]] = result["rf_data"]
+                if result:
+                    rf_data[d["id"]] = result
 
         yield _sse("workflow_complete", {
             "dispatch_result": dispatch_result,
@@ -435,29 +424,22 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 # ---------------------------------------------------------------------------
 
 class ReactFlowTransformRequest(BaseModel):
-    """Request to transform ArchitectureDiagram to React Flow format."""
-    schema: ArchitectureDiagram
+    """Request to transform Diagram (clean LLM schema) to React Flow format."""
+    diagram: Diagram
 
 
-class ReactFlowTransformResponse(BaseModel):
-    """React Flow compatible diagram data."""
-    nodes: list[dict]
-    edges: list[dict]
-    metadata: dict
-
-
-@router.post("/transform/reactflow", response_model=ReactFlowTransformResponse)
-async def transform_to_reactflow(req: ReactFlowTransformRequest) -> ReactFlowTransformResponse:
-    """Transform ArchitectureDiagram to React Flow (xyflow) compatible JSON.
+@router.post("/transform/reactflow", response_model=ReactFlowDiagramOutput)
+async def transform_to_reactflow(req: ReactFlowTransformRequest) -> ReactFlowDiagramOutput:
+    """Transform clean LLM Diagram to typed ReactFlowDiagramOutput.
     
-    Takes the LLM-generated diagram schema and converts it to the format
-    expected by @xyflow/react frontend components.
+    Post-processes the LLM-generated diagram schema (computing handles,
+    border styles, animated flags, camelCase data) and returns the
+    typed model expected by @xyflow/react frontend.
     """
     from app.schema.reactflow_transformer import validate_and_transform
     
     try:
-        result = validate_and_transform(req.schema)
-        return ReactFlowTransformResponse(**result)
+        return validate_and_transform(req.diagram)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -474,8 +456,8 @@ class ReactFlowFromDiagramRequest(BaseModel):
     diagram_id: str
 
 
-@router.post("/transform/reactflow-from-diagram")
-async def transform_reactflow_from_diagram(req: ReactFlowFromDiagramRequest) -> dict:
+@router.post("/transform/reactflow-from-diagram", response_model=ReactFlowDiagramOutput)
+async def transform_reactflow_from_diagram(req: ReactFlowFromDiagramRequest) -> ReactFlowDiagramOutput:
     """Extract React Flow data from a stored diagram by diagram_id.
 
     Frontend calls this to get the React Flow nodes/edges/metadata
@@ -487,8 +469,8 @@ async def transform_reactflow_from_diagram(req: ReactFlowFromDiagramRequest) -> 
     for d in diagrams:
         if isinstance(d, dict) and d.get("id") == req.diagram_id:
             result = _diagram_to_reactflow(d)
-            if result and result.get("rf_data"):
-                return result["rf_data"]
+            if result:
+                return result
             raise HTTPException(status_code=404, detail=f"Diagram '{req.diagram_id}' has no React Flow data.")
 
     raise HTTPException(status_code=404, detail=f"Diagram '{req.diagram_id}' not found in session '{req.session_id}'.")

@@ -1,69 +1,81 @@
+import { Handle, Position, BaseEdge, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps } from "@xyflow/react"
 import { cn } from "@/lib/utils"
-import { BaseEdge, getBezierPath, MarkerType, type EdgeProps } from "@xyflow/react"
 
 // ============================================================================
-// Shared types
+// Shared types — matches the post-processor's camelCase data shape
 // ============================================================================
 
-export interface NodeData {
-  label: string
-  subtitle: string
-  icon: string
-  statusState: string
-  cloudTier: string
-  languageRuntime: string
-  frameworkLibrary: string
-  databaseEngine: string
-  cloudServiceName: string
-  metadataTags: string[]
-  reasoning: string
-  purpose: string
-  architectureBenefit: string
-  designJustification: string
-  postExtent: string
-  postBorderStyle: string
-  layoutOrientation: string
-  tableName: string
-  columns: string[]
+export interface HandleConfig {
+  id: string
+  type: "source" | "target"
+  position: "top" | "right" | "bottom" | "left"
+  x: number
+  y: number
 }
 
-export interface NodeProps {
-  data: NodeData
-  selected?: boolean
+export interface NodeData {
+  id: string
+  label: string
+  subtitle?: string
+  icon?: string
+  statusState?: string
+  cloudTier?: string
+  languageRuntime?: string
+  frameworkLibrary?: string
+  databaseEngine?: string
+  cloudServiceName?: string
+  metadataTags?: string[]
+  reasoning?: string
+  purpose?: string
+  architectureBenefit?: string
+  designJustification?: string
+  borderStyle?: string
+  handles?: HandleConfig[]
+  layoutOrientation?: string
+  tableName?: string
+  columns?: string[]
 }
 
 export interface EdgeData {
-  protocol: string
-  flowDirection: string
-  logicVariant: string
-  reasoning: string
-  purpose: string
-  dependencyBenefit: string
-  couplingJustification: string
+  protocol?: string
+  flowDirection?: string
+  logicVariant?: string
+  reasoning?: string
+  purpose?: string
+  dependencyBenefit?: string
+  couplingJustification?: string
 }
 
 // ============================================================================
-// Lookups
+// Color system — one accent per node type, used via Tailwind color classes
 // ============================================================================
 
-const TYPE_COLORS: Record<string, { border: string; bg: string; accent: string; badge: string; badgeText: string }> = {
-  c4Actor:       { border: "#6366f1", bg: "#eef2ff", accent: "#6366f1", badge: "#e0e7ff", badgeText: "#4338ca" },
-  c4System:      { border: "#6366f1", bg: "#eef2ff", accent: "#6366f1", badge: "#e0e7ff", badgeText: "#4338ca" },
-  c4Container:   { border: "#818cf8", bg: "#f5f3ff", accent: "#818cf8", badge: "#ede9fe", badgeText: "#6d28d9" },
-  c4Component:   { border: "#a78bfa", bg: "#faf5ff", accent: "#a78bfa", badge: "#f3e8ff", badgeText: "#7e22ce" },
-  c4Boundary:    { border: "#c4b5fd", bg: "#f5f3ff", accent: "#a78bfa", badge: "#ede9fe", badgeText: "#6d28d9" },
-  flowAction:    { border: "#f59e0b", bg: "#fffbeb", accent: "#f59e0b", badge: "#fef3c7", badgeText: "#b45309" },
-  flowDecision:  { border: "#ef4444", bg: "#fef2f2", accent: "#ef4444", badge: "#fee2e2", badgeText: "#b91c1c" },
-  flowScreen:    { border: "#10b981", bg: "#ecfdf5", accent: "#10b981", badge: "#d1fae5", badgeText: "#047857" },
-  flowSwimlane:  { border: "#6b7280", bg: "#f9fafb", accent: "#6b7280", badge: "#f3f4f6", badgeText: "#374151" },
-  cloudCompute:  { border: "#3b82f6", bg: "#eff6ff", accent: "#3b82f6", badge: "#dbeafe", badgeText: "#1d4ed8" },
-  cloudDatabase: { border: "#06b6d4", bg: "#ecfeff", accent: "#06b6d4", badge: "#cffafe", badgeText: "#0e7490" },
-  cloudStorage:  { border: "#8b5cf6", bg: "#f5f3ff", accent: "#8b5cf6", badge: "#ede9fe", badgeText: "#6d21c9" },
-  cloudNetwork:  { border: "#14b8a6", bg: "#f0fdfa", accent: "#14b8a6", badge: "#ccfbf1", badgeText: "#0f766e" },
-  cloudMessaging:{ border: "#f97316", bg: "#fff7ed", accent: "#f97316", badge: "#fed7aa", badgeText: "#c2410c" },
-  cloudSecurity: { border: "#64748b", bg: "#f8fafc", accent: "#64748b", badge: "#f1f5f9", badgeText: "#334155" },
-  cloudAnalytics:{ border: "#ec4899", bg: "#fdf2f8", accent: "#ec4899", badge: "#fce7f3", badgeText: "#be185d" },
-  cloudBoundary: { border: "#94a3b8", bg: "#f8fafc", accent: "#94a3b8", badge: "#f1f5f9", badgeText: "#475569" },
+interface NodeTheme {
+  badge: string       // badge bg
+  badgeText: string   // badge text
+  accent: string      // heading accent
+  border: string      // border ring
+  light: string       // light bg
+}
+
+const TYPE_THEMES: Record<string, NodeTheme> = {
+  c4Actor:       { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20" },
+  c4System:      { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20" },
+  c4Container:   { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20" },
+  c4Component:   { badge: "bg-purple-100 dark:bg-purple-900/40", badgeText: "text-purple-700 dark:text-purple-300", accent: "text-purple-600 dark:text-purple-400", border: "border-purple-400 dark:border-purple-500", light: "bg-purple-50/50 dark:bg-purple-950/20" },
+  c4Boundary:    { badge: "bg-fuchsia-100 dark:bg-fuchsia-900/40", badgeText: "text-fuchsia-700 dark:text-fuchsia-300", accent: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-300 dark:border-fuchsia-500/60", light: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10" },
+  flowAction:    { badge: "bg-amber-100 dark:bg-amber-900/40", badgeText: "text-amber-700 dark:text-amber-300", accent: "text-amber-600 dark:text-amber-400", border: "border-amber-400 dark:border-amber-500", light: "bg-amber-50/50 dark:bg-amber-950/20" },
+  flowDecision:  { badge: "bg-red-100 dark:bg-red-900/40", badgeText: "text-red-700 dark:text-red-300", accent: "text-red-600 dark:text-red-400", border: "border-red-400 dark:border-red-500", light: "bg-red-50/50 dark:bg-red-950/20" },
+  flowScreen:    { badge: "bg-emerald-100 dark:bg-emerald-900/40", badgeText: "text-emerald-700 dark:text-emerald-300", accent: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-400 dark:border-emerald-500", light: "bg-emerald-50/50 dark:bg-emerald-950/20" },
+  flowSwimlane:  { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/30" },
+  cloudCompute:  { badge: "bg-blue-100 dark:bg-blue-900/40", badgeText: "text-blue-700 dark:text-blue-300", accent: "text-blue-600 dark:text-blue-400", border: "border-blue-400 dark:border-blue-500", light: "bg-blue-50/50 dark:bg-blue-950/20" },
+  cloudDatabase: { badge: "bg-cyan-100 dark:bg-cyan-900/40", badgeText: "text-cyan-700 dark:text-cyan-300", accent: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-400 dark:border-cyan-500", light: "bg-cyan-50/50 dark:bg-cyan-950/20" },
+  cloudStorage:  { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20" },
+  cloudNetwork:  { badge: "bg-teal-100 dark:bg-teal-900/40", badgeText: "text-teal-700 dark:text-teal-300", accent: "text-teal-600 dark:text-teal-400", border: "border-teal-400 dark:border-teal-500", light: "bg-teal-50/50 dark:bg-teal-950/20" },
+  cloudMessaging:{ badge: "bg-orange-100 dark:bg-orange-900/40", badgeText: "text-orange-700 dark:text-orange-300", accent: "text-orange-600 dark:text-orange-400", border: "border-orange-400 dark:border-orange-500", light: "bg-orange-50/50 dark:bg-orange-950/20" },
+  cloudSecurity: { badge: "bg-slate-200 dark:bg-slate-700", badgeText: "text-slate-600 dark:text-slate-300", accent: "text-slate-600 dark:text-slate-400", border: "border-slate-400 dark:border-slate-500", light: "bg-slate-50 dark:bg-slate-950/20" },
+  cloudAnalytics:{ badge: "bg-pink-100 dark:bg-pink-900/40", badgeText: "text-pink-700 dark:text-pink-300", accent: "text-pink-600 dark:text-pink-400", border: "border-pink-400 dark:border-pink-500", light: "bg-pink-50/50 dark:bg-pink-950/20" },
+  cloudBoundary: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-500 dark:text-gray-400", accent: "text-gray-500 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/20" },
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -73,134 +85,135 @@ const TYPE_LABELS: Record<string, string> = {
   cloudMessaging: "Messaging", cloudSecurity: "Security", cloudAnalytics: "Analytics", cloudBoundary: "Boundary",
 }
 
-const STATUS_DOT: Record<string, string> = {
-  normal: "#22c55e", warning: "#f59e0b", error: "#ef4444", proposed: "#3b82f6",
+const STATUS_CLASSES: Record<string, string> = {
+  normal: "bg-green-500",
+  warning: "bg-amber-500",
+  error: "bg-red-500",
+  proposed: "bg-blue-500",
 }
 
 // ============================================================================
-// Base node component used by all node types
+// Base node — used by all 17 node types
 // ============================================================================
 
-export function BaseNode({ data, selected, nodeType }: NodeProps & { nodeType: string }) {
-  const colors = TYPE_COLORS[nodeType] || TYPE_COLORS.c4System
+function rfPosition(rfPos: string): Position {
+  return rfPos as Position
+}
+
+export function BaseNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
+  const theme = TYPE_THEMES[nodeType] || TYPE_THEMES.c4System
   const typeLabel = TYPE_LABELS[nodeType] || "Node"
   const isBoundary = nodeType === "c4Boundary" || nodeType === "cloudBoundary"
   const isSwimlane = nodeType === "flowSwimlane"
+  const handles = (data.handles || []) as HandleConfig[]
+  const isDashed = data.borderStyle === "dashed" || isBoundary
 
   return (
     <div
       className={cn(
-        "relative rounded-lg bg-white dark:bg-gray-800 shadow-md transition-all",
-        isBoundary && "border-2 border-dashed",
-        !isBoundary && "border-2",
-        selected && "ring-2 ring-primary",
+        "relative rounded-xl border bg-card text-card-foreground shadow-sm transition-all",
+        isDashed ? "border-dashed" : "border-solid",
+        isSwimlane ? "w-full" : "min-w-[240px] max-w-[320px]",
+        selected && "ring-2 ring-ring shadow-md",
+        !selected && "hover:shadow-md",
+        theme.border,
       )}
-      style={{
-        borderColor: isBoundary ? colors.border + "80" : colors.border,
-        minWidth: isSwimlane ? "100%" : "220px",
-        maxWidth: isSwimlane ? "100%" : "300px",
-        width: isSwimlane ? "100%" : "auto",
-        backgroundColor: colors.bg,
-      }}
     >
-      {/* Type label */}
-      <div
-        className="absolute -top-2.5 left-3 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-        style={{ backgroundColor: colors.badge, color: colors.badgeText }}
-      >
-        {typeLabel}
-      </div>
+      {/* Handles — computed by the post-processor */}
+      {handles.map((h) => (
+        <Handle
+          key={h.id}
+          id={h.id}
+          type={h.type}
+          position={rfPosition(h.position)}
+          style={{
+            left: `${h.x * 100}%`,
+            top: `${h.y * 100}%`,
+            width: 8,
+            height: 8,
+            borderWidth: 2,
+            transform: "translate(-50%, -50%)",
+          }}
+          className="border-border bg-background"
+        />
+      ))}
 
-      {/* Status dot */}
-      <div
-        className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 z-10"
-        style={{ backgroundColor: STATUS_DOT[data.statusState] || STATUS_DOT.normal }}
-      />
+      {/* Left accent stripe */}
+      <div className={cn("absolute left-0 top-0 bottom-0 w-1 rounded-l-xl", theme.accent.replace("text-", "bg-"))} />
 
-      {/* Content */}
-      <div className={cn("p-3 pt-4", isSwimlane && "flex items-center gap-4")}>
-        {/* Header */}
-        <div className={cn("flex items-start gap-2 mb-2", isSwimlane && "mb-0 min-w-[180px]")}>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate text-sm" style={{ color: colors.accent }}>
-              {data.label}
-            </h3>
-            {data.subtitle && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{data.subtitle}</p>
-            )}
-          </div>
+      <div className={cn("p-3 pl-4", isSwimlane && "flex items-center gap-4")}>
+        {/* Badge row */}
+        <div className="flex items-center justify-between mb-2">
+          <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-widest", theme.badge, theme.badgeText)}>
+            {typeLabel}
+          </span>
+          {data.statusState && (
+            <span className={cn("w-2 h-2 rounded-full", STATUS_CLASSES[data.statusState] || STATUS_CLASSES.normal)} />
+          )}
         </div>
 
+        {/* Title */}
+        <div className="mb-1.5">
+          <h3 className={cn("text-sm font-semibold truncate", theme.accent)}>
+            {data.label}
+          </h3>
+          {data.subtitle && (
+            <p className="text-xs text-muted-foreground truncate mt-0.5">{data.subtitle}</p>
+          )}
+        </div>
+
+        {/* Tech tags */}
         {!isSwimlane && (
-          <>
-            {/* Tech stack tags */}
-            <div className="flex flex-wrap gap-1 mb-2">
-              {data.languageRuntime !== "none" && (
-                <span className="px-1.5 py-0.5 text-[10px] rounded" style={{ backgroundColor: colors.badge, color: colors.badgeText }}>
-                  {data.languageRuntime}
-                </span>
-              )}
-              {data.frameworkLibrary !== "none" && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
-                  {data.frameworkLibrary}
-                </span>
-              )}
-              {data.databaseEngine !== "none" && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
-                  {data.databaseEngine}
-                </span>
-              )}
-              {data.cloudServiceName !== "none" && (
-                <span className="px-1.5 py-0.5 text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
-                  {data.cloudServiceName}
-                </span>
-              )}
-              {data.cloudTier !== "none" && (
-                <span className="px-1.5 py-0.5 text-[10px] rounded" style={{ backgroundColor: colors.badge, color: colors.badgeText }}>
-                  {data.cloudTier}
-                </span>
-              )}
-            </div>
-
-            {/* Metadata tags */}
-            {data.metadataTags && data.metadataTags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {data.metadataTags.map((tag, i) => (
-                  <span key={i} className="px-1.5 py-0.5 text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded border border-gray-200 dark:border-gray-600">
-                    {tag}
-                  </span>
-                ))}
-              </div>
+          <div className="flex flex-wrap gap-1">
+            {data.languageRuntime && data.languageRuntime !== "none" && (
+              <span className={cn("px-1.5 py-0.5 text-[10px] font-medium rounded", theme.badge, theme.badgeText)}>
+                {data.languageRuntime}
+              </span>
             )}
-
-            {/* Table info */}
-            {data.tableName && (
-              <div className="mb-2 text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate">
-                table: {data.tableName}
-                {data.columns && data.columns.length > 0 && ` (${data.columns.join(", ")})`}
-              </div>
+            {data.frameworkLibrary && data.frameworkLibrary !== "none" && (
+              <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                {data.frameworkLibrary}
+              </span>
             )}
-
-            {/* Reasoning */}
-            <details className="group">
-              <summary className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200">
-                <span>Details</span>
-                <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </summary>
-              <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-900/50 rounded text-xs text-gray-700 dark:text-gray-300 space-y-1">
-                {data.reasoning && <p><strong>Why:</strong> {data.reasoning}</p>}
-                {data.purpose && <p><strong>Purpose:</strong> {data.purpose}</p>}
-                {data.architectureBenefit && <p><strong>Benefit:</strong> {data.architectureBenefit}</p>}
-                {data.designJustification && <p><strong>Design:</strong> {data.designJustification}</p>}
-              </div>
-            </details>
-          </>
+            {data.databaseEngine && data.databaseEngine !== "none" && (
+              <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300">
+                {data.databaseEngine}
+              </span>
+            )}
+            {data.cloudServiceName && data.cloudServiceName !== "none" && (
+              <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
+                {data.cloudServiceName}
+              </span>
+            )}
+            {data.cloudTier && data.cloudTier !== "none" && (
+              <span className={cn("px-1.5 py-0.5 text-[10px] font-medium rounded", theme.badge, theme.badgeText)}>
+                {data.cloudTier}
+              </span>
+            )}
+            {data.metadataTags && data.metadataTags.length > 0 && data.metadataTags.slice(0, 3).map((tag, i) => (
+              <span key={i} className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground border border-border">
+                {tag}
+              </span>
+            ))}
+            {data.metadataTags && data.metadataTags.length > 3 && (
+              <span className="px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground">
+                +{data.metadataTags.length - 3}
+              </span>
+            )}
+          </div>
         )}
 
+        {/* Table info */}
+        {!isSwimlane && data.tableName && (
+          <div className="mt-1.5 text-[10px] font-mono text-muted-foreground truncate">
+            {data.tableName}
+            {data.columns && data.columns.length > 0 && ` (${data.columns.join(", ")})`}
+          </div>
+        )}
+
+        {/* Swimlane orientation */}
         {isSwimlane && data.layoutOrientation && (
-          <span className="text-[10px] text-gray-400 uppercase">{data.layoutOrientation}</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{data.layoutOrientation}</span>
         )}
       </div>
     </div>
@@ -208,29 +221,29 @@ export function BaseNode({ data, selected, nodeType }: NodeProps & { nodeType: s
 }
 
 // ============================================================================
-// Individual node components for each type
+// Individual node exports
 // ============================================================================
 
-export function C4ActorNode(props: NodeProps) { return <BaseNode {...props} nodeType="c4Actor" /> }
-export function C4SystemNode(props: NodeProps) { return <BaseNode {...props} nodeType="c4System" /> }
-export function C4ContainerNode(props: NodeProps) { return <BaseNode {...props} nodeType="c4Container" /> }
-export function C4ComponentNode(props: NodeProps) { return <BaseNode {...props} nodeType="c4Component" /> }
-export function C4BoundaryNode(props: NodeProps) { return <BaseNode {...props} nodeType="c4Boundary" /> }
-export function FlowActionNode(props: NodeProps) { return <BaseNode {...props} nodeType="flowAction" /> }
-export function FlowDecisionNode(props: NodeProps) { return <BaseNode {...props} nodeType="flowDecision" /> }
-export function FlowScreenNode(props: NodeProps) { return <BaseNode {...props} nodeType="flowScreen" /> }
-export function FlowSwimlaneNode(props: NodeProps) { return <BaseNode {...props} nodeType="flowSwimlane" /> }
-export function CloudComputeNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudCompute" /> }
-export function CloudDatabaseNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudDatabase" /> }
-export function CloudStorageNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudStorage" /> }
-export function CloudNetworkNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudNetwork" /> }
-export function CloudMessagingNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudMessaging" /> }
-export function CloudSecurityNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudSecurity" /> }
-export function CloudAnalyticsNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudAnalytics" /> }
-export function CloudBoundaryNode(props: NodeProps) { return <BaseNode {...props} nodeType="cloudBoundary" /> }
+export function C4ActorNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="c4Actor" /> }
+export function C4SystemNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="c4System" /> }
+export function C4ContainerNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="c4Container" /> }
+export function C4ComponentNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="c4Component" /> }
+export function C4BoundaryNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="c4Boundary" /> }
+export function FlowActionNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="flowAction" /> }
+export function FlowDecisionNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="flowDecision" /> }
+export function FlowScreenNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="flowScreen" /> }
+export function FlowSwimlaneNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="flowSwimlane" /> }
+export function CloudComputeNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudCompute" /> }
+export function CloudDatabaseNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudDatabase" /> }
+export function CloudStorageNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudStorage" /> }
+export function CloudNetworkNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudNetwork" /> }
+export function CloudMessagingNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudMessaging" /> }
+export function CloudSecurityNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudSecurity" /> }
+export function CloudAnalyticsNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudAnalytics" /> }
+export function CloudBoundaryNode(p: { data: NodeData; selected?: boolean }) { return <BaseNode {...p} nodeType="cloudBoundary" /> }
 
 // ============================================================================
-// nodeTypes map for React Flow
+// nodeTypes map
 // ============================================================================
 
 export const nodeTypes = {
@@ -254,17 +267,30 @@ export const nodeTypes = {
 }
 
 // ============================================================================
-// Custom Edge Component
+// Custom edge — renders path + label + protocol, uses edge props directly
 // ============================================================================
 
-export function CustomEdge(props: EdgeProps) {
-  const { id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, label, data, selected } = props
-  const edgeData = data as EdgeData | undefined
-  const isAnimated = edgeData?.logicVariant !== "standard_flow"
+function getEdgePath(type: string, props: any) {
+  switch (type) {
+    case "smoothstep":
+      return getSmoothStepPath(props)
+    case "step":
+      return getStraightPath(props)
+    case "straight":
+      return getStraightPath(props)
+    default:
+      return getBezierPath(props)
+  }
+}
 
-  const [edgePath] = getBezierPath({
-    sourceX, sourceY, sourcePosition: sourcePosition as any,
-    targetX, targetY, targetPosition: targetPosition as any,
+export function CustomEdge(props: EdgeProps) {
+  const { id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, label, data, selected, style: edgeStyle, markerEnd, markerStart, animated, type: edgeType } = props
+  const edgeData = data as EdgeData | undefined
+  const pathType = edgeType || "default"
+
+  const [edgePath] = getEdgePath(pathType, {
+    sourceX, sourceY, sourcePosition,
+    targetX, targetY, targetPosition,
   })
 
   const midX = (sourceX + targetX) / 2
@@ -275,21 +301,18 @@ export function CustomEdge(props: EdgeProps) {
       <BaseEdge
         id={id}
         path={edgePath}
-        style={{
-          stroke: isAnimated ? "#3b82f6" : "#9ca3af",
-          strokeWidth: isAnimated ? 2 : 1.5,
-          strokeDasharray: isAnimated ? "5,5" : "none",
-        }}
-        markerEnd={{ type: MarkerType.ArrowClosed, width: 20, height: 20, color: isAnimated ? "#3b82f6" : "#9ca3af" }}
-        markerStart={edgeData?.flowDirection === "reverse" ? { type: MarkerType.ArrowClosed, width: 20, height: 20, color: isAnimated ? "#3b82f6" : "#9ca3af" } : undefined}
+        style={edgeStyle as React.CSSProperties | undefined}
+        markerEnd={markerEnd}
+        markerStart={markerStart}
+        className={cn(selected && "stroke-foreground/70")}
       />
       {label && (
-        <text x={midX} y={midY - 10} textAnchor="middle" className="text-xs font-medium text-gray-600 dark:text-gray-400">
-          <tspan dx="-2" dy="0">{label as string}</tspan>
+        <text x={midX} y={midY - 8} textAnchor="middle" className="fill-muted-foreground text-[11px] font-medium">
+          {label as string}
         </text>
       )}
       {edgeData?.protocol && edgeData.protocol !== "none" && (
-        <text x={midX} y={midY + 12} textAnchor="middle" className="text-[9px] text-gray-400 dark:text-gray-500 font-mono">
+        <text x={midX} y={midY + 10} textAnchor="middle" className="fill-muted-foreground/60 text-[9px] font-mono">
           {edgeData.protocol}
         </text>
       )}

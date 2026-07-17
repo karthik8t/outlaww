@@ -75,6 +75,7 @@ export interface Diagram {
   name: string
   description: string
   graph: Record<string, unknown>  // ArchitectureDiagram JSON
+  store: Record<string, unknown>  // tldraw store (backward compat)
   created_at: string
   updated_at: string
 }

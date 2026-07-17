@@ -20,7 +20,7 @@ from google.adk.workflow import node
 
 from app.agents.action_registry import ActionRegistry
 from app.agents.agent_registry import AgentRegistry
-from app.schema.reactflow_models import ArchitectureDiagram
+from app.schema.reactflow_models import Diagram as DiagramSchema
 from app.schema.models import (
     Diagram,
     MarkdownArtifact,
@@ -93,7 +93,7 @@ _INITIAL = Reflections().model_dump(mode="json")
 
 
 def _extract_title(output: dict, fallback: str) -> str:
-    """Extract a meaningful title from the ArchitectureDiagram output."""
+    """Extract a meaningful title from the Diagram output."""
     if isinstance(output, dict):
         # Try common title fields, then fall back to first node label
         title = output.get("name", "") or output.get("title", "")
@@ -109,7 +109,7 @@ def _extract_title(output: dict, fallback: str) -> str:
 
 
 def _extract_description(output: dict) -> str:
-    """Extract a description from the ArchitectureDiagram output."""
+    """Extract a description from the Diagram output."""
     if isinstance(output, dict):
         desc = output.get("description", "")
         if desc:
@@ -135,7 +135,7 @@ def _save_reflection(state: dict[str, Any], ref: Reflections) -> None:
 _DIAGRAMS_KEY = "diagrams"
 
 
-def _load_diagrams(state: dict[str, Any]) -> list[Diagram]:
+def _load_diagrams(state: dict[str, Any]) -> list["Diagram"]:
     raw = state.get(_DIAGRAMS_KEY, [])
     return [Diagram.model_validate(d) if isinstance(d, dict) else d for d in raw]
 
@@ -225,16 +225,16 @@ def _apply_markdown_edits(
 def _persist_diagram_output(
     ctx: Context, output: dict[str, Any], user_message: str
 ) -> None:
-    """Create a new Diagram from ArchitectureDiagram and persist to state."""
+    """Create a new Diagram from the LLM schema and persist to state."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
 
-    # Parse the LLM's output as ArchitectureDiagram
+    # Parse the LLM's output as the clean Diagram schema
     graph_data = output
     try:
-        rf_schema = ArchitectureDiagram.model_validate(graph_data)
+        rf_schema = DiagramSchema.model_validate(graph_data)
     except Exception:
-        logger.warning(f"[persist] failed to parse ArchitectureDiagram: {graph_data}")
+        logger.warning(f"[persist] failed to parse Diagram: {graph_data}")
         return
 
     # Store the schema dict in the Diagram model
@@ -258,7 +258,7 @@ def _persist_diagram_output(
 
 
 def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
-    """Replace the active diagram with the new ArchitectureDiagram from edit/patch agents."""
+    """Replace the active diagram with the new Diagram from edit/patch agents."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
     diagram_id = active.get("active_diagram_id", "")
@@ -276,11 +276,11 @@ def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
     if target is None:
         return
 
-    # Parse the LLM's ArchitectureDiagram output (complete replacement)
+    # Parse the LLM's Diagram output (complete replacement)
     try:
-        rf_schema = ArchitectureDiagram.model_validate(output)
+        rf_schema = DiagramSchema.model_validate(output)
     except Exception:
-        logger.warning(f"[persist] failed to parse ArchitectureDiagram for edit: {output}")
+        logger.warning(f"[persist] failed to parse Diagram for edit: {output}")
         return
 
     # Update the diagram with the new schema

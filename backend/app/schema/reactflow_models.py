@@ -1,6 +1,7 @@
 """
-React Flow Diagram Models - Architecture-first schema for xyflow diagrams.
-Enforces structured reasoning, cloud/C4/flow components, and strict visual tokens.
+React Flow Diagram Models - Pure LLM-generated architecture schema.
+These are the CLEAN models that the LLM generates — NO post-processed fields.
+Post-processed fields live in reactflow_output.py.
 """
 from __future__ import annotations
 
@@ -83,10 +84,10 @@ class NodeData(BaseModel):
 
 
 # ============================================================================
-# 5. NODE - With Deep Reasoning Blocks
+# 5. DIAGRAM NODE - Pure LLM topology (NO post-processed fields)
 # ============================================================================
 
-class ReactFlowNode(BaseModel):
+class DiagramNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(description="Unique node identifier (e.g., 'payment-api', 'user-db').")
@@ -99,19 +100,15 @@ class ReactFlowNode(BaseModel):
     architecture_benefit: str = Field(min_length=20, description="How adding this node improves the broader system design.")
     design_justification: str = Field(min_length=20, description="Justification for choosing this specific node type and boundary hierarchy.")
 
-    # Post-Processed Properties (Programmatic)
-    post_extent: Literal["parent", "none"] = Field(default="none")
-    post_borderStyle: Literal["solid", "dashed", "dotted", "none"] = Field(default="solid")
-
     # Hierarchy Link
     parentNode: Optional[str] = Field(default=None, description="Parent node ID for nested boundaries.")
 
 
 # ============================================================================
-# 6. EDGE - Network Layer + Routing + Reasoning
+# 6. DIAGRAM EDGE - Pure LLM connection (NO post-processed fields)
 # ============================================================================
 
-class ReactFlowEdge(BaseModel):
+class DiagramEdge(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(description="Unique edge identifier.")
@@ -135,9 +132,6 @@ class ReactFlowEdge(BaseModel):
     dependency_benefit: str = Field(min_length=20, description="How this connection benefits data flow or system integration.")
     coupling_justification: str = Field(min_length=20, description="Why these two components need to be coupled through this edge.")
 
-    # Tracked Post-Processed Properties
-    post_animated: bool = Field(default=False)
-
 
 # ============================================================================
 # 7. METADATA
@@ -153,15 +147,15 @@ class DiagramMetadata(BaseModel):
 
 
 # ============================================================================
-# 8. ROOT DIAGRAM SCHEMA
+# 8. ROOT DIAGRAM SCHEMA (LLM-generated, clean — no post_ fields)
 # ============================================================================
 
-class ArchitectureDiagram(BaseModel):
+class Diagram(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     metadata: DiagramMetadata
-    nodes: List[ReactFlowNode]
-    edges: List[ReactFlowEdge]
+    nodes: List[DiagramNode]
+    edges: List[DiagramEdge]
 
     def validate_references(self) -> List[str]:
         """Validate that all edge references point to existing nodes.

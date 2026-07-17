@@ -1,5 +1,6 @@
 /**
  * React Flow Diagram View - Uses @xyflow/react for interactive diagrams.
+ * Post-processed data comes from the backend as ReactFlowDiagramOutput.
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
@@ -27,11 +28,13 @@ import {
   Layout,
   PanelRight,
   Map,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { nodeTypes, edgeTypes } from "@/components/nodes/components"
 import { layoutNodes } from "@/lib/layout"
@@ -51,6 +54,105 @@ interface ReactFlowDiagramViewProps {
   onDiagramChange?: (nodes: any[], edges: any[]) => void
   fetchDiagramData?: (diagramId: string) => Promise<void>
   className?: string
+}
+
+// Detail field renderer for sidebar
+function DetailRow({ label, value }: { label: string; value: string }) {
+  if (!value || value === "none") return null
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium">{label}</dt>
+      <dd className="text-xs text-foreground/80 leading-relaxed">{value}</dd>
+    </div>
+  )
+}
+
+function SidebarPanel({
+  element,
+  onClose,
+}: {
+  element: { type: "node" | "edge"; data: any } | null
+  onClose: () => void
+}) {
+  if (!element) return null
+  const { type, data: d } = element
+
+  return (
+    <div className="fixed right-0 top-16 bottom-0 w-80 bg-background border-l border-border shadow-xl z-40 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="capitalize text-[10px]">{type}</Badge>
+          <span className="text-xs font-mono text-muted-foreground truncate max-w-[180px]">{d?.id || d?.label}</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
+          <X className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {type === "node" && (
+          <>
+            <Section title="Node">
+              <DetailRow label="Label" value={d?.label} />
+              <DetailRow label="Subtitle" value={d?.subtitle} />
+              <DetailRow label="Type" value={d?.borderStyle} />
+            </Section>
+
+            {(d?.reasoning || d?.purpose) && (
+              <Section title="Architecture">
+                <DetailRow label="Reasoning" value={d?.reasoning} />
+                <DetailRow label="Purpose" value={d?.purpose} />
+                <DetailRow label="Benefit" value={d?.architectureBenefit} />
+                <DetailRow label="Design Justification" value={d?.designJustification} />
+              </Section>
+            )}
+
+            {(d?.languageRuntime || d?.frameworkLibrary || d?.databaseEngine || d?.cloudServiceName) && (
+              <Section title="Tech Stack">
+                <DetailRow label="Runtime" value={d?.languageRuntime} />
+                <DetailRow label="Framework" value={d?.frameworkLibrary} />
+                <DetailRow label="Database" value={d?.databaseEngine} />
+                <DetailRow label="Cloud Service" value={d?.cloudServiceName} />
+                <DetailRow label="Tier" value={d?.cloudTier} />
+              </Section>
+            )}
+          </>
+        )}
+
+        {type === "edge" && (
+          <>
+            {(d?.reasoning || d?.purpose) && (
+              <Section title="Architecture">
+                <DetailRow label="Reasoning" value={d?.reasoning} />
+                <DetailRow label="Purpose" value={d?.purpose} />
+                <DetailRow label="Benefit" value={d?.dependencyBenefit} />
+                <DetailRow label="Coupling" value={d?.couplingJustification} />
+              </Section>
+            )}
+
+            <Section title="Connection">
+              <DetailRow label="Protocol" value={d?.protocol} />
+              <DetailRow label="Flow Direction" value={d?.flowDirection} />
+              <DetailRow label="Logic" value={d?.logicVariant} />
+            </Section>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/80 mb-2">{title}</h4>
+      <dl className="space-y-2">
+        {children}
+      </dl>
+    </div>
+  )
 }
 
 export function ReactFlowCanvas({
@@ -74,7 +176,7 @@ export function ReactFlowCanvas({
   const containerRef = useRef<HTMLDivElement>(null)
   const dataRef = useRef<string>("")
 
-  // Run ELK layout when diagram data content changes (deep compare by JSON)
+  // Run ELK layout when diagram data content changes
   useEffect(() => {
     if (!diagramData?.nodes) return
     const key = JSON.stringify({ nodes: diagramData.nodes, edges: diagramData.edges })
@@ -96,7 +198,7 @@ export function ReactFlowCanvas({
     setNodes((nds) => {
       const newNodes = changes.reduce((acc, change) => {
         if (change.type === 'position') {
-          return acc.map((node) => node.id === change.id ? { ...node, position: change.position } : node)
+          return acc.map((node) => node.id === change.id ? { ...node, position: change.position! } : node)
         }
         if (change.type === 'remove') {
           return acc.filter((node) => node.id !== change.id)
@@ -125,8 +227,8 @@ export function ReactFlowCanvas({
       id: `${connection.source}-${connection.target}-${Date.now()}`,
       type: 'default',
       animated: false,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
-      label: (connection as any).label || '',
+      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#9ca3af' },
+      label: '',
       data: {
         protocol: 'HTTPS',
         flowDirection: 'forward',
@@ -199,84 +301,103 @@ export function ReactFlowCanvas({
     <TooltipProvider>
       <div className={cn("flex flex-col h-full bg-background", className)}>
         {/* Toolbar */}
-        <div className="flex items-center justify-between p-3 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
-          <div className="flex items-center gap-3">
-            {/* Layout Direction */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Select value={layoutDirection} onValueChange={v => setLayoutDirection(v as "TB" | "LR" | "BT" | "RL")}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[130px] h-8">
                     <SelectValue placeholder="Layout" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="TB">Top \u2192 Bottom (Flow)</SelectItem>
-                    <SelectItem value="LR">Left \u2192 Right (Cloud/C4)</SelectItem>
-                    <SelectItem value="BT">Bottom \u2192 Top</SelectItem>
-                    <SelectItem value="RL">Right \u2192 Left</SelectItem>
+                    <SelectItem value="TB">Top → Bottom</SelectItem>
+                    <SelectItem value="LR">Left → Right</SelectItem>
+                    <SelectItem value="BT">Bottom → Top</SelectItem>
+                    <SelectItem value="RL">Right → Left</SelectItem>
                   </SelectContent>
                 </Select>
               </TooltipTrigger>
               <TooltipContent>Layout direction</TooltipContent>
             </Tooltip>
 
-            <Separator orientation="vertical" className="h-6 mx-2" />
+            <Separator orientation="vertical" className="h-5" />
 
-            {/* Actions */}
-            <Button variant="outline" size="icon" onClick={runLayout} title="Re-layout with ELK">
-              <Layout className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={fitView} title="Fit view">
-              <Maximize className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={toggleMinimap} title={showMinimap ? "Hide minimap" : "Show minimap"}>
-              <Map className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={toggleSidebar} title={showSidebar ? "Hide sidebar" : "Show sidebar"}>
-              <PanelRight className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleDownload} title="Download JSON">
-              <Download className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={runLayout}>
+                    <Layout className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Re-layout</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={fitView}>
+                    <Maximize className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Fit view</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={toggleMinimap}>
+                    <Map className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{showMinimap ? "Hide" : "Show"} minimap</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={toggleSidebar}>
+                    <PanelRight className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{showSidebar ? "Hide" : "Show"} sidebar</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleDownload}>
+                    <Download className="w-3.5 h-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Download JSON</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-1 bg-muted p-1 rounded">
-              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => reactFlowInstance?.zoomOut()} title="Zoom out">
-                <ZoomOut className="w-4 h-4" />
+            {/* Zoom */}
+            <div className="flex items-center gap-1 bg-muted p-0.5 rounded-md">
+              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => reactFlowInstance?.zoomOut()}>
+                <ZoomOut className="w-3.5 h-3.5" />
               </Button>
-              <span className="px-2 text-xs text-muted-foreground font-mono">{Math.round(zoom * 100)}%</span>
-              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => reactFlowInstance?.zoomIn()} title="Zoom in">
-                <ZoomIn className="w-4 h-4" />
+              <span className="px-1.5 text-[11px] text-muted-foreground font-mono min-w-[36px] text-center">{Math.round(zoom * 100)}%</span>
+              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => reactFlowInstance?.zoomIn()}>
+                <ZoomIn className="w-3.5 h-3.5" />
               </Button>
             </div>
 
-            <Separator orientation="vertical" className="h-6 mx-2" />
-
             {loading && (
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Loading...</span>
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span className="text-xs">Loading...</span>
               </div>
             )}
             {!diagramData && diagramId && (
-              <Button variant="outline" size="sm" onClick={fetchDiagram}>
-                Fetch from server
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={fetchDiagram}>
+                Fetch
               </Button>
             )}
           </div>
         </div>
 
         {/* Canvas */}
-        <div
-          ref={containerRef}
-          className="flex-1 relative overflow-hidden"
-          onClick={onPaneClick}
-        >
+        <div ref={containerRef} className="flex-1 relative overflow-hidden" onClick={onPaneClick}>
           {error && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/90 z-10">
               <div className="text-center p-4">
-                <p className="text-destructive mb-2">{error}</p>
+                <p className="text-destructive text-sm mb-2">{error}</p>
                 <Button variant="outline" size="sm" onClick={fetchDiagram}>Retry</Button>
               </div>
             </div>
@@ -298,55 +419,21 @@ export function ReactFlowCanvas({
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             attributionPosition="bottom-right"
           >
-            <Background
-              color="#e5e7eb"
-              gap={20}
-              size={1}
-              style={{ opacity: 0.5 }}
-            />
+            <Background color="hsl(var(--border))" gap={20} size={1} style={{ opacity: 0.4 }} />
             <Controls />
             {showMinimap && <MiniMap />}
           </ReactFlow>
         </div>
 
         {/* Sidebar */}
-        {showSidebar && selectedElement && (
-          <div className="fixed right-0 top-16 bottom-0 w-80 bg-background border-l border-border shadow-xl z-40 overflow-y-auto p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold capitalize">{selectedElement.type}</h3>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedElement(null)}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </Button>
-            </div>
-            <div className="space-y-3 text-sm">
-              {selectedElement.type === 'node' && (
-                <>
-                  <div className="font-mono text-xs text-gray-500">{selectedElement.data.id}</div>
-                  {selectedElement.data.reasoning && <p className="text-gray-700 dark:text-gray-300"><strong>Reasoning:</strong> {selectedElement.data.reasoning}</p>}
-                  {selectedElement.data.purpose && <p className="text-gray-700 dark:text-gray-300"><strong>Purpose:</strong> {selectedElement.data.purpose}</p>}
-                  {selectedElement.data.architectureBenefit && <p className="text-gray-700 dark:text-gray-300"><strong>Benefit:</strong> {selectedElement.data.architectureBenefit}</p>}
-                  {selectedElement.data.designJustification && <p className="text-gray-700 dark:text-gray-300"><strong>Design:</strong> {selectedElement.data.designJustification}</p>}
-                </>
-              )}
-              {selectedElement.type === 'edge' && (
-                <>
-                  <div className="font-mono text-xs text-gray-500">{selectedElement.data.id}</div>
-                  {selectedElement.data.reasoning && <p className="text-gray-700 dark:text-gray-300"><strong>Reasoning:</strong> {selectedElement.data.reasoning}</p>}
-                  {selectedElement.data.purpose && <p className="text-gray-700 dark:text-gray-300"><strong>Purpose:</strong> {selectedElement.data.purpose}</p>}
-                  {selectedElement.data.protocol !== 'none' && <p className="text-gray-700 dark:text-gray-300"><strong>Protocol:</strong> {selectedElement.data.protocol}</p>}
-                </>
-              )}
-            </div>
-          </div>
-        )}
+        {showSidebar && <SidebarPanel element={selectedElement} onClose={() => setSelectedElement(null)} />}
       </div>
     </TooltipProvider>
   )
 }
 
-
 // ============================================================================
-// Outer wrapper providing ReactFlowProvider context
+// Outer wrapper
 // ============================================================================
 
 export function ReactFlowDiagramView(props: ReactFlowDiagramViewProps) {

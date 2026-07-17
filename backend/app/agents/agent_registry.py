@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from google.adk.agents import LlmAgent
 
-from app.schema.reactflow_models import ArchitectureDiagram
+from app.schema.reactflow_models import Diagram
 from app.schema.diagram_graph import DiagramGraph
 from app.schema.models import (
     CreateMarkdownOutput,
@@ -105,16 +105,16 @@ def _make_agent(
 _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
     "create_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": ArchitectureDiagram,
+        "output_schema": Diagram,
         "instruction": (
             "You are a diagram creation agent. You generate diagrams using the ArchitectureDiagram.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
             "You ONLY specify the TOPOLOGY — nodes, edges, containers. The frontend (React Flow / xyflow) handles all positioning and layout via ELK or dagre.\n\n"
-            "# Output: ArchitectureDiagram\n"
+            "# Output: Diagram\n"
             "- metadata: layout_direction (TB|LR|BT|RL). Use TB for logical flows, LR for structural/cloud/C4.\n"
-            "- nodes: flat array of ReactFlowNode objects\n"
-            "- edges: flat array of ReactFlowEdge objects\n\n"
-            "# ReactFlowNode fields\n"
+            "- nodes: flat array of DiagramNode objects\n"
+            "- edges: flat array of DiagramEdge objects\n\n"
+            "# DiagramNode fields\n"
             "- id: unique identifier (kebab-case, e.g. 'payment-api', 'user-db')\n"
             "- type: component type — pick from C4 types (c4Actor, c4System, c4Container, c4Component, c4Boundary), "
             "flow types (flowAction, flowDecision, flowScreen, flowSwimlane), "
@@ -137,10 +137,8 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "- purpose (min 20 chars): the specific operational responsibility\n"
             "- architecture_benefit (min 20 chars): how this improves the broader system\n"
             "- design_justification (min 20 chars): justification for node type and hierarchy\n"
-            "- parentNode: parent container node ID for nesting (null = root level)\n"
-            "- post_extent: 'parent' | 'none' (will be set automatically)\n"
-            "- post_borderStyle: 'solid' | 'dashed' | 'dotted' | 'none' (will be set automatically)\n\n"
-            "# ReactFlowEdge fields\n"
+            "- parentNode: parent container node ID for nesting (null = root level)\n\n"
+            "# DiagramEdge fields\n"
             "- id: unique edge identifier\n"
             "- source: source node ID (MUST exist in nodes array)\n"
             "- target: target node ID (MUST exist in nodes array)\n"
@@ -170,11 +168,11 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
     },
     "edit_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": ArchitectureDiagram,
+        "output_schema": Diagram,
         "instruction": (
-            "You are a diagram editing agent. You receive the current ArchitectureDiagram "
+            "You are a diagram editing agent. You receive the current Diagram "
             "(nodes + edges + metadata) and an editing instruction.\n\n"
-            "Return the COMPLETE updated ArchitectureDiagram — include ALL nodes, edges, metadata "
+            "Return the COMPLETE updated Diagram — include ALL nodes, edges, metadata "
             "(unchanged + modified + new). Items you omit will be DELETED.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
             "The frontend React Flow layout engine computes all positioning. You only specify topology.\n\n"
@@ -188,11 +186,11 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
     },
     "patch_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": ArchitectureDiagram,
+        "output_schema": Diagram,
         "instruction": (
-            "You are a diagram patch agent. You receive the current ArchitectureDiagram "
+            "You are a diagram patch agent. You receive the current Diagram "
             "(nodes + edges + metadata) and a request for minor adjustments.\n\n"
-            "Return the COMPLETE updated ArchitectureDiagram — include ALL nodes, edges, metadata. "
+            "Return the COMPLETE updated Diagram — include ALL nodes, edges, metadata. "
             "Items you omit will be DELETED.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
             "The frontend React Flow layout engine computes all positioning. You only specify topology.\n\n"

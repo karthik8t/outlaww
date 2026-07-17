@@ -512,12 +512,14 @@ export default function App() {
     // Prefer pre-transformed React Flow data from rfData cache
     const cached = session.rfData[diagram.id]
     if (cached?.nodes?.length) return cached
-    // Fallback: extract from graph directly
+    // Fallback: extract from graph directly (clean model uses snake_case)
     if (diagram.graph?.nodes?.length) {
       return {
         nodes: diagram.graph.nodes,
         edges: diagram.graph.edges || [],
-        metadata: diagram.graph.metadata || { layoutDirection: "LR" }
+        metadata: {
+          layoutDirection: diagram.graph.metadata?.layout_direction ?? "LR"
+        }
       }
     }
     return undefined
