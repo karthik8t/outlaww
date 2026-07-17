@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 # ============================================================================
-# 1. COMPONENT TYPES - C4, Flow, Cloud Infrastructure
+# 1. COMPONENT TYPES - C4, Flow, Cloud Infrastructure, Groups
 # ============================================================================
 
 StandardComponentType = Literal[
@@ -23,7 +23,31 @@ CloudComponentType = Literal[
     "cloudMessaging", "cloudSecurity", "cloudAnalytics", "cloudBoundary"
 ]
 
-ComponentType = Literal[StandardComponentType, CloudComponentType, "group"]
+# ── Dedicated grouping/container types ───────────────────────────────────────
+# These are VISUAL CONTAINERS only — they have NO tech-stack fields.
+# Use them to wrap related leaf nodes and give the diagram hierarchical structure.
+# They must be declared BEFORE their children in the nodes array.
+#
+#  deploymentGroup — Top-level zone: cloud provider (AWS/GCP/Azure), browser,
+#                    mobile, or on-prem. One per environment.
+#  serviceGroup    — A cluster of 2-6 co-deployed microservices or containers.
+#                    Use when services share a subnet, autoscaling group, or
+#                    Kubernetes namespace.
+#  domainGroup     — Bounded context or team-ownership area (DDD / org boundary).
+#                    Cuts across deployment zones.
+#  dataGroup       — Data tier: wraps databases, caches, queues, and object
+#                    storage that belong to the same data domain.
+#  networkGroup    — Network segment: VPC, subnet, DMZ, CDN edge, or firewall
+#                    zone. Annotates infrastructure-level topology.
+GroupComponentType = Literal[
+    "deploymentGroup",
+    "serviceGroup",
+    "domainGroup",
+    "dataGroup",
+    "networkGroup",
+]
+
+ComponentType = Literal[StandardComponentType, CloudComponentType, GroupComponentType, "group"]
 
 
 # ============================================================================

@@ -176,6 +176,25 @@ function SidebarPanel({ element, onClose }: { element: SelectedElement | null; o
   )
 }
 
+// ============================================================================
+// Direction-aware node enrichment
+// Updates BOTH data.layoutDirection (for custom NodeHandle resolution) AND
+// the top-level sourcePosition/targetPosition (for React Flow's default edge
+// path drawing when no explicit handle ID is matched on an edge).
+// ============================================================================
+
+const LAYOUT_SOURCE: Record<string, string> = { LR: "right", RL: "left",  TB: "bottom", BT: "top"    }
+const LAYOUT_TARGET: Record<string, string> = { LR: "left",  RL: "right", TB: "top",    BT: "bottom" }
+
+function enrichNodesWithDirection(nodes: any[], direction: string) {
+  return nodes.map((n: any) => ({
+    ...n,
+    sourcePosition: LAYOUT_SOURCE[direction] || "right",
+    targetPosition: LAYOUT_TARGET[direction] || "left",
+    data: { ...n.data, layoutDirection: direction },
+  }))
+}
+
 export function ReactFlowCanvas({
   diagramData,
   diagramId,
@@ -208,11 +227,9 @@ export function ReactFlowCanvas({
     setLayoutDirection(dir)
     setLoading(true)
     layoutNodes(diagramData.nodes, diagramData.edges || [], dir).then((positioned) => {
-      // Inject layoutDirection into each node's data so handles can be direction-aware
-      const enriched = positioned.map((n: any) => ({
-        ...n,
-        data: { ...n.data, layoutDirection: dir },
-      }))
+      // Inject layoutDirection into each node's data + update top-level sourcePosition/targetPosition
+      // so edge paths always draw from the correct side when direction changes
+      const enriched = enrichNodesWithDirection(positioned, dir)
       setNodes(enriched)
       setEdges(diagramData.edges || [])
       setLoading(false)
@@ -282,12 +299,7 @@ export function ReactFlowCanvas({
     const direction = (dir || layoutDirection) as "TB" | "LR" | "BT" | "RL"
     setLoading(true)
     const positioned = await layoutNodes(nodes, edges, direction)
-    // Inject layoutDirection into each node so handles position dynamically
-    const enriched = positioned.map((n: any) => ({
-      ...n,
-      data: { ...n.data, layoutDirection: direction },
-    }))
-    setNodes(enriched)
+    setNodes(enrichNodesWithDirection(positioned, direction))
     setLoading(false)
     setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
   }, [nodes, edges, layoutDirection, reactFlowInstance])

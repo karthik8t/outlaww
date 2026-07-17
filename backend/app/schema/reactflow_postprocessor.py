@@ -33,6 +33,12 @@ from app.schema.reactflow_output import (
 LAYOUT_SOURCE: Dict[str, Position] = {"LR": "right", "RL": "left", "TB": "bottom", "BT": "top"}
 LAYOUT_TARGET: Dict[str, Position] = {"LR": "left", "RL": "right", "TB": "top", "BT": "bottom"}
 
+# All group/container node types (visual containers, not leaf components)
+GROUP_TYPES = {
+    "deploymentGroup", "serviceGroup", "domainGroup", "dataGroup", "networkGroup",
+    "c4Boundary", "cloudBoundary", "group",
+}
+
 HANDLE_POSITIONS: Dict[str, Dict[str, float]] = {
     "top":    {"x": 0.5, "y": 0.0},
     "right":  {"x": 1.0, "y": 0.5},
@@ -54,7 +60,7 @@ def _to_camel(snake: str) -> str:
 # ============================================================================
 
 def _compute_z_index(node: DiagramNode) -> int:
-    if node.type in {"c4Boundary", "cloudBoundary"}:
+    if node.type in GROUP_TYPES:
         return 0
     if node.type in {"flowSwimlane"}:
         return 1
@@ -212,7 +218,7 @@ def postprocess(diagram: Diagram) -> ReactFlowDiagramOutput:
         node_data = _build_node_data(node, handles, layout_dir)
 
         has_parent = bool(node.parentNode)
-        is_boundary = node.type in {"c4Boundary", "cloudBoundary"}
+        is_group = node.type in GROUP_TYPES
 
         rf_node = ReactFlowNodeOutput(
             id=node.id,
@@ -223,9 +229,9 @@ def postprocess(diagram: Diagram) -> ReactFlowDiagramOutput:
             expandParent=has_parent,
             zIndex=_compute_z_index(node),
             ariaLabel=node.data.label,
-            draggable=not is_boundary,
+            draggable=not is_group,
             selectable=True,
-            deletable=not is_boundary,
+            deletable=not is_group,
             sourcePosition=source_pos,
             targetPosition=target_pos,
             origin=[0.0, 0.0],

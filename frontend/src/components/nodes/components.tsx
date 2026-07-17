@@ -69,6 +69,7 @@ interface NodeTypeConfig {
 }
 
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
+  // ── Legacy generic group ────────────────────────────────────────────────
   group: {
     label: "Group",
     dashed: true,
@@ -308,44 +309,78 @@ function Tag({ children, className, theme }: { children: React.ReactNode; classN
 }
 
 // ============================================================================
-// Boundary Node — transparent container that groups children
+// Container Node — renders all dedicated group/container types
+// Each variant gets a distinct visual treatment so hierarchy is immediately
+// readable at a glance:
+//   deploymentGroup — large dashed blue border, prominent zone label
+//   serviceGroup    — solid violet border, cluster label
+//   domainGroup     — dashed amber border, domain label
+//   dataGroup       — solid cyan border, data tier label
+//   networkGroup    — dashed teal border, network zone label
+//   c4Boundary / cloudBoundary — C4 notation fallbacks
 // ============================================================================
 
-function BoundaryNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
+const GROUP_LABEL_CONFIG: Record<string, { icon: string; size: string }> = {
+  deploymentGroup: { icon: "🌐", size: "text-[11px]" },
+  serviceGroup:    { icon: "⚙️", size: "text-[10px]" },
+  domainGroup:     { icon: "🔷", size: "text-[10px]" },
+  dataGroup:       { icon: "🗄️", size: "text-[10px]" },
+  networkGroup:    { icon: "🔗", size: "text-[10px]" },
+  c4Boundary:      { icon: "⬡", size: "text-[10px]" },
+  cloudBoundary:   { icon: "☁️", size: "text-[10px]" },
+}
+
+function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
   const cfg = getNodeConfig(nodeType)
   const { theme } = cfg
+  const meta = GROUP_LABEL_CONFIG[nodeType]
+
+  // Top-level deployment zones get more visual weight
+  const isTopLevel = nodeType === "deploymentGroup" || nodeType === "networkGroup"
 
   return (
     <div
       className={cn(
-        "relative min-w-[300px] min-h-[160px] rounded-xl border-2 border-dashed transition-shadow",
+        "relative rounded-xl border-2 transition-shadow",
+        isTopLevel ? "min-w-[360px] min-h-[200px]" : "min-w-[240px] min-h-[140px]",
+        cfg.dashed ? "border-dashed" : "border-solid",
         selected && "ring-2 ring-ring shadow-md",
         theme.border,
         theme.light,
       )}
     >
-      <div className={cn("px-3 py-1.5 border-b border-dashed flex items-center gap-2", theme.border)}>
-        <span className={cn("text-[10px] font-semibold uppercase tracking-widest", theme.badgeText)}>
+      {/* Header bar — label pinned to top edge */}
+      <div
+        className={cn(
+          "absolute top-0 left-0 right-0 flex items-center gap-1.5 px-3 py-1.5",
+          "border-b",
+          cfg.dashed ? "border-dashed" : "border-solid",
+          theme.border,
+        )}
+      >
+        {meta && <span className="text-sm leading-none">{meta.icon}</span>}
+        <span className={cn("font-bold uppercase tracking-widest", meta?.size ?? "text-[10px]", theme.accent)}>
+          {data.label}
+        </span>
+        {data.subtitle && (
+          <span className="text-[10px] text-muted-foreground font-normal normal-case tracking-normal ml-1">
+            {data.subtitle}
+          </span>
+        )}
+        {/* Type badge pinned to far right */}
+        <span className={cn(
+          "ml-auto px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider",
+          theme.badge, theme.badgeText
+        )}>
           {cfg.label}
         </span>
-        <span className="text-xs text-muted-foreground font-medium truncate">{data.label}</span>
       </div>
-      {data.title && (
-        <div className="px-3 py-1.5 border-b border-dashed">
-          <h4 className={cn("text-sm font-semibold", theme.accent)}>{data.title}</h4>
-        </div>
-      )}
-      {data.description && (
-        <div className="px-3 py-1.5">
-          <p className="text-xs text-muted-foreground">{data.description}</p>
-        </div>
-      )}
     </div>
   )
 }
 
 // ============================================================================
-// Group Node — container for children
+// Group Node — container for children (legacy 'group' type)
 // ============================================================================
 
 function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -414,29 +449,44 @@ function SwimlaneNode({ data, selected }: { data: NodeData; selected?: boolean }
 // Node dispatch — routes to the correct renderer based on type
 // ============================================================================
 
+const CONTAINER_TYPES = new Set([
+  "deploymentGroup", "serviceGroup", "domainGroup", "dataGroup", "networkGroup",
+  "c4Boundary", "cloudBoundary",
+])
+
 function DiagramNode(props: NodeProps) {
   const { data, selected, type } = props
-  const isBoundary = type === "c4Boundary" || type === "cloudBoundary"
+  const isContainer = CONTAINER_TYPES.has(type || "")
   const isSwimlane = type === "flowSwimlane"
-  const isGroup = type === "group"
+  const isLegacyGroup = type === "group"
 
-  if (isBoundary) return <BoundaryNode data={data as NodeData} selected={selected} nodeType={type} />
-  if (isSwimlane) return <SwimlaneNode data={data as NodeData} selected={selected} />
-  if (isGroup)    return <GroupNode data={data as NodeData} selected={selected} nodeType={type} />
+  if (isContainer) return <ContainerNode data={data as NodeData} selected={selected} nodeType={type || "group"} />
+  if (isSwimlane)  return <SwimlaneNode data={data as NodeData} selected={selected} />
+  if (isLegacyGroup) return <GroupNode data={data as NodeData} selected={selected} nodeType={type || "group"} />
 
-  return <CardNode data={data as NodeData} selected={selected} nodeType={type} />
+  return <CardNode data={data as NodeData} selected={selected} nodeType={type || "c4Container"} />
 }
 
 export const nodeTypes = {
+  // Group / Container types
+  deploymentGroup: DiagramNode,
+  serviceGroup: DiagramNode,
+  domainGroup: DiagramNode,
+  dataGroup: DiagramNode,
+  networkGroup: DiagramNode,
+  group: DiagramNode,
+  // C4 types
   c4Actor: DiagramNode,
   c4System: DiagramNode,
   c4Container: DiagramNode,
   c4Component: DiagramNode,
   c4Boundary: DiagramNode,
+  // Flow types
   flowAction: DiagramNode,
   flowDecision: DiagramNode,
   flowScreen: DiagramNode,
   flowSwimlane: DiagramNode,
+  // Cloud types
   cloudCompute: DiagramNode,
   cloudDatabase: DiagramNode,
   cloudStorage: DiagramNode,
@@ -445,7 +495,6 @@ export const nodeTypes = {
   cloudSecurity: DiagramNode,
   cloudAnalytics: DiagramNode,
   cloudBoundary: DiagramNode,
-  group: DiagramNode,
 }
 
 // ============================================================================
