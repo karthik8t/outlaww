@@ -74,8 +74,7 @@ export interface Diagram {
   id: string
   name: string
   description: string
-  d2_source: string
-  graph: Record<string, unknown>  // UltimateDiagramGraphSchema JSON
+  graph: Record<string, unknown>  // ArchitectureDiagram JSON
   created_at: string
   updated_at: string
 }
@@ -197,25 +196,4 @@ export async function transformDiagramToReactFlow(
   })
 }
 
-/** Render D2 diagram to SVG via backend CLI. */
-export async function renderD2Diagram(params: {
-  d2_source: string
-  format?: "svg" | "png" | "pdf" | "gif" | "pptx"
-  theme_id?: number
-  dark_theme_id?: number
-  layout_engine?: "elk"
-  direction?: "right" | "down" | "left" | "up"
-  pad?: number
-  sketch?: boolean
-}): Promise<string> {
-  const res = await fetch(`${BASE_URL}/chat/render`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  })
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Render failed (${res.status}): ${text}`)
-  }
-  return res.text()
-}
+

@@ -156,7 +156,7 @@ class DiagramMetadata(BaseModel):
 # 8. ROOT DIAGRAM SCHEMA
 # ============================================================================
 
-class UltimateDiagramGraphSchema(BaseModel):
+class ArchitectureDiagram(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     metadata: DiagramMetadata

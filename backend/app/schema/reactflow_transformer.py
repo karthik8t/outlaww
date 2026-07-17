@@ -1,12 +1,12 @@
 """
 React Flow Transformer - Converts LLM diagram output to React Flow compatible JSON.
-Handles the transformation from UltimateDiagramGraphSchema to xyflow React Flow format.
+Handles the transformation from ArchitectureDiagram to xyflow React Flow format.
 """
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 from app.schema.reactflow_models import (
-    UltimateDiagramGraphSchema,
+    ArchitectureDiagram,
     ReactFlowNode,
     ReactFlowEdge,
     ComponentType,
@@ -127,8 +127,8 @@ def transform_edge(edge: ReactFlowEdge) -> Dict[str, Any]:
     return rf_edge
 
 
-def transform_diagram(schema: UltimateDiagramGraphSchema) -> Dict[str, Any]:
-    """Transform UltimateDiagramGraphSchema to React Flow compatible format."""
+def transform_diagram(schema: ArchitectureDiagram) -> Dict[str, Any]:
+    """Transform ArchitectureDiagram to React Flow compatible format."""
     nodes = [transform_node(n) for n in schema.nodes]
     edges = [transform_edge(e) for e in schema.edges]
 
@@ -141,7 +141,7 @@ def transform_diagram(schema: UltimateDiagramGraphSchema) -> Dict[str, Any]:
     }
 
 
-def validate_and_transform(schema: UltimateDiagramGraphSchema) -> Dict[str, Any]:
+def validate_and_transform(schema: ArchitectureDiagram) -> Dict[str, Any]:
     """Validate references and transform to React Flow format."""
     errors = schema.validate_references()
     if errors:
@@ -152,10 +152,7 @@ def validate_and_transform(schema: UltimateDiagramGraphSchema) -> Dict[str, Any]
 def extract_reactflow_from_diagram(diagram_data: dict) -> Optional[Dict[str, Any]]:
     """Extract React Flow data from a stored Diagram's graph field.
 
-    The graph field may contain:
-    - UltimateDiagramGraphSchema (new) — transformed directly
-    - D2Diagram dict (old / fallback) — return None
-
+    The graph field should contain an ArchitectureDiagram dict.
     Returns { nodes, edges, metadata } or None if extraction fails.
     """
     graph = diagram_data.get("graph") or {}
@@ -165,7 +162,7 @@ def extract_reactflow_from_diagram(diagram_data: dict) -> Optional[Dict[str, Any
     # Check if it has nodes/edges (React Flow schema)
     if "nodes" in graph and "edges" in graph:
         try:
-            schema = UltimateDiagramGraphSchema.model_validate(graph)
+            schema = ArchitectureDiagram.model_validate(graph)
             return validate_and_transform(schema)
         except Exception:
             return None

@@ -22,7 +22,7 @@ from app.api.dependencies import (
     user_id_for,
 )
 from app.schema.reactflow_models import (
-    UltimateDiagramGraphSchema,
+    ArchitectureDiagram,
     ReactFlowNode,
     ReactFlowEdge,
     NodeData,
@@ -34,35 +34,20 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-#  Helper: Diagram → React Flow data + optional SVG render
+#  Helper: Diagram → React Flow data
 # ---------------------------------------------------------------------------
 
 def _diagram_to_reactflow(diagram_data: dict[str, Any]) -> dict[str, Any] | None:
-    """
-    Convert a diagram dict to React Flow compatible format.
-
-    Returns dict with:
-    - rf_data: dict with nodes[], edges[], metadata{} (React Flow format)
-    - d2_source: "" (deprecated, kept for backward compat)
-    - svg: b"" (deprecated, kept for backward compat)
-    """
+    """Convert a diagram dict to React Flow compatible format."""
     from app.schema.reactflow_transformer import extract_reactflow_from_diagram
 
     graph_data = diagram_data.get("graph")
     if graph_data:
         rf_result = extract_reactflow_from_diagram(diagram_data)
         if rf_result:
-            return {
-                "rf_data": rf_result,
-                "d2_source": "",
-                "svg": b"",
-            }
+            return {"rf_data": rf_result}
 
-    return {
-        "rf_data": None,
-        "d2_source": "",
-        "svg": b"",
-    }
+    return {"rf_data": None}
 
 
 # ---------------------------------------------------------------------------
@@ -363,150 +348,7 @@ async def list_agents() -> AgentsResponse:
     return AgentsResponse(agents=registry.list_agents())
 
 
-# ---------------------------------------------------------------------------
-#  D2 Render Endpoint
-# ---------------------------------------------------------------------------
 
-class RenderRequest(BaseModel):
-    """Request to render a D2 diagram."""
-    d2_source: str = Field(..., description="D2 source code")
-    format: Literal["svg", "png", "pdf", "gif", "pptx"] = "svg"
-    theme_id: Optional[int] = None
-    dark_theme_id: Optional[int] = None
-    layout_engine: Literal["elk"] = "elk"
-    direction: Literal["right", "down", "left", "up"] = "right"
-    pad: int = 100
-    sketch: bool = False
-    animate_interval: Optional[int] = None
-    scale: float = 1.0
-
-
-class RenderResponse(BaseModel):
-    """Response from render endpoint."""
-    svg: Optional[str] = None  # base64 encoded for SVG
-    png_base64: Optional[str] = None
-    pdf_base64: Optional[str] = None
-    content_type: str = ""
-    size_bytes: int = 0
-
-
-@router.post("/render", response_model=RenderResponse)
-async def render_diagram(req: RenderRequest) -> RenderResponse:
-    """Render D2 source to SVG/PNG/PDF.
-    
-    Used for on-demand rendering of D2 source code.
-    """
-    from app.schema.d2_models import D2Diagram, RenderOptions
-    from app.schema.d2_serializer import serialize_d2
-    from app.schema.d2_renderer import render_cli, D2RenderError
-    
-    try:
-        # Parse and validate D2 source by creating a minimal diagram
-        # In practice, the client sends D2 source directly
-        # We just need to render it
-        from app.schema.d2_renderer import render_cli_sync
-        
-        # For simplicity, we'll use the CLI directly with the provided source
-        # This bypasses the D2Diagram model validation
-        import subprocess
-        
-        args = ["d2"]
-        if req.theme_id is not None:
-            args.extend(["-t", str(req.theme_id)])
-        if req.dark_theme_id is not None:
-            args.extend(["--dark-theme", str(req.dark_theme_id)])
-        if req.layout_engine:
-            args.extend(["--layout", req.layout_engine])
-        args.extend(["-d", req.direction])
-        if req.pad != 100:
-            args.extend(["-p", str(req.pad)])
-        if req.sketch:
-            args.append("--sketch")
-        if req.animate_interval is not None:
-            args.extend(["--animate-interval", str(req.animate_interval)])
-        args.extend(["-f", req.format])
-        if req.scale != 1.0 and req.format in ("png", "jpg", "jpeg"):
-            args.extend(["-s", str(req.scale)])
-        args.extend(["-", "-"])
-        
-        proc = await asyncio.create_subprocess_exec(
-            *args,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate(input=req.d2_source.encode("utf-8"))
-        
-        if proc.returncode != 0:
-            raise HTTPException(status_code=400, detail=f"D2 render failed: {stderr.decode('utf-8', errors='replace')}")
-        
-        if req.format == "svg":
-            return RenderResponse(
-                svg=stdout.decode("utf-8"),
-                content_type="image/svg+xml",
-                size_bytes=len(stdout),
-            )
-        else:
-            import base64
-            b64 = base64.b64encode(stdout).decode("ascii")
-            if req.format == "png":
-                return RenderResponse(png_base64=b64, content_type="image/png", size_bytes=len(stdout))
-            elif req.format == "pdf":
-                return RenderResponse(pdf_base64=b64, content_type="application/pdf", size_bytes=len(stdout))
-            else:
-                return RenderResponse(content_type=f"application/{req.format}", size_bytes=len(stdout))
-                
-    except Exception as e:
-        logger.error(f"[render] failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ---------------------------------------------------------------------------
-#  D2 SSE Stream Endpoint (progressive rendering)
-# ---------------------------------------------------------------------------
-
-@router.post("/render/stream")
-async def render_stream(req: RenderRequest) -> StreamingResponse:
-    """Stream D2 rendering as SSE chunks.
-    
-    Yields progressive SVG output for real-time preview.
-    """
-    from app.schema.d2_renderer import render_sse_response
-    from app.schema.d2_models import D2Diagram, RenderOptions
-    
-    # For streaming, we need a D2Diagram - parse the source as a minimal diagram
-    # In practice, the client would send a diagram ID and we'd fetch from session
-    # For now, create a minimal diagram wrapper
-    try:
-        # We can't easily parse arbitrary D2 source back to D2Diagram
-        # So we'll stream using the CLI directly
-        from app.schema.d2_renderer import stream_svg_chunks
-        
-        # Create a minimal D2Diagram with the source embedded in a text node
-        # This is a workaround - ideally the diagram is already stored as D2Diagram
-        diagram = D2Diagram(
-            architectural_reasoning="Streaming render of provided D2 source.",
-            nodes=[D2Node(id="source", label=req.d2_source, shape="text")],
-            edges=[],
-        )
-        
-        options = RenderOptions(
-            format=req.format,
-            theme_id=req.theme_id,
-            dark_theme_id=req.dark_theme_id,
-            layout_engine=req.layout_engine,
-            direction=req.direction,
-            pad=req.pad,
-            sketch=req.sketch,
-            animate_interval=req.animate_interval,
-            scale=req.scale,
-        )
-        
-        return await render_sse_response(diagram, options)
-        
-    except Exception as e:
-        logger.error(f"[render/stream] failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -593,8 +435,8 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
 # ---------------------------------------------------------------------------
 
 class ReactFlowTransformRequest(BaseModel):
-    """Request to transform UltimateDiagramGraphSchema to React Flow format."""
-    schema: UltimateDiagramGraphSchema
+    """Request to transform ArchitectureDiagram to React Flow format."""
+    schema: ArchitectureDiagram
 
 
 class ReactFlowTransformResponse(BaseModel):
@@ -606,7 +448,7 @@ class ReactFlowTransformResponse(BaseModel):
 
 @router.post("/transform/reactflow", response_model=ReactFlowTransformResponse)
 async def transform_to_reactflow(req: ReactFlowTransformRequest) -> ReactFlowTransformResponse:
-    """Transform UltimateDiagramGraphSchema to React Flow (xyflow) compatible JSON.
+    """Transform ArchitectureDiagram to React Flow (xyflow) compatible JSON.
     
     Takes the LLM-generated diagram schema and converts it to the format
     expected by @xyflow/react frontend components.

@@ -19,7 +19,6 @@
     "@radix-ui/react-select": "^2.3.3",
     "@radix-ui/react-tooltip": "^1.2.12",
     "@tailwindcss/vite": "^4",
-    "@terrastruct/d2": "^0.1.33",
     "@xyflow/react": "^12.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
