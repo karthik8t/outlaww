@@ -197,4 +197,20 @@ export async function transformDiagramToReactFlow(
   })
 }
 
+/** Create a new blank session. */
+export async function createSession(): Promise<{ session_id: string }> {
+  return post<{ session_id: string }>("/chat/sessions", {})
+}
+
+/** Delete a session. */
+export async function deleteSession(sessionId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/chat/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`DELETE /chat/sessions/${sessionId} failed (${res.status}): ${text}`)
+  }
+}
+
 

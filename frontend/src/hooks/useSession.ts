@@ -1,29 +1,14 @@
 /**
- * useSession — manages session lifecycle, URL routing, and backend data.
+ * useSession — manages session lifecycle and backend data.
  *
- * - Reads session ID from URL path: /session/:id
+ * - Reads session ID from React Router /session/:sessionId
  * - Creates new session on first message if none in URL
  * - Syncs diagrams / markdown docs after each chat response
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useParams, useNavigate } from "react-router-dom"
 import * as api from "@/lib/api"
-
-// ---------------------------------------------------------------------------
-//  URL helpers
-// ---------------------------------------------------------------------------
-
-function getSessionFromPath(): string | null {
-  const match = window.location.pathname.match(/^\/session\/([^/]+)/)
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-function pushSessionToPath(sessionId: string) {
-  const url = `/session/${encodeURIComponent(sessionId)}`
-  if (window.location.pathname !== url) {
-    window.history.pushState({ sessionId }, "", url)
-  }
-}
 
 // ---------------------------------------------------------------------------
 //  Hook
@@ -40,8 +25,13 @@ export interface ChatMsg {
 }
 
 export function useSession() {
+  const { sessionId: routeSessionId } = useParams<{ sessionId: string }>()
+  const navigate = useNavigate()
+
   // ---- session state ----
-  const [sessionId, setSessionId] = useState<string | null>(getSessionFromPath)
+  const [sessionId, setSessionId] = useState<string | null>(
+    () => routeSessionId ? decodeURIComponent(routeSessionId) : null
+  )
   const [ready, setReady] = useState(true) // false while loading session data on mount
 
   // ---- data from backend ----
@@ -112,15 +102,11 @@ export function useSession() {
       .finally(() => setReady(true))
   }, [sessionId])
 
-  // ---- popstate (back/forward) ----
+  // ---- sync with route param changes (back/forward via React Router) ----
   useEffect(() => {
-    const handler = () => {
-      const id = getSessionFromPath()
-      setSessionId(id)
-    }
-    window.addEventListener("popstate", handler)
-    return () => window.removeEventListener("popstate", handler)
-  }, [])
+    const id = routeSessionId ? decodeURIComponent(routeSessionId) : null
+    setSessionId(id)
+  }, [routeSessionId])
 
   // ---- refresh helpers ----
   const refreshSessions = useCallback(async () => {
@@ -179,7 +165,7 @@ export function useSession() {
       // Update session ID if new
       if (!sessionIdRef.current) {
         setSessionId(res.session_id)
-        pushSessionToPath(res.session_id)
+        navigate(`/session/${encodeURIComponent(res.session_id)}`, { replace: true })
       }
 
       const agentMsg: ChatMsg = {
@@ -222,7 +208,7 @@ export function useSession() {
 
       if (!sessionIdRef.current) {
         setSessionId(res.session_id)
-        pushSessionToPath(res.session_id)
+        navigate(`/session/${encodeURIComponent(res.session_id)}`, { replace: true })
       }
 
       const agentMsg: ChatMsg = {
