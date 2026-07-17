@@ -23,7 +23,7 @@ CloudComponentType = Literal[
     "cloudMessaging", "cloudSecurity", "cloudAnalytics", "cloudBoundary"
 ]
 
-ComponentType = Literal[StandardComponentType, CloudComponentType]
+ComponentType = Literal[StandardComponentType, CloudComponentType, "group"]
 
 
 # ============================================================================

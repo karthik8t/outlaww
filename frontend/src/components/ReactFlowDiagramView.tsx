@@ -208,7 +208,12 @@ export function ReactFlowCanvas({
     setLayoutDirection(dir)
     setLoading(true)
     layoutNodes(diagramData.nodes, diagramData.edges || [], dir).then((positioned) => {
-      setNodes(positioned)
+      // Inject layoutDirection into each node's data so handles can be direction-aware
+      const enriched = positioned.map((n: any) => ({
+        ...n,
+        data: { ...n.data, layoutDirection: dir },
+      }))
+      setNodes(enriched)
       setEdges(diagramData.edges || [])
       setLoading(false)
       setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
@@ -272,11 +277,17 @@ export function ReactFlowCanvas({
     reactFlowInstance?.fitView({ padding: 0.2 })
   }, [reactFlowInstance])
 
-  const runLayout = useCallback(async () => {
+  const runLayout = useCallback(async (dir?: string) => {
     if (nodes.length === 0) return
+    const direction = (dir || layoutDirection) as "TB" | "LR" | "BT" | "RL"
     setLoading(true)
-    const positioned = await layoutNodes(nodes, edges, layoutDirection)
-    setNodes(positioned)
+    const positioned = await layoutNodes(nodes, edges, direction)
+    // Inject layoutDirection into each node so handles position dynamically
+    const enriched = positioned.map((n: any) => ({
+      ...n,
+      data: { ...n.data, layoutDirection: direction },
+    }))
+    setNodes(enriched)
     setLoading(false)
     setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
   }, [nodes, edges, layoutDirection, reactFlowInstance])
@@ -304,7 +315,7 @@ export function ReactFlowCanvas({
           <div className="flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Select value={layoutDirection} onValueChange={v => setLayoutDirection(v as "TB" | "LR" | "BT" | "RL")}>
+                <Select value={layoutDirection} onValueChange={v => { const dir = v as "TB" | "LR" | "BT" | "RL"; setLayoutDirection(dir); runLayout(dir); }}>
                   <SelectTrigger className="w-[130px] h-8">
                     <SelectValue placeholder="Layout" />
                   </SelectTrigger>
