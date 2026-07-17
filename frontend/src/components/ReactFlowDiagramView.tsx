@@ -14,6 +14,8 @@ import {
   type Connection,
   type NodeChange,
   type EdgeChange,
+  applyNodeChanges,
+  applyEdgeChanges,
   addEdge,
   MarkerType,
   ConnectionMode,
@@ -195,30 +197,11 @@ export function ReactFlowCanvas({
   }, [diagramData])
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setNodes((nds) => {
-      const newNodes = changes.reduce((acc, change) => {
-        if (change.type === 'position') {
-          return acc.map((node) => node.id === change.id ? { ...node, position: change.position! } : node)
-        }
-        if (change.type === 'remove') {
-          return acc.filter((node) => node.id !== change.id)
-        }
-        return acc
-      }, nds)
-      return newNodes
-    })
+    setNodes((nds) => applyNodeChanges(changes, nds))
   }, [])
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setEdges((eds) => {
-      const newEdges = changes.reduce((acc, change) => {
-        if (change.type === 'remove') {
-          return acc.filter((edge) => edge.id !== change.id)
-        }
-        return acc
-      }, eds)
-      return newEdges
-    })
+    setEdges((eds) => applyEdgeChanges(changes, eds))
   }, [])
 
   const onConnect = useCallback((connection: Connection) => {
@@ -293,9 +276,6 @@ export function ReactFlowCanvas({
       setLoading(false)
     }
   }, [diagramId, fetchDiagramData])
-
-  const initialNodes = nodes.length > 0 ? nodes : undefined
-  const initialEdges = edges.length > 0 ? edges : undefined
 
   return (
     <TooltipProvider>
@@ -404,8 +384,8 @@ export function ReactFlowCanvas({
           )}
 
           <ReactFlow
-            nodes={initialNodes}
-            edges={initialEdges}
+            nodes={nodes}
+            edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
