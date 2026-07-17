@@ -45,6 +45,48 @@ function topoSort(nodes: any[]): any[] {
 }
 
 // ============================================================================
+// Lowest Common Ancestor (LCA) edge grouping.
+// In hierarchical ELK layout, edges must be declared at the lowest common
+// ancestor container of their source and target nodes so ELK can route them
+// across hierarchies and layout the container nodes relative to each other.
+// ============================================================================
+function findLCA(
+  sourceId: string,
+  targetId: string,
+  parentOf: Record<string, string | null>,
+): string | null {
+  const sourcePath: string[] = []
+  let curr: string | null = sourceId
+  while (curr) {
+    sourcePath.push(curr)
+    curr = parentOf[curr]
+  }
+
+  curr = targetId
+  while (curr) {
+    if (sourcePath.includes(curr)) {
+      return curr
+    }
+    curr = parentOf[curr]
+  }
+  return null
+}
+
+function getEdgeLCA(
+  sourceId: string,
+  targetId: string,
+  parentOf: Record<string, string | null>,
+): string | null {
+  let lca = findLCA(sourceId, targetId, parentOf)
+  // If the LCA is one of the endpoints themselves (e.g. connecting a container
+  // to its own child), we must move it up to the parent of the LCA.
+  while (lca && (lca === sourceId || lca === targetId)) {
+    lca = parentOf[lca] ?? null
+  }
+  return lca
+}
+
+// ============================================================================
 // Hierarchical ELK layout
 //
 // Industry-standard approach for React Flow subflows:
@@ -61,7 +103,10 @@ export async function layoutNodes(
 ) {
   const elkDir = DIRECTION_MAP[direction] || "RIGHT"
 
-  // ── 1. Build parent → children map ────────────────────────────────────────
+  // ── 1. Map parent relationships and group children ────────────────────────
+  const parentOf: Record<string, string | null> = {}
+  for (const node of nodes) parentOf[node.id] = node.parentId ?? null
+
   const childrenByParent: Record<string, any[]> = {}
   const rootNodes: any[] = []
 
@@ -75,8 +120,22 @@ export async function layoutNodes(
     }
   }
 
+  // Group edges by their lowest common ancestor (LCA) node ID
+  const edgesByLCA: Record<string, any[]> = {}
+  const rootEdges: any[] = []
+
+  for (const edge of edges) {
+    const lca = getEdgeLCA(edge.source, edge.target, parentOf)
+    if (lca) {
+      if (!edgesByLCA[lca]) edgesByLCA[lca] = []
+      edgesByLCA[lca].push(edge)
+    } else {
+      rootEdges.push(edge)
+    }
+  }
+
   // ── 2. Recursively build ELK node descriptors ─────────────────────────────
-  // Each container gets layout options + nested children.
+  // Each container gets layout options, nested children, and LCA-grouped edges.
   // Each leaf gets fixed width/height hints.
   function buildElkNode(node: any): any {
     const kids = childrenByParent[node.id] || []
@@ -98,30 +157,22 @@ export async function layoutNodes(
         "elk.direction":    elkDir,
         "elk.spacing.nodeNode": "50",
         "elk.layered.spacing.nodeNodeBetweenLayers": "70",
-        // 48px top = space for the container label header bar
+        // 52px top = space for the container label header bar
         "elk.padding": "[top=52, left=28, right=28, bottom=28]",
       }
       elkNode.children = kids.map(buildElkNode)
-      // Inner edges: only those connecting two direct children of this node
-      const kidIds = new Set(kids.map((k: any) => k.id))
-      elkNode.edges = edges
-        .filter(e => kidIds.has(e.source) && kidIds.has(e.target))
-        .map(e => ({ id: `inner-${e.id}`, sources: [e.source], targets: [e.target] }))
+      
+      // Assign LCA edges belonging to this container
+      const lcaEdges = edgesByLCA[node.id] || []
+      elkNode.edges = lcaEdges.map(e => ({
+        id: `inner-${e.id}`,
+        sources: [e.source],
+        targets: [e.target]
+      }))
     }
 
     return elkNode
   }
-
-  // ── 3. Root-level edges (cross-container or between root nodes) ────────────
-  // An edge is "cross-container" when source and target are in different parents.
-  const parentOf: Record<string, string | null> = {}
-  for (const node of nodes) parentOf[node.id] = node.parentId ?? null
-
-  const rootEdges = edges.filter(e => {
-    const sp = parentOf[e.source]
-    const tp = parentOf[e.target]
-    return sp !== tp  // different parents → must be at root level
-  })
 
   const graph: any = {
     id: "root",
@@ -134,6 +185,7 @@ export async function layoutNodes(
     children: rootNodes.map(buildElkNode),
     edges: rootEdges.map(e => ({ id: `root-${e.id}`, sources: [e.source], targets: [e.target] })),
   }
+
 
   // ── 4. Run ELK ────────────────────────────────────────────────────────────
   const layout = await elk.layout(graph)
