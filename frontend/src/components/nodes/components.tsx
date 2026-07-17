@@ -15,11 +15,17 @@ import {
   Cloud,
   FileText,
   Terminal,
-  FolderClosed
+  FolderClosed,
+  AlertTriangle,
+  CheckCircle2,
+  Ban,
+  Lightbulb,
 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 // ============================================================================
-// Shared types — matches the post-processor's camelCase data shape
+// Shared types
 // ============================================================================
 
 export interface HandleConfig {
@@ -35,8 +41,8 @@ export interface NodeData {
   label: string
   subtitle?: string
   icon?: string
-  title?: string // optional title for group nodes
-  description?: string // optional description
+  title?: string
+  description?: string
   statusState?: string
   cloudTier?: string
   languageRuntime?: string
@@ -50,7 +56,7 @@ export interface NodeData {
   designJustification?: string
   handles?: HandleConfig[]
   layoutOrientation?: string
-  layoutDirection?: string  // injected by ReactFlowDiagramView after every layout run
+  layoutDirection?: string
   tableName?: string
   columns?: string[]
 }
@@ -66,7 +72,7 @@ export interface EdgeData {
 }
 
 // ============================================================================
-// Node Type Config — single registry for theme, label, dashed, zIndex
+// Node Type Config
 // ============================================================================
 
 interface NodeTheme {
@@ -75,7 +81,7 @@ interface NodeTheme {
   accent: string
   border: string
   light: string
-  accentBg: string  // pre-computed accent background (used for the stripe)
+  accentBg: string
 }
 
 interface NodeTypeConfig {
@@ -86,13 +92,11 @@ interface NodeTypeConfig {
 }
 
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
-  // ── Dedicated group / container types ───────────────────────────────────
   deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-100 dark:bg-blue-900/40",   badgeText: "text-blue-700 dark:text-blue-300",   accent: "text-blue-600 dark:text-blue-400",   border: "border-blue-300 dark:border-blue-600",   light: "bg-blue-50/20 dark:bg-blue-950/10",   accentBg: "bg-blue-500"   } },
   serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-300 dark:border-violet-600/70", light: "bg-violet-50/20 dark:bg-violet-950/10", accentBg: "bg-violet-500" } },
   domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-100 dark:bg-amber-900/40",  badgeText: "text-amber-700 dark:text-amber-300",  accent: "text-amber-600 dark:text-amber-400",  border: "border-amber-300 dark:border-amber-600/70",  light: "bg-amber-50/20 dark:bg-amber-950/10",  accentBg: "bg-amber-500"  } },
   dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40",   badgeText: "text-cyan-700 dark:text-cyan-300",   accent: "text-cyan-600 dark:text-cyan-400",   border: "border-cyan-300 dark:border-cyan-600/70",   light: "bg-cyan-50/20 dark:bg-cyan-950/10",   accentBg: "bg-cyan-500"   } },
   networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-100 dark:bg-teal-900/40",   badgeText: "text-teal-700 dark:text-teal-300",   accent: "text-teal-600 dark:text-teal-400",   border: "border-teal-300 dark:border-teal-600/70",   light: "bg-teal-50/20 dark:bg-teal-950/10",   accentBg: "bg-teal-500"   } },
-  // ── Legacy generic group ────────────────────────────────────────────────
   group: {
     label: "Group",
     dashed: true,
@@ -106,18 +110,15 @@ const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
       accentBg: "bg-gray-400",
     },
   },
-  // ── C4 types ────────────────────────────────────────────────────────────
   c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
   c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
   c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
   c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-100 dark:bg-purple-900/40", badgeText: "text-purple-700 dark:text-purple-300", accent: "text-purple-600 dark:text-purple-400", border: "border-purple-400 dark:border-purple-500", light: "bg-purple-50/50 dark:bg-purple-950/20", accentBg: "bg-violet-500" } },
   c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-100 dark:bg-fuchsia-900/40", badgeText: "text-fuchsia-700 dark:text-fuchsia-300", accent: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-300 dark:border-fuchsia-500/60", light: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10", accentBg: "bg-fuchsia-500" } },
-  // ── Flow types ──────────────────────────────────────────────────────────
   flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-100 dark:bg-amber-900/40", badgeText: "text-amber-700 dark:text-amber-300", accent: "text-amber-600 dark:text-amber-400", border: "border-amber-400 dark:border-amber-500", light: "bg-amber-50/50 dark:bg-amber-950/20", accentBg: "bg-amber-500" } },
   flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-red-100 dark:bg-red-900/40", badgeText: "text-red-700 dark:text-red-300", accent: "text-red-600 dark:text-red-400", border: "border-red-400 dark:border-red-500", light: "bg-red-50/50 dark:bg-red-950/20", accentBg: "bg-red-500" } },
   flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-100 dark:bg-emerald-900/40", badgeText: "text-emerald-700 dark:text-emerald-300", accent: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-400 dark:border-emerald-500", light: "bg-emerald-50/50 dark:bg-emerald-950/20", accentBg: "bg-emerald-500" } },
   flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/30", accentBg: "bg-gray-500" } },
-  // ── Cloud types ─────────────────────────────────────────────────────────
   cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-100 dark:bg-blue-900/40", badgeText: "text-blue-700 dark:text-blue-300", accent: "text-blue-600 dark:text-blue-400", border: "border-blue-400 dark:border-blue-500", light: "bg-blue-50/50 dark:bg-blue-950/20", accentBg: "bg-blue-500" } },
   cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40", badgeText: "text-cyan-700 dark:text-cyan-300", accent: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-400 dark:border-cyan-500", light: "bg-cyan-50/50 dark:bg-cyan-950/20", accentBg: "bg-cyan-500" } },
   cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
@@ -137,24 +138,36 @@ function getNodeConfig(nodeType: string): NodeTypeConfig {
   return NODE_TYPE_CONFIG[nodeType] || DEFAULT_NODE_CONFIG
 }
 
-const STATUS_CLASSES: Record<string, string> = {
+const STATUS_STYLES: Record<string, string> = {
+  normal: "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20 dark:border-green-500/30",
+  warning: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 dark:border-amber-500/30",
+  error: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20 dark:border-red-500/30",
+  proposed: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 dark:border-blue-500/30",
+}
+
+const STATUS_DOTS: Record<string, string> = {
   normal: "bg-green-500",
   warning: "bg-amber-500",
   error: "bg-red-500",
   proposed: "bg-blue-500",
 }
 
+const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  normal: CheckCircle2,
+  warning: AlertTriangle,
+  error: Ban,
+  proposed: Lightbulb,
+}
+
 // ============================================================================
-// Dynamic handle position — derives correct edge from layout direction
+// Handle
 // ============================================================================
 
 function resolveHandlePosition(layoutDirection: string | undefined, handleType: "source" | "target"): Position {
   const dir = layoutDirection?.toUpperCase() || "LR"
-
   if (dir === "TB") return handleType === "source" ? Position.Bottom : Position.Top
   if (dir === "BT") return handleType === "source" ? Position.Top   : Position.Bottom
   if (dir === "RL") return handleType === "source" ? Position.Left  : Position.Right
-  // Default: LR
   return handleType === "source" ? Position.Right : Position.Left
 }
 
@@ -167,14 +180,9 @@ function handleStyle(position: Position): React.CSSProperties {
   }
 }
 
-// ============================================================================
-// Handle component — direction-aware, invisible at rest, visible on hover
-// ============================================================================
-
 function NodeHandle({ h, layoutDirection }: { h: HandleConfig; layoutDirection?: string }) {
   const resolvedPosition = resolveHandlePosition(layoutDirection, h.type)
   const style = handleStyle(resolvedPosition)
-
   return (
     <Handle
       key={h.id}
@@ -195,8 +203,9 @@ function NodeHandle({ h, layoutDirection }: { h: HandleConfig; layoutDirection?:
 }
 
 // ============================================================================
-// Lucide Icon Mapping
+// Icon Maps
 // ============================================================================
+
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   user: User,
   browser: Globe,
@@ -225,7 +234,44 @@ const GROUP_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>
 }
 
 // ============================================================================
-// Card Node — standard card for all content-bearing nodes (Swiss clean look)
+// Status Badge
+// ============================================================================
+
+function StatusBadge({ status }: { status: string }) {
+  const StatusIcon = STATUS_ICONS[status] || CheckCircle2
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-mono font-medium leading-none border",
+      STATUS_STYLES[status] || STATUS_STYLES.normal,
+    )}>
+      <StatusIcon className="w-2.5 h-2.5" />
+      {status}
+    </span>
+  )
+}
+
+// ============================================================================
+// Tech Stack Badge
+// ============================================================================
+
+function TechBadge({ children, variant, dotColor }: { children: React.ReactNode; variant?: "default" | "muted"; dotColor?: string }) {
+  return (
+    <Badge
+      variant={variant === "default" ? "default" : "outline"}
+      className={cn(
+        "text-[9px] font-mono font-medium h-5 px-1.5 gap-1",
+        variant === "muted" && "border-muted-foreground/20 text-muted-foreground/70",
+        dotColor && "pl-1",
+      )}
+    >
+      {dotColor && <span className={cn("w-1.5 h-1.5 rounded-full", dotColor)} />}
+      {children}
+    </Badge>
+  )
+}
+
+// ============================================================================
+// Card Node — redesigned with shadcn, shows purpose/reasoning
 // ============================================================================
 
 function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -233,92 +279,129 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
   const { theme } = cfg
   const handles = (data.handles || []) as HandleConfig[]
   const layoutDirection = data.layoutDirection
-
   const IconComponent = data.icon ? ICON_MAP[data.icon] : null
+
+  const hasTech = [
+    data.languageRuntime, data.frameworkLibrary, data.databaseEngine,
+    data.cloudServiceName, data.cloudTier, ...(data.metadataTags || []),
+  ].some(v => v && v !== "none")
+
+  const hasDbInfo = !!data.tableName
+
+  const tooltipContent = [
+    data.reasoning && `Why: ${data.reasoning}`,
+    data.architectureBenefit && `Benefit: ${data.architectureBenefit}`,
+    data.designJustification && `Justification: ${data.designJustification}`,
+  ].filter(Boolean).join("\n\n")
 
   return (
     <div
       className={cn(
-        "group relative rounded-lg border bg-background text-foreground shadow-sm transition-all duration-200",
+        "group relative rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200",
         cfg.dashed ? "border-dashed" : "border-solid",
-        "min-w-[240px] max-w-[320px]",
-        selected ? "ring-2 ring-ring shadow-md" : "hover:shadow-md hover:shadow-slate-100 dark:hover:shadow-none",
+        "min-w-[240px] max-w-[340px]",
+        selected ? "ring-2 ring-ring shadow-md" : "hover:shadow-md",
         theme.border,
       )}
     >
-      {/* Direction-aware handles */}
       {handles.map((h) => (
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
 
-      {/* Swiss Accent Bar — 4px horizontal top bar representing node type theme */}
-      <div
-        className={cn("absolute top-0 left-0 right-0 h-1 rounded-t-[7px]", theme.accentBg)}
-      />
+      {/* Accent bar */}
+      <div className={cn("absolute top-0 left-0 right-0 h-0.5 rounded-t-lg", theme.accentBg)} />
 
-      {/* Content — spacious and cleanly aligned */}
-      <div className="p-4 pt-4">
-        {/* Header row: Type category label + Status Urgency Dot */}
-        <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100 dark:border-slate-800/60">
-          <span className="inline-flex items-center gap-1.5 text-[9px] font-mono uppercase tracking-wider font-semibold text-muted-foreground">
-            {IconComponent && <IconComponent className="w-3.5 h-3.5 stroke-[2] text-muted-foreground" />}
-            {cfg.label}
-            {data.statusState && (
-              <span className="opacity-60 font-normal lowercase tracking-normal">
-                ({nodeType.replace(/^(c4|flow|cloud)/, "").trim()})
-              </span>
+      <div className="p-3 pt-3">
+        {/* Header: Icon + Type Badge + Status */}
+        <div className="flex items-start justify-between gap-2 mb-2.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {IconComponent && (
+              <div className={cn("flex items-center justify-center w-5 h-5 rounded", theme.light)}>
+                <IconComponent className={cn("w-3 h-3 stroke-[2]", theme.accent)} />
+              </div>
             )}
-          </span>
-          {data.statusState && (
-            <span className={cn(
-              "w-1.5 h-1.5 rounded-full flex-shrink-0",
-              STATUS_CLASSES[data.statusState] || STATUS_CLASSES.normal
-            )} />
+            <Badge variant="outline" className={cn(
+              "text-[9px] font-mono uppercase tracking-wider px-1.5 h-4.5 leading-none",
+              theme.badgeText, theme.badge, "border-transparent",
+            )}>
+              {cfg.label}
+            </Badge>
+          </div>
+          {data.statusState && data.statusState !== "normal" && (
+            <StatusBadge status={data.statusState} />
+          )}
+          {data.statusState === "normal" && (
+            <span className={cn("w-2 h-2 rounded-full mt-0.5", STATUS_DOTS[data.statusState])} />
           )}
         </div>
 
-        {/* Primary label + subtitle */}
-        <div className="mb-3">
-          <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-snug">
+        {/* Label + Subtitle */}
+        <div className="mb-1.5">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground leading-snug">
             {data.label}
           </h3>
           {data.subtitle && (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal mt-0.5 line-clamp-2">
+            <p className="text-[11px] text-muted-foreground/70 leading-normal mt-0.5 line-clamp-2">
               {data.subtitle}
             </p>
           )}
         </div>
 
-        {/* Tech stack tags — flat, high-contrast, typographic layout */}
-        <div className="flex flex-wrap gap-1 mt-2">
-          {data.languageRuntime && data.languageRuntime !== "none" && (
-            <Tag>{data.languageRuntime}</Tag>
-          )}
-          {data.frameworkLibrary && data.frameworkLibrary !== "none" && (
-            <Tag>{data.frameworkLibrary}</Tag>
-          )}
-          {data.databaseEngine && data.databaseEngine !== "none" && (
-            <Tag className="font-bold border-slate-300 dark:border-slate-600">{data.databaseEngine}</Tag>
-          )}
-          {data.cloudServiceName && data.cloudServiceName !== "none" && (
-            <Tag>{data.cloudServiceName}</Tag>
-          )}
-          {data.cloudTier && data.cloudTier !== "none" && (
-            <Tag>{data.cloudTier}</Tag>
-          )}
-          {data.metadataTags && data.metadataTags.slice(0, 3).map((tag: string, i: number) => (
-            <Tag key={i}>{tag}</Tag>
-          ))}
-          {data.metadataTags && data.metadataTags.length > 3 && (
-            <Tag>+{data.metadataTags.length - 3}</Tag>
-          )}
-        </div>
+        {/* Architecture purpose — key info line */}
+        {data.purpose && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="text-[11px] text-muted-foreground/60 leading-relaxed line-clamp-2 cursor-help italic border-l-2 pl-2 border-border/60">
+                {data.purpose}
+              </p>
+            </TooltipTrigger>
+            {tooltipContent && (
+              <TooltipContent side="top" className="max-w-[280px] whitespace-pre-line text-xs">
+                {tooltipContent}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        )}
 
-        {/* DB Schema row */}
-        {data.tableName && (
-          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/60 text-[10px] font-mono text-muted-foreground truncate">
-            <span className="font-semibold text-slate-600 dark:text-slate-400">table:</span> {data.tableName}
-            {data.columns && data.columns.length > 0 && ` [${data.columns.join(", ")}]`}
+        {/* Tech stack */}
+        {hasTech && (
+          <div className="mt-2.5 pt-2 border-t border-border/50">
+            <div className="flex flex-wrap gap-1">
+              {data.languageRuntime !== "none" && (
+                <TechBadge dotColor="bg-sky-500">{data.languageRuntime}</TechBadge>
+              )}
+              {data.frameworkLibrary !== "none" && (
+                <TechBadge dotColor="bg-violet-500">{data.frameworkLibrary}</TechBadge>
+              )}
+              {data.databaseEngine !== "none" && (
+                <TechBadge variant="default" dotColor="bg-cyan-500">{data.databaseEngine}</TechBadge>
+              )}
+              {data.cloudServiceName !== "none" && (
+                <TechBadge dotColor="bg-orange-500">{data.cloudServiceName}</TechBadge>
+              )}
+              {data.cloudTier !== "none" && (
+                <TechBadge>{data.cloudTier}</TechBadge>
+              )}
+              {data.metadataTags && data.metadataTags.slice(0, 2).map((tag, i) => (
+                <TechBadge key={i}>{tag}</TechBadge>
+              ))}
+              {data.metadataTags && data.metadataTags.length > 2 && (
+                <TechBadge>+{data.metadataTags.length - 2}</TechBadge>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* DB Schema */}
+        {hasDbInfo && (
+          <div className={cn(
+            "mt-2 pt-2 text-[10px] font-mono text-muted-foreground/60 truncate",
+            hasTech && "border-t border-border/50",
+          )}>
+            <span className="font-semibold text-muted-foreground/80">{data.tableName}</span>
+            {data.columns && data.columns.length > 0 && (
+              <span className="text-muted-foreground/40"> ({data.columns.join(", ")})</span>
+            )}
           </div>
         )}
       </div>
@@ -326,21 +409,8 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
   )
 }
 
-function Tag({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <span
-      className={cn(
-        "px-1.5 py-0.5 text-[9px] font-mono font-medium rounded border border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400",
-        className
-      )}
-    >
-      {children}
-    </span>
-  )
-}
-
 // ============================================================================
-// Container Node — renders all dedicated group/container types (Swiss clean look)
+// Container Node — for groups/zones/clusters/boundaries
 // ============================================================================
 
 function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -353,50 +423,57 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
   return (
     <div
       className={cn(
-        "group w-full h-full rounded-xl border border-slate-300 dark:border-slate-700/80 transition-shadow relative bg-slate-50/40 dark:bg-slate-950/5",
+        "group w-full h-full rounded-xl border transition-shadow relative",
         cfg.dashed ? "border-dashed" : "border-solid",
+        theme.border,
+        theme.light,
         selected && "ring-2 ring-ring shadow-md",
       )}
     >
-      {/* Direction-aware handles for group connection support */}
       {handles.map((h) => (
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
 
-      {/*
-        rf-group-drag-handle — React Flow's dragHandle selector.
-        Dragging this bar moves the entire group (parent + all children).
-      */}
+      {/* Accent bar */}
+      <div className={cn("absolute top-0 left-0 right-0 h-0.5 rounded-t-xl", theme.accentBg)} />
+
+      {/* Drag handle header */}
       <div
         className={cn(
           "rf-group-drag-handle",
-          "flex items-center gap-1.5 px-3.5 py-2 rounded-t-[10px]",
-          "border-b cursor-grab active:cursor-grabbing select-none bg-slate-100/50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800",
+          "flex items-center gap-2 px-3 py-2 rounded-t-[10px]",
+          "border-b cursor-grab active:cursor-grabbing select-none",
+          theme.border,
+          "bg-background/40 dark:bg-background/10",
         )}
       >
-        <GroupIcon className={cn("w-3.5 h-3.5 stroke-[2]", theme.accent)} />
-        <span className={cn("font-mono font-bold uppercase tracking-wider text-[9px] text-slate-700 dark:text-slate-300")}>
+        <GroupIcon className={cn("w-3.5 h-3.5 stroke-[2] shrink-0", theme.accent)} />
+        <span className="text-xs font-semibold text-foreground/80 truncate">
           {data.label}
         </span>
         {data.subtitle && (
-          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal ml-1">
+          <span className="text-[10px] text-muted-foreground/50 truncate hidden sm:inline">
             — {data.subtitle}
           </span>
         )}
-        {/* Type badge pinned to far right */}
-        <span className={cn(
-          "ml-auto px-1.5 py-0.5 rounded text-[8px] font-mono uppercase tracking-wider shrink-0 border border-slate-200/50 dark:border-slate-800 bg-background/50",
-          theme.badgeText
+        {data.purpose && (
+          <span className="text-[10px] text-muted-foreground/40 truncate hidden lg:inline italic">
+            {data.purpose}
+          </span>
+        )}
+        <Badge variant="secondary" className={cn(
+          "ml-auto text-[8px] font-mono uppercase tracking-wider h-4.5 px-1.5 shrink-0",
+          theme.badgeText, theme.badge, "border-0",
         )}>
           {cfg.label}
-        </span>
+        </Badge>
       </div>
     </div>
   )
 }
 
 // ============================================================================
-// Group Node — container for children (legacy 'group' type)
+// Group Node — legacy generic group
 // ============================================================================
 
 function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -406,26 +483,38 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
   return (
     <div
       className={cn(
-        "relative min-w-[300px] min-h-[160px] rounded-xl border-2 border-dashed transition-shadow",
+        "relative min-w-[300px] min-h-[120px] rounded-xl border-2 border-dashed transition-shadow",
         selected && "ring-2 ring-ring shadow-md",
         theme.border,
         theme.light,
       )}
     >
-      <div className={cn("px-3 py-1.5 border-b border-dashed flex items-center gap-2", theme.border)}>
-        <span className={cn("text-[10px] font-semibold uppercase tracking-widest", theme.badgeText)}>
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-1.5 border-b border-dashed",
+        theme.border,
+        "bg-background/30",
+      )}>
+        <Badge variant="outline" className={cn(
+          "text-[8px] font-mono uppercase tracking-widest h-4 px-1 leading-none",
+          theme.badgeText, theme.badge, "border-transparent",
+        )}>
           {cfg.label}
-        </span>
-        <span className="text-xs text-muted-foreground font-medium truncate">{data.label}</span>
+        </Badge>
+        <span className="text-xs font-medium text-foreground/70 truncate">{data.label}</span>
       </div>
       {data.title && (
-        <div className="px-3 py-1.5 border-b border-dashed">
+        <div className="px-3 py-1.5 border-b border-dashed" style={{ borderColor: "inherit" }}>
           <h4 className={cn("text-sm font-semibold", theme.accent)}>{data.title}</h4>
         </div>
       )}
       {data.description && (
         <div className="px-3 py-1.5">
-          <p className="text-xs text-muted-foreground">{data.description}</p>
+          <p className="text-xs text-muted-foreground/70">{data.description}</p>
+        </div>
+      )}
+      {data.purpose && !data.title && !data.description && (
+        <div className="px-3 py-2">
+          <p className="text-[11px] text-muted-foreground/50 italic">{data.purpose}</p>
         </div>
       )}
     </div>
@@ -433,7 +522,7 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
 }
 
 // ============================================================================
-// Swimlane Node — horizontal lane with a side label
+// Swimlane Node
 // ============================================================================
 
 function SwimlaneNode({ data, selected }: { data: NodeData; selected?: boolean }) {
@@ -442,17 +531,17 @@ function SwimlaneNode({ data, selected }: { data: NodeData; selected?: boolean }
   return (
     <div
       className={cn(
-        "relative flex rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30 transition-shadow min-h-[100px]",
+        "relative flex rounded-xl border border-border/60 bg-muted/20 transition-shadow min-h-[80px]",
         isHorizontal ? "flex-row" : "flex-col",
         selected && "ring-2 ring-ring shadow-md",
       )}
     >
       <div
         className={cn(
-          "flex items-center justify-center font-semibold text-muted-foreground",
+          "flex items-center justify-center font-semibold text-muted-foreground bg-background/40",
           isHorizontal
-            ? "w-8 min-h-full border-r border-gray-300 dark:border-gray-600 text-[10px] [writing-mode:vertical-rl] tracking-widest uppercase"
-            : "h-7 w-full border-b border-gray-300 dark:border-gray-600 text-[10px] tracking-widest uppercase",
+            ? "w-7 min-h-full border-r border-border/60 text-[9px] [writing-mode:vertical-rl] tracking-widest uppercase"
+            : "h-6 w-full border-b border-border/60 text-[9px] tracking-widest uppercase",
         )}
       >
         {data.label || "Swimlane"}
@@ -462,7 +551,7 @@ function SwimlaneNode({ data, selected }: { data: NodeData; selected?: boolean }
 }
 
 // ============================================================================
-// Node dispatch — routes to the correct renderer based on type
+// Node dispatch
 // ============================================================================
 
 const CONTAINER_TYPES = new Set([
@@ -486,25 +575,21 @@ function DiagramNode(props: NodeProps) {
 }
 
 export const nodeTypes = {
-  // Group / Container types
   deploymentGroup: DiagramNode,
   serviceGroup: DiagramNode,
   domainGroup: DiagramNode,
   dataGroup: DiagramNode,
   networkGroup: DiagramNode,
   group: DiagramNode,
-  // C4 types
   c4Actor: DiagramNode,
   c4System: DiagramNode,
   c4Container: DiagramNode,
   c4Component: DiagramNode,
   c4Boundary: DiagramNode,
-  // Flow types
   flowAction: DiagramNode,
   flowDecision: DiagramNode,
   flowScreen: DiagramNode,
   flowSwimlane: DiagramNode,
-  // Cloud types
   cloudCompute: DiagramNode,
   cloudDatabase: DiagramNode,
   cloudStorage: DiagramNode,
@@ -516,7 +601,7 @@ export const nodeTypes = {
 }
 
 // ============================================================================
-// Custom edge — renders path + label pill + protocol sub-label
+// Custom Edge
 // ============================================================================
 
 function getEdgePath(type: string, props: any) {
@@ -534,16 +619,15 @@ function edgePathStyle(edgeData: EdgeData | undefined): React.CSSProperties {
 
   if (edgeData.logicVariant && edgeData.logicVariant !== "standard_flow") {
     style.strokeDasharray = "6,4"
-    style.stroke = "#818cf8" // indigo for conditional paths
+    style.stroke = "#818cf8"
   } else {
-    style.stroke = "#94a3b8" // slate-400 — subtle neutral
+    style.stroke = "#94a3b8"
   }
 
-  // Protocol-specific overrides
   if (edgeData.protocol === "gRPC" || edgeData.protocol === "WebSocket") {
-    style.stroke = "#a78bfa" // violet
+    style.stroke = "#a78bfa"
   } else if (edgeData.protocol === "AMQP" || edgeData.protocol === "Kafka") {
-    style.stroke = "#fb923c" // orange for message queues
+    style.stroke = "#fb923c"
   }
 
   return style
@@ -562,13 +646,11 @@ export function CustomEdge(props: EdgeProps) {
     targetX, targetY, targetPosition,
   })
 
-  // Use the path midpoint provided by the path helper (more accurate than getEdgeCenter)
   const hasLabel = !!label
   const hasProtocol = !!(edgeData?.protocol && edgeData.protocol !== "none")
   const labelStr = label as string | undefined
   const protocolStr = edgeData?.protocol
 
-  // Estimate label pill width based on text length
   const labelW = Math.max(40, (labelStr?.length ?? 0) * 6.5 + 16)
   const protocolW = Math.max(32, (protocolStr?.length ?? 0) * 5.5 + 12)
 
@@ -586,18 +668,16 @@ export function CustomEdge(props: EdgeProps) {
         className={cn(selected && "!stroke-foreground/70")}
       />
 
-      {/* Main label pill */}
       {hasLabel && (
         <g transform={`translate(${labelX}, ${labelY})`}>
           <rect
             x={-labelW / 2}
-            y={-11}
+            y={-10}
             width={labelW}
-            height={20}
-            rx={5}
+            height={18}
+            rx={4}
             className="fill-background stroke-border"
             strokeWidth={0.75}
-            style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.08))" }}
           />
           <text
             x={0}
@@ -611,24 +691,23 @@ export function CustomEdge(props: EdgeProps) {
         </g>
       )}
 
-      {/* Protocol sub-label — appears below the main label (or at midpoint if no label) */}
       {hasProtocol && (
-        <g transform={`translate(${labelX}, ${labelY + (hasLabel ? 17 : 0)})`}>
+        <g transform={`translate(${labelX}, ${labelY + (hasLabel ? 16 : 0)})`}>
           <rect
             x={-protocolW / 2}
-            y={-8}
+            y={-7}
             width={protocolW}
-            height={14}
+            height={13}
             rx={3}
             className="fill-muted/80 stroke-border/40"
             strokeWidth={0.5}
           />
           <text
             x={0}
-            y={3}
+            y={2.5}
             textAnchor="middle"
             className="fill-muted-foreground/70"
-            style={{ fontSize: "9px", fontFamily: "monospace" }}
+            style={{ fontSize: "8px", fontFamily: "monospace" }}
           >
             {protocolStr}
           </text>
@@ -647,22 +726,21 @@ export const edgeTypes = {
 }
 
 // ============================================================================
-// SVG animation keyframes — injected once
+// SVG animation keyframes
 // ============================================================================
 
 const styleId = "rf-edge-dash-animation"
 if (typeof document !== "undefined" && !document.getElementById(styleId)) {
-  const style = document.createElement("style")
-  style.id = styleId
-  style.textContent = `
+  const styleEl = document.createElement("style")
+  styleEl.id = styleId
+  styleEl.textContent = `
     @keyframes dashdraw {
       from { stroke-dashoffset: 10; }
       to   { stroke-dashoffset: 0; }
     }
-    /* Ensure group-hover works for React Flow node wrappers */
     .react-flow__node:hover .group-hover\\:opacity-100 {
       opacity: 1 !important;
     }
   `
-  document.head.appendChild(style)
+  document.head.appendChild(styleEl)
 }
