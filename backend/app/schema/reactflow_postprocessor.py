@@ -91,29 +91,34 @@ def _compute_border_style(node: DiagramNode) -> str:
 
 
 def _compute_node_handles(node: DiagramNode, all_edges: List[DiagramEdge]) -> List[HandleConfig]:
+    """Build handle configs keyed by the same ID that edges use as sourceHandle/targetHandle.
+
+    Edge sourceHandle/targetHandle values (e.g. "right", "bottom", "true", "false")
+    MUST match HandleConfig.id exactly so React Flow can connect them.
+    """
     handles: Dict[str, HandleConfig] = {}
     for edge in all_edges:
         if edge.source == node.id:
             pos = edge.sourceHandle or "right"
             h = HandleConfig(
-                id=f"source-{pos}",
+                id=pos,
                 type="source",
                 position=pos,
                 **HANDLE_POSITIONS.get(pos, HANDLE_POSITIONS["right"]),
             )
-            handles[f"source-{pos}"] = h
+            handles[pos] = h
         if edge.target == node.id:
             pos = edge.targetHandle or "left"
             h = HandleConfig(
-                id=f"target-{pos}",
+                id=pos,
                 type="target",
                 position=pos,
                 **HANDLE_POSITIONS.get(pos, HANDLE_POSITIONS["left"]),
             )
-            handles[f"target-{pos}"] = h
+            handles[pos] = h
     if not handles:
-        handles["source-right"] = HandleConfig(id="source-right", type="source", position="right", x=1.0, y=0.5)
-        handles["target-left"] = HandleConfig(id="target-left", type="target", position="left", x=0.0, y=0.5)
+        handles["right"] = HandleConfig(id="right", type="source", position="right", x=1.0, y=0.5)
+        handles["left"] = HandleConfig(id="left", type="target", position="left", x=0.0, y=0.5)
     return list(handles.values())
 
 
