@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
 import logging
 import time
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -19,44 +21,22 @@ from app.api.dependencies import (
     get_workflow_runner,
     user_id_for,
 )
-from app.schema.diagram_graph import DiagramGraph
-from app.schema.models import Diagram, diagram_to_tldraw_records, validate_tldraw_records
-from app.schema.tldraw_records import graph_to_tldraw_records_flat
+from app.schema.reactflow_models import Diagram
+from app.schema.reactflow_output import ReactFlowDiagramOutput
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-#  Helper: Diagram → tldraw records (new pipeline with graph field)
+#  Helper: Diagram → ReactFlowDiagramOutput
 # ---------------------------------------------------------------------------
 
-def _diagram_to_records(diagram_data: dict[str, Any]) -> list[dict[str, Any]] | None:
-    """Convert a diagram dict to tldraw records, preferring the new graph pipeline."""
-    # Try the new pipeline first (graph field)
-    graph_data = diagram_data.get("graph")
-    if graph_data:
-        try:
-            graph = DiagramGraph.model_validate(graph_data)
-            records = graph_to_tldraw_records_flat(graph)
-            is_valid, errs = validate_tldraw_records(records)
-            if not is_valid:
-                logger.warning(f"[chat] new pipeline validation errors: {errs}")
-            return records
-        except Exception as exc:
-            logger.error(f"[chat] new pipeline failed: {exc}")
+def _diagram_to_reactflow(diagram_data: dict[str, Any]) -> ReactFlowDiagramOutput | None:
+    """Convert a stored Diagram dict to typed ReactFlowDiagramOutput."""
+    from app.schema.reactflow_transformer import extract_reactflow_from_diagram
 
-    # Fallback to old pipeline (store field)
-    try:
-        diagram_model = Diagram(**diagram_data)
-        records = diagram_to_tldraw_records(diagram_model)
-        is_valid, errs = validate_tldraw_records(records)
-        if not is_valid:
-            logger.warning(f"[chat] old pipeline validation errors: {errs}")
-        return records
-    except Exception as exc:
-        logger.error(f"[chat] old pipeline failed: {exc}")
-        return None
+    return extract_reactflow_from_diagram(diagram_data)
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +75,7 @@ class ChatResponse(BaseModel):
     structured_output: Any = None
     reflection: Any = None
     diagrams: list[Any] = []
-    tldraw_records: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    rf_data: dict[str, ReactFlowDiagramOutput] = Field(default_factory=dict, description="diagram_id -> post-processed ReactFlowDiagramOutput")
     markdown_docs: list[Any] = []
     active_ids: dict[str, str] = {}
 
@@ -120,7 +100,7 @@ class SessionsListResponse(BaseModel):
 class DiagramsResponse(BaseModel):
     session_id: str
     diagrams: list[Any] = []
-    tldraw_records: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    rf_data: dict[str, ReactFlowDiagramOutput] = Field(default_factory=dict)
     active_diagram_id: str = ""
 
 
@@ -231,13 +211,13 @@ async def chat(req: ChatRequest) -> ChatResponse:
     docs = await runner.get_markdown_docs()
     active = await runner.get_active_ids()
 
-    # Build pre-built tldraw records for each diagram
-    tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+    # Build typed ReactFlowDiagramOutput for each diagram
+    rf_data: dict[str, ReactFlowDiagramOutput] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            records = _diagram_to_records(d)
-            if records:
-                tldraw_records_map[d["id"]] = records
+            result = _diagram_to_reactflow(d)
+            if result is not None:
+                rf_data[d["id"]] = result
 
     return ChatResponse(
         session_id=session_id,
@@ -248,7 +228,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         structured_output=structured_output,
         reflection=reflection,
         diagrams=diagrams,
-        tldraw_records=tldraw_records_map,
+        rf_data=rf_data,
         markdown_docs=docs,
         active_ids=active,
     )
@@ -303,18 +283,18 @@ async def get_diagrams(session_id: str) -> DiagramsResponse:
     diagrams = await runner.get_diagrams()
     active = await runner.get_active_ids()
 
-    # Build pre-built tldraw records for each diagram
-    tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+    # Build typed ReactFlowDiagramOutput for each diagram
+    rf_data: dict[str, ReactFlowDiagramOutput] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            records = _diagram_to_records(d)
-            if records:
-                tldraw_records_map[d["id"]] = records
+            result = _diagram_to_reactflow(d)
+            if result is not None:
+                rf_data[d["id"]] = result
 
     return DiagramsResponse(
         session_id=session_id,
         diagrams=diagrams,
-        tldraw_records=tldraw_records_map,
+        rf_data=rf_data,
         active_diagram_id=active.get("active_diagram_id", ""),
     )
 
@@ -355,6 +335,9 @@ async def list_agents() -> AgentsResponse:
     """List all available agent names."""
     registry = get_agent_registry()
     return AgentsResponse(agents=registry.list_agents())
+
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -404,19 +387,19 @@ async def _stream_gen(
         docs = await runner.get_markdown_docs()
         active = await runner.get_active_ids()
 
-        # Build pre-built tldraw records for each diagram
-        tldraw_records_map: dict[str, list[dict[str, Any]]] = {}
+        # Build React Flow data for each diagram
+        rf_data: dict[str, Any] = {}
         for d in diagrams:
             if isinstance(d, dict):
-                records = _diagram_to_records(d)
-                if records:
-                    tldraw_records_map[d["id"]] = records
+                result = _diagram_to_reactflow(d)
+                if result:
+                    rf_data[d["id"]] = result
 
         yield _sse("workflow_complete", {
             "dispatch_result": dispatch_result,
             "reflection": reflection,
             "diagrams": diagrams,
-            "tldraw_records": tldraw_records_map,
+            "rf_data": rf_data,
             "markdown_docs": docs,
             "active_ids": active,
         })
@@ -434,3 +417,60 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     message = req.text or ""
     gen = _stream_gen(req.session_id, message, action=req.action)
     return StreamingResponse(gen, media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+#  React Flow Transform Endpoint
+# ---------------------------------------------------------------------------
+
+class ReactFlowTransformRequest(BaseModel):
+    """Request to transform Diagram (clean LLM schema) to React Flow format."""
+    diagram: Diagram
+
+
+@router.post("/transform/reactflow", response_model=ReactFlowDiagramOutput)
+async def transform_to_reactflow(req: ReactFlowTransformRequest) -> ReactFlowDiagramOutput:
+    """Transform clean LLM Diagram to typed ReactFlowDiagramOutput.
+    
+    Post-processes the LLM-generated diagram schema (computing handles,
+    border styles, animated flags, camelCase data) and returns the
+    typed model expected by @xyflow/react frontend.
+    """
+    from app.schema.reactflow_transformer import validate_and_transform
+    
+    try:
+        return validate_and_transform(req.diagram)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[transform/reactflow] failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+#  React Flow from Diagram Endpoint (for frontend to fetch RF data by diagram_id)
+# ---------------------------------------------------------------------------
+
+class ReactFlowFromDiagramRequest(BaseModel):
+    session_id: str
+    diagram_id: str
+
+
+@router.post("/transform/reactflow-from-diagram", response_model=ReactFlowDiagramOutput)
+async def transform_reactflow_from_diagram(req: ReactFlowFromDiagramRequest) -> ReactFlowDiagramOutput:
+    """Extract React Flow data from a stored diagram by diagram_id.
+
+    Frontend calls this to get the React Flow nodes/edges/metadata
+    for a specific diagram in a session.
+    """
+    runner = get_workflow_runner(session_id=req.session_id)
+    diagrams = await runner.get_diagrams()
+
+    for d in diagrams:
+        if isinstance(d, dict) and d.get("id") == req.diagram_id:
+            result = _diagram_to_reactflow(d)
+            if result:
+                return result
+            raise HTTPException(status_code=404, detail=f"Diagram '{req.diagram_id}' has no React Flow data.")
+
+    raise HTTPException(status_code=404, detail=f"Diagram '{req.diagram_id}' not found in session '{req.session_id}'.")

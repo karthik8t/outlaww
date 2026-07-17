@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from google.adk.agents import LlmAgent
 
+from app.schema.reactflow_models import Diagram
 from app.schema.diagram_graph import DiagramGraph
 from app.schema.models import (
     CreateMarkdownOutput,
@@ -104,62 +105,100 @@ def _make_agent(
 _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
     "create_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": DiagramGraph,
+        "output_schema": Diagram,
         "instruction": (
-            "You are a diagram creation agent. You generate diagrams as a simple graph "
-            "of nodes and edges.\n\n"
+            "You are a diagram creation agent. You generate diagrams using the ArchitectureDiagram.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
-            "You ONLY specify WHAT connects to WHAT. The system computes all layout.\n\n"
-            "# Node shapes\n"
-            "- box: rectangles (default, use for most concepts)\n"
-            "- ellipse: circles (use for databases, external systems)\n"
-            "- diamond: decision points, conditions\n"
-            "- note: sticky notes (use for annotations, side notes)\n"
-            "- frame: grouping container (use to group related nodes)\n\n"
-            "# Output format\n"
-            "- name: diagram title\n"
-            "- description: what the diagram shows (1-2 sentences)\n"
-            "- nodes: list of {id, label, shape}\n"
-            "- edges: list of {id, from_node, to_node, label}\n\n"
+            "You ONLY specify the TOPOLOGY — nodes, edges, containers. The frontend (React Flow / xyflow) handles all positioning and layout via ELK or dagre.\n\n"
+            "# Output: Diagram\n"
+            "- metadata: layout_direction (TB|LR|BT|RL). Use TB for logical flows, LR for structural/cloud/C4.\n"
+            "- nodes: flat array of DiagramNode objects\n"
+            "- edges: flat array of DiagramEdge objects\n\n"
+            "# DiagramNode fields\n"
+            "- id: unique identifier (kebab-case, e.g. 'payment-api', 'user-db')\n"
+            "- type: component type — pick from C4 types (c4Actor, c4System, c4Container, c4Component, c4Boundary), "
+            "flow types (flowAction, flowDecision, flowScreen, flowSwimlane), "
+            "or cloud types (cloudCompute, cloudDatabase, cloudStorage, cloudNetwork, cloudMessaging, cloudSecurity, cloudAnalytics, cloudBoundary)\n"
+            "- data: NodeData object containing:\n"
+            "  - label: short display name (1-4 words)\n"
+            "  - subtitle: secondary description (empty string if N/A)\n"
+            "  - language_runtime: e.g. 'Go 1.26', 'Node.js v24' ('none' if N/A)\n"
+            "  - framework_library: e.g. 'Gin', 'FastAPI' ('none' if N/A)\n"
+            "  - database_engine: e.g. 'Redis', 'DynamoDB' ('none' if N/A)\n"
+            "  - cloud_service_name: e.g. 'AWS ECS', 'GCP Pub/Sub' ('none' if N/A)\n"
+            "  - cloud_tier: 'serverless' | 'managed' | 'vm' | 'container' | 'none'\n"
+            "  - icon: 'user'|'browser'|'mobile'|'server'|'database'|'queue'|'microservice'|'router'|'load-balancer'|'shield'|'gear'|'cloud'|'file'|'terminal'|'none'\n"
+            "  - status_state: 'normal'|'warning'|'error'|'proposed'\n"
+            "  - layout_orientation: 'vertical'|'horizontal'|'none' (for flowSwimlane)\n"
+            "  - tableName: '' (empty unless DB node)\n"
+            "  - columns: [] (empty unless DB node)\n"
+            "  - metadata_tags: up to 3 tags (e.g. ['Encrypted', 'Multi-AZ'])\n"
+            "- reasoning (min 20 chars): why this component is structurally necessary\n"
+            "- purpose (min 20 chars): the specific operational responsibility\n"
+            "- architecture_benefit (min 20 chars): how this improves the broader system\n"
+            "- design_justification (min 20 chars): justification for node type and hierarchy\n"
+            "- parentNode: parent container node ID for nesting (null = root level)\n\n"
+            "# DiagramEdge fields\n"
+            "- id: unique edge identifier\n"
+            "- source: source node ID (MUST exist in nodes array)\n"
+            "- target: target node ID (MUST exist in nodes array)\n"
+            "- type: 'default'|'straight'|'step'|'smoothstep'|'simplebezier'\n"
+            "- label: edge label describing the relationship (e.g. 'HTTP', 'queries', 'subscribes to')\n"
+            "- protocol: communication medium ('HTTPS'|'gRPC'|'AMQP'|'WebSocket'|'none')\n"
+            "- flow_direction: 'forward'|'reverse'|'bidirectional'|'none'\n"
+            "- logic_variant: 'conditional_true'|'conditional_false'|'standard_flow'\n"
+            "- sourceHandle: handle origin ('right'|'bottom'|'true'|'false')\n"
+            "- targetHandle: handle arrival ('top'|'left')\n"
+            "- reasoning (min 20 chars): why this communication path must exist\n"
+            "- purpose (min 20 chars): the operational interaction across this connection\n"
+            "- dependency_benefit (min 20 chars): how this connection benefits integration\n"
+            "- coupling_justification (min 20 chars): why these two components are coupled\n\n"
             "# Rules\n"
             "1. Keep node labels SHORT (1-4 words). Diagrams are visual, not prose.\n"
-            "2. Use meaningful IDs like 'client', 'server', 'db' — not random strings.\n"
+            "2. Use meaningful kebab-case IDs like 'client', 'payment-workers', 'user-db'.\n"
             "3. Edge labels describe the relationship (e.g. 'HTTP', 'queries', 'stores').\n"
             "4. Don't create cycles unless the real-world process has cycles.\n"
             "5. 3-15 nodes is typical. More than 20 = split into multiple diagrams.\n"
-            "6. Every edge must reference existing node IDs."
+            "6. Every edge must reference existing node IDs.\n"
+            "7. Every parentNode must reference an existing node.\n"
+            "8. Nodes and edges are FLAT arrays — hierarchy is via parentNode references only.\n"
+            "9. Fill ALL reasoning fields with meaningful architecture context (min 20 chars each)."
         ),
-        "description": "Creates new diagrams from natural language descriptions.",
+        "description": "Creates new React Flow architecture diagrams from natural language descriptions.",
     },
     "edit_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": DiagramGraph,
+        "output_schema": Diagram,
         "instruction": (
-            "You are a diagram editing agent. You receive the current graph "
-            "(nodes + edges) and an editing instruction.\n\n"
-            "Return the COMPLETE updated graph — include ALL nodes and edges "
+            "You are a diagram editing agent. You receive the current Diagram "
+            "(nodes + edges + metadata) and an editing instruction.\n\n"
+            "Return the COMPLETE updated Diagram — include ALL nodes, edges, metadata "
             "(unchanged + modified + new). Items you omit will be DELETED.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
-            "The system computes all layout. You only specify topology.\n\n"
+            "The frontend React Flow layout engine computes all positioning. You only specify topology.\n\n"
             "Supported changes: add/remove nodes, add/remove/change edges, "
-            "rename labels, change node shapes.\n\n"
-            "Be precise — only modify what was asked. Preserve everything else."
+            "rename labels, change component types, update metadata tags, modify metadata.\n\n"
+            "Be precise — only modify what was asked. Preserve everything else.\n"
+            "All nodes/edges must be in flat arrays with parentNode for hierarchy.\n"
+            "Fill ALL reasoning fields (min 20 chars each)."
         ),
-        "description": "Applies edits to an existing diagram graph.",
+        "description": "Applies edits to an existing React Flow diagram.",
     },
     "patch_diagram": {
         "model": _DEFAULT_MODEL,
-        "output_schema": DiagramGraph,
+        "output_schema": Diagram,
         "instruction": (
-            "You are a diagram patch agent. You receive the current graph "
-            "(nodes + edges) and a request for minor adjustments.\n\n"
-            "Return the COMPLETE updated graph — include ALL nodes and edges. "
+            "You are a diagram patch agent. You receive the current Diagram "
+            "(nodes + edges + metadata) and a request for minor adjustments.\n\n"
+            "Return the COMPLETE updated Diagram — include ALL nodes, edges, metadata. "
             "Items you omit will be DELETED.\n\n"
             "# CRITICAL: Do NOT generate coordinates or layout\n"
-            "The system computes all layout. You only specify topology.\n\n"
-            "Keep changes minimal and surgical — only touch what was requested."
+            "The frontend React Flow layout engine computes all positioning. You only specify topology.\n\n"
+            "Keep changes minimal and surgical — only touch what was requested.\n"
+            "All nodes/edges must be in flat arrays with parentNode for hierarchy.\n"
+            "Fill ALL reasoning fields (min 20 chars each)."
         ),
-        "description": "Applies minimal patches to diagram graphs.",
+        "description": "Applies minimal patches to React Flow diagrams.",
     },
     "create_markdown": {
         "model": _DEFAULT_MODEL,

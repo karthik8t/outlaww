@@ -3,8 +3,7 @@
  *
  * Base URL is configurable via VITE_API_URL env var (defaults to http://localhost:8000).
  */
-
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 // ---------------------------------------------------------------------------
 //  Types
@@ -14,6 +13,12 @@ export interface ChatRequest {
   session_id?: string
   text?: string
   action?: string
+}
+
+export interface RfData {
+  nodes: any[]
+  edges: any[]
+  metadata: { layoutDirection: string }
 }
 
 export interface ChatResponse {
@@ -26,7 +31,7 @@ export interface ChatResponse {
   structured_output: unknown
   reflection: unknown
   diagrams: Diagram[]
-  tldraw_records: Record<string, Record<string, unknown>[]>
+  rf_data: Record<string, RfData>  // diagram_id -> React Flow data
   markdown_docs: MarkdownDoc[]
   active_ids: Record<string, string>
 }
@@ -61,7 +66,7 @@ export interface SessionsListResponse {
 export interface DiagramsResponse {
   session_id: string
   diagrams: Diagram[]
-  tldraw_records: Record<string, Record<string, unknown>[]>
+  rf_data: Record<string, RfData>
   active_diagram_id: string
 }
 
@@ -69,41 +74,10 @@ export interface Diagram {
   id: string
   name: string
   description: string
-  store: TLStore
+  graph: Record<string, unknown>  // ArchitectureDiagram JSON
+  store: Record<string, unknown>  // tldraw store (backward compat)
   created_at: string
   updated_at: string
-}
-
-export interface TLStore {
-  document: { id: string; name: string; [k: string]: unknown }
-  page: Record<string, TLPage>
-  shape: Record<string, TLShape>
-  asset: Record<string, TLAsset>
-  [k: string]: unknown
-}
-
-export interface TLPage {
-  id: string
-  name: string
-  [k: string]: unknown
-}
-
-export interface TLShape {
-  id: string
-  type: string
-  x: number
-  y: number
-  parentId: string
-  index: string
-  props: Record<string, unknown>
-  [k: string]: unknown
-}
-
-export interface TLAsset {
-  id: string
-  type: string
-  props: Record<string, unknown>
-  [k: string]: unknown
 }
 
 export interface MarkdownDocsResponse {
@@ -211,3 +185,16 @@ export async function getActions(): Promise<ActionsResponse> {
 export async function getAgents(): Promise<AgentsResponse> {
   return get<AgentsResponse>("/chat/agents")
 }
+
+/** Transform a stored diagram (by diagram_id) to React Flow format. */
+export async function transformDiagramToReactFlow(
+  sessionId: string,
+  diagramId: string,
+): Promise<RfData> {
+  return post<RfData>("/chat/transform/reactflow-from-diagram", {
+    session_id: sessionId,
+    diagram_id: diagramId,
+  })
+}
+
+

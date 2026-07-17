@@ -350,7 +350,7 @@ class Diagram(BaseModel):
     id: str = Field(default_factory=_uuid)
     name: str = ""
     description: str = ""
-    graph: Optional[dict[str, Any]] = Field(default=None, description="Canonical DiagramGraph (nodes + edges). Used for new diagrams.")
+    graph: Optional[dict[str, Any]] = Field(default=None, description="Canonical ArchitectureDiagram (nodes + edges). Used for new diagrams.")
     store: TLStore = Field(default_factory=TLStore)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

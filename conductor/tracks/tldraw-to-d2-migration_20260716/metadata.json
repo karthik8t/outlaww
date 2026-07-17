@@ -1,0 +1,16 @@
+{
+  "id": "tldraw-to-d2-migration_20260716",
+  "title": "tldraw → D2 Migration",
+  "type": "refactor",
+  "status": "in_progress",
+  "created": "2026-07-16T01:34:00Z",
+  "updated": "2026-07-16T03:30:00Z",
+  "phases": {
+    "total": 4,
+    "completed": 2
+  },
+  "tasks": {
+    "total": 24,
+    "completed": 12
+  }
+}

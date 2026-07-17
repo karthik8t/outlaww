@@ -12,6 +12,7 @@ setup_logging()
 
 app = FastAPI(title="Outlaww", version="0.1.0")
 
+# Allow all origins for LAN development (restrict in production)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -27,3 +28,7 @@ app.middleware("http")(request_context_middleware)
 register_exception_handlers(app)
 
 app.include_router(router)
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "outlaww-backend"}

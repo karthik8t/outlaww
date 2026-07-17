@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Tldraw, type Editor } from "tldraw"
-import "tldraw/tldraw.css"
+import { useCallback, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
+import { ReactFlowDiagramView } from "@/components/ReactFlowDiagramView"
+
 import {
   GitBranch,
   Plus,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react"
 
 // ---------------------------------------------------------------------------
-//  Sidebar view type — now includes "chat"
+//  Sidebar view type
 // ---------------------------------------------------------------------------
 
 type SidebarView = "chat" | "diagrams" | "docs" | "actions" | "agents"
@@ -446,58 +446,25 @@ function MarkdownViewer({
 }
 
 // ---------------------------------------------------------------------------
-//  Tldraw Canvas — uses pre-built records from backend
-// ---------------------------------------------------------------------------
-
-function TldrawCanvas({
-  diagram,
-  records,
-}: {
-  diagram: { store: TLStore } | null
-  records: Record<string, unknown>[] | null
-}) {
-  const editorRef = useRef<Editor | null>(null)
-
-  // Sync diagram into the editor store whenever records change
-  useEffect(() => {
-    const editor = editorRef.current
-    if (!editor) return
-    if (!records || records.length === 0) return
-
-    // Put pre-built records directly — no transformation needed
-    editor.store.put(records as Parameters<typeof editor.store.put>[0])
-  }, [records])
-
-  return (
-    <div className="flex-1 relative w-full h-full overflow-hidden">
-      <Tldraw
-        hideUi={false}
-        onMount={(editor) => {
-          editorRef.current = editor
-          // Load initial diagram if available
-          if (records && records.length > 0) {
-            editor.store.put(records as Parameters<typeof editor.store.put>[0])
-          }
-        }}
-      />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 //  Top Bar
 // ---------------------------------------------------------------------------
 
-function TopBar({ title }: { title: string }) {
+function TopBar({ title, viewMode, onViewModeChange }: { title: string; viewMode: "canvas" | "code"; onViewModeChange: (v: "canvas" | "code") => void }) {
   return (
     <header className="flex justify-between items-center w-full px-8 h-14 bg-background/80 backdrop-blur-sm border-b border-border z-30 shrink-0">
       <div className="flex items-center gap-8">
         <h2 className="text-sm font-semibold text-foreground">{title || "Untitled"}</h2>
         <nav className="flex items-center gap-6">
-          <a className="text-sm font-semibold text-foreground border-b-2 border-foreground pb-1 cursor-pointer">
+          <a
+            className={`text-sm cursor-pointer pb-1 transition-colors ${viewMode === "canvas" ? "font-semibold text-foreground border-b-2 border-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`}
+            onClick={() => onViewModeChange("canvas")}
+          >
             Canvas
           </a>
-          <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+          <a
+            className={`text-sm cursor-pointer pb-1 transition-colors ${viewMode === "code" ? "font-semibold text-foreground border-b-2 border-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`}
+            onClick={() => onViewModeChange("code")}
+          >
             Code
           </a>
         </nav>
@@ -522,6 +489,7 @@ function TopBar({ title }: { title: string }) {
 
 export default function App() {
   const session = useSession()
+  const [viewMode, setViewMode] = useState<"canvas" | "code">("canvas")
 
   const selectedDiagram = useMemo(
     () => session.diagrams.find((d) => d.id === session.selectedDiagramId) || null,
@@ -533,16 +501,29 @@ export default function App() {
     [session.markdownDocs, session.selectedDocId],
   )
 
-  const selectedDiagramRecords = useMemo(() => {
-    if (!selectedDiagram) return null
-    return session.tldrawRecordsMap[selectedDiagram.id] || null
-  }, [selectedDiagram, session.tldrawRecordsMap])
-
   const projectName = useMemo(() => {
     if (selectedDiagram?.name) return selectedDiagram.name
     if (selectedDoc?.name) return selectedDoc.name
     return "Untitled"
   }, [selectedDiagram, selectedDoc])
+
+  const getDiagramData = useCallback((diagram: any) => {
+    if (!diagram) return undefined
+    // Prefer pre-transformed React Flow data from rfData cache
+    const cached = session.rfData[diagram.id]
+    if (cached?.nodes?.length) return cached
+    // Fallback: extract from graph directly (clean model uses snake_case)
+    if (diagram.graph?.nodes?.length) {
+      return {
+        nodes: diagram.graph.nodes,
+        edges: diagram.graph.edges || [],
+        metadata: {
+          layoutDirection: diagram.graph.metadata?.layout_direction ?? "LR"
+        }
+      }
+    }
+    return undefined
+  }, [session.rfData])
 
   const showChat = session.sidebarView === "chat"
   const showDetail = session.sidebarView !== "chat"
@@ -580,11 +561,26 @@ export default function App() {
           />
         )}
         <section className="flex-1 flex flex-col h-full relative overflow-hidden">
-          <TopBar title={projectName} />
+          <TopBar title={projectName} viewMode={viewMode} onViewModeChange={setViewMode} />
           {selectedDoc ? (
             <MarkdownViewer doc={selectedDoc} />
+          ) : viewMode === "code" ? (
+            <div className="flex-1 overflow-auto p-6 bg-background">
+              <pre className="text-xs font-mono text-foreground whitespace-pre-wrap">
+                {JSON.stringify(getDiagramData(selectedDiagram), null, 2)}
+              </pre>
+            </div>
           ) : (
-            <TldrawCanvas diagram={selectedDiagram} records={selectedDiagramRecords} />
+            <ReactFlowDiagramView
+              diagramData={getDiagramData(selectedDiagram)}
+              diagramId={selectedDiagram?.id}
+              onDiagramChange={(nodes, edges) => {
+                if (selectedDiagram) {
+                  console.log("Diagram changed:", { nodes, edges })
+                }
+              }}
+              fetchDiagramData={session.fetchDiagramSource}
+            />
           )}
         </section>
       </main>

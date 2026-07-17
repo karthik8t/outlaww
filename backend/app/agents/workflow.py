@@ -20,8 +20,7 @@ from google.adk.workflow import node
 
 from app.agents.action_registry import ActionRegistry
 from app.agents.agent_registry import AgentRegistry
-from app.schema.diagram_graph import DiagramGraph
-from app.schema.tldraw_records import graph_to_tldraw_records_flat
+from app.schema.reactflow_models import Diagram as DiagramSchema
 from app.schema.models import (
     Diagram,
     MarkdownArtifact,
@@ -93,6 +92,31 @@ _STATE_KEY = "reflection"
 _INITIAL = Reflections().model_dump(mode="json")
 
 
+def _extract_title(output: dict, fallback: str) -> str:
+    """Extract a meaningful title from the Diagram output."""
+    if isinstance(output, dict):
+        # Try common title fields, then fall back to first node label
+        title = output.get("name", "") or output.get("title", "")
+        if title:
+            return title
+        nodes = output.get("nodes", [])
+        if nodes and isinstance(nodes, list) and len(nodes) > 0:
+            first = nodes[0]
+            if isinstance(first, dict):
+                data = first.get("data", {}) or {}
+                return data.get("label", fallback) if isinstance(data, dict) else fallback
+    return fallback
+
+
+def _extract_description(output: dict) -> str:
+    """Extract a description from the Diagram output."""
+    if isinstance(output, dict):
+        desc = output.get("description", "")
+        if desc:
+            return desc
+    return ""
+
+
 def _load_reflection(state: dict[str, Any]) -> Reflections:
     raw = state.get(_STATE_KEY, _INITIAL)
     if isinstance(raw, dict):
@@ -111,7 +135,7 @@ def _save_reflection(state: dict[str, Any], ref: Reflections) -> None:
 _DIAGRAMS_KEY = "diagrams"
 
 
-def _load_diagrams(state: dict[str, Any]) -> list[Diagram]:
+def _load_diagrams(state: dict[str, Any]) -> list["Diagram"]:
     raw = state.get(_DIAGRAMS_KEY, [])
     return [Diagram.model_validate(d) if isinstance(d, dict) else d for d in raw]
 
@@ -201,23 +225,23 @@ def _apply_markdown_edits(
 def _persist_diagram_output(
     ctx: Context, output: dict[str, Any], user_message: str
 ) -> None:
-    """Create a new Diagram from DiagramGraph and persist to state."""
+    """Create a new Diagram from the LLM schema and persist to state."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
 
-    # Parse the LLM's graph output
-    graph_data = output  # output IS the DiagramGraph dict
+    # Parse the LLM's output as the clean Diagram schema
+    graph_data = output
     try:
-        graph = DiagramGraph.model_validate(graph_data)
+        rf_schema = DiagramSchema.model_validate(graph_data)
     except Exception:
-        logger.warning(f"[persist] failed to parse DiagramGraph: {graph_data}")
+        logger.warning(f"[persist] failed to parse Diagram: {graph_data}")
         return
 
-    # Store the graph dict in the Diagram model (for API record generation)
+    # Store the schema dict in the Diagram model
     diagram = Diagram(
-        name=graph.name or user_message[:80],
-        description=graph.description,
-        graph=graph.model_dump(mode="json"),
+        name=_extract_title(output, user_message),
+        description=_extract_description(output),
+        graph=rf_schema.model_dump(mode="json"),
     )
 
     diagrams.append(diagram)
@@ -234,7 +258,7 @@ def _persist_diagram_output(
 
 
 def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
-    """Replace the active diagram with the new graph from edit/patch agents."""
+    """Replace the active diagram with the new Diagram from edit/patch agents."""
     diagrams = _load_diagrams(ctx.state)
     active = _load_active_ids(ctx.state)
     diagram_id = active.get("active_diagram_id", "")
@@ -242,7 +266,6 @@ def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
     if not diagram_id:
         return
 
-    # Find the target diagram
     target = None
     target_idx = -1
     for i, d in enumerate(diagrams):
@@ -253,17 +276,17 @@ def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
     if target is None:
         return
 
-    # Parse the LLM's graph output (complete replacement)
+    # Parse the LLM's Diagram output (complete replacement)
     try:
-        graph = DiagramGraph.model_validate(output)
+        rf_schema = DiagramSchema.model_validate(output)
     except Exception:
-        logger.warning(f"[persist] failed to parse DiagramGraph for edit: {output}")
+        logger.warning(f"[persist] failed to parse Diagram for edit: {output}")
         return
 
-    # Update the diagram with the new graph
-    target.graph = graph.model_dump(mode="json")
-    target.name = graph.name or target.name
-    target.description = graph.description or target.description
+    # Update the diagram with the new schema
+    target.graph = rf_schema.model_dump(mode="json")
+    target.name = _extract_title(output, target.name)
+    target.description = _extract_description(output) or target.description
     target.updated_at = datetime.utcnow()
     diagrams[target_idx] = target
     _save_diagrams(ctx.state, diagrams)

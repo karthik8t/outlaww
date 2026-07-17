@@ -36,7 +36,7 @@ export interface ChatMsg {
   timestamp: string
   actions?: string[]
   routedTo?: string
-  structuredOutput?: unknown
+  structuredOutput?: Record<string, unknown>
 }
 
 export function useSession() {
@@ -47,7 +47,7 @@ export function useSession() {
   // ---- data from backend ----
   const [sessions, setSessions] = useState<api.SessionListItem[]>([])
   const [diagrams, setDiagrams] = useState<api.Diagram[]>([])
-  const [tldrawRecordsMap, setTldrawRecordsMap] = useState<Record<string, Record<string, unknown>[]>>({})
+  const [rfData, setRfData] = useState<Record<string, api.RfData>>({}) // diagram_id -> React Flow data
   const [markdownDocs, setMarkdownDocs] = useState<api.MarkdownDoc[]>([])
   const [actions, setActions] = useState<api.AppAction[]>([])
   const [agents, setAgents] = useState<string[]>([])
@@ -89,7 +89,7 @@ export function useSession() {
       .then(([diagRes, mdRes, sessRes]) => {
         if (diagRes) {
           setDiagrams(diagRes.diagrams)
-          setTldrawRecordsMap(diagRes.tldraw_records || {})
+          if (diagRes.rf_data) setRfData(diagRes.rf_data)
         }
         if (mdRes) setMarkdownDocs(mdRes.markdown_docs)
         // Rehydrate chat from session events (optional)
@@ -136,7 +136,17 @@ export function useSession() {
     try {
       const res = await api.getDiagrams(sid)
       setDiagrams(res.diagrams)
-      setTldrawRecordsMap(res.tldraw_records || {})
+      if (res.rf_data) setRfData(res.rf_data)
+    } catch { /* ignore */ }
+  }, [])
+
+  // Fetch a specific diagram's React Flow data
+  const fetchDiagramSource = useCallback(async (diagramId: string) => {
+    const sid = sessionIdRef.current
+    if (!sid) return
+    try {
+      const rf = await api.transformDiagramToReactFlow(sid, diagramId)
+      setRfData(prev => ({ ...prev, [diagramId]: rf }))
     } catch { /* ignore */ }
   }, [])
 
@@ -178,15 +188,15 @@ export function useSession() {
         text: res.final_text || "(no response)",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         routedTo: res.routed_to,
-        structuredOutput: res.structured_output,
+        structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
       }
       setMessages((prev) => [...prev, agentMsg])
 
       // Sync diagrams / docs from response
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
-        setTldrawRecordsMap(res.tldraw_records || {})
       }
+      if (res.rf_data) setRfData(res.rf_data)
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("chat error:", err)
@@ -221,14 +231,14 @@ export function useSession() {
         text: res.final_text || `Action "${actionName}" completed`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         routedTo: res.routed_to,
-        structuredOutput: res.structured_output,
+        structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
       }
       setMessages((prev) => [...prev, agentMsg])
 
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
-        setTldrawRecordsMap(res.tldraw_records || {})
       }
+      if (res.rf_data) setRfData(res.rf_data)
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("action error:", err)
@@ -244,7 +254,7 @@ export function useSession() {
     // data
     sessions,
     diagrams,
-    tldrawRecordsMap,
+    rfData,
     markdownDocs,
     actions,
     agents,
@@ -265,5 +275,6 @@ export function useSession() {
     refreshSessions,
     refreshDiagrams,
     refreshDocs,
+    fetchDiagramSource,
   }
 }

@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - D2_BINARY=/usr/local/bin/d2
+      - PYTHONUNBUFFERED=1
+      # Ollama configuration
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    volumes:
+      - ./backend/app:/app/app:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    # For Linux: uncomment below to access host's ollama
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+  # Frontend development server (optional)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+    depends_on:
+      - backend
+    profiles:
+      - dev
+
+networks:
+  default:
+    name: outlaww-network
