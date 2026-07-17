@@ -61,7 +61,7 @@ export function useSession() {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
 
   // ---- active view in sidebar ----
-  const [sidebarView, setSidebarView] = useState<"chat" | "diagrams" | "docs" | "actions" | "agents">("chat")
+  const [sidebarView, setSidebarView] = useState<"chat" | "diagrams" | "docs" | "actions" | "agents" | "clipboard">("chat")
 
   // Ref to avoid stale closures in async callbacks
   const sessionIdRef = useRef(sessionId)

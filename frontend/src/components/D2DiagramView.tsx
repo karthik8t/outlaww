@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { D2 } from "@terrastruct/d2"
 import { Minimize, Maximize, Download, Copy, RefreshCw, Code } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { BASE_URL } from "@/lib/api"
 
 type RenderMode = "wasm" | "cli" | "sse"
 
@@ -79,25 +79,12 @@ export function D2DiagramView({
     try {
       let result: string = ""
 
-      if (renderMode === "wasm") {
-        // Browser WASM rendering
-        const d2 = new D2()
-        const compileResponse = await d2.compile(d2Source, {
-          options: {
-            layout: layoutEngine,
-            themeID: theme,
-            sketch: false,
-          },
-        })
-        const svgResult = await d2.render(compileResponse.diagram, {
-          ...compileResponse.renderOptions,
-          themeID: theme,
-          sketch: false,
-        })
-        result = svgResult
-      } else if (renderMode === "cli") {
+      // ELK layout engine is not supported in WASM, auto-switch to CLI
+      const effectiveRenderMode = renderMode === "wasm" ? "cli" : renderMode
+
+      if (effectiveRenderMode === "cli") {
         // Server CLI rendering
-        const res = await fetch("/chat/render", {
+        const res = await fetch(`${BASE_URL}/chat/render`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -112,9 +99,9 @@ export function D2DiagramView({
         })
         if (!res.ok) throw new Error("Render failed")
         result = await res.text()
-      } else if (renderMode === "sse") {
+      } else if (effectiveRenderMode === "sse") {
         // SSE streaming - fallback to CLI for now
-        const res = await fetch("/chat/render", {
+        const res = await fetch(`${BASE_URL}/chat/render`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -279,8 +266,13 @@ export function D2DiagramView({
                   </SelectContent>
                 </Select>
               </TooltipTrigger>
-              <TooltipContent>Layout engine</TooltipContent>
+              <TooltipContent>Layout engine (ELK requires CLI or SSE mode)</TooltipContent>
             </Tooltip>
+            {renderMode === "wasm" && (
+              <span className="text-xs text-amber-500 ml-1" title="ELK layout requires server-side rendering">
+                ⚠ CLI/SSE only
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

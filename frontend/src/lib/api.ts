@@ -3,8 +3,7 @@
  *
  * Base URL is configurable via VITE_API_URL env var (defaults to http://localhost:8000).
  */
-
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 // ---------------------------------------------------------------------------
 //  Types
@@ -181,4 +180,45 @@ export async function getActions(): Promise<ActionsResponse> {
 /** List all available agents. */
 export async function getAgents(): Promise<AgentsResponse> {
   return get<AgentsResponse>("/chat/agents")
+}
+
+/** Render D2 diagram to SVG via backend CLI. */
+export async function renderD2Diagram(params: {
+  d2_source: string
+  format?: "svg" | "png" | "pdf" | "gif" | "pptx"
+  theme_id?: number
+  dark_theme_id?: number
+  layout_engine?: "elk"
+  direction?: "right" | "down" | "left" | "up"
+  pad?: number
+  sketch?: boolean
+}): Promise<string> {
+  const res = await fetch(`${BASE_URL}/chat/render`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Render failed (${res.status}): ${text}`)
+  }
+  return res.text()
+}
+
+/** Create a shared clipboard entry for cross-device text sharing. */
+export async function createClipboard(text: string, ttlSeconds = 3600): Promise<{ code: string; url: string }> {
+  const res = await fetch(`${BASE_URL}/clipboard`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, ttl_seconds: ttlSeconds }),
+  })
+  if (!res.ok) throw new Error("Failed to create clipboard")
+  return res.json()
+}
+
+/** Retrieve clipboard text by code. */
+export async function getClipboard(code: string): Promise<{ text: string }> {
+  const res = await fetch(`${BASE_URL}/clipboard/${code}`)
+  if (!res.ok) throw new Error("Clipboard not found or expired")
+  return res.json()
 }

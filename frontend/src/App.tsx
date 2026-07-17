@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
 import { D2DiagramView } from "@/components/D2DiagramView"
+import { CrossDeviceClipboard } from "@/pages/CrossDeviceClipboard"
 import {
   GitBranch,
   Plus,
@@ -19,13 +20,14 @@ import {
   Zap,
   Loader2,
   MessageCircle,
+  Clipboard,
 } from "lucide-react"
 
 // ---------------------------------------------------------------------------
-//  Sidebar view type — now includes "chat"
+//  Sidebar view type — now includes "clipboard"
 // ---------------------------------------------------------------------------
 
-type SidebarView = "chat" | "diagrams" | "docs" | "actions" | "agents"
+type SidebarView = "chat" | "diagrams" | "docs" | "actions" | "agents" | "clipboard"
 
 interface SidebarItemDef {
   id: string
@@ -40,6 +42,7 @@ const SIDEBAR_ITEMS: SidebarItemDef[] = [
   { id: "docs", label: "Documents", icon: FileText, view: "docs" },
   { id: "actions", label: "Actions", icon: Zap, view: "actions" },
   { id: "agents", label: "Agents", icon: Bot, view: "agents" },
+  { id: "clipboard", label: "Clipboard", icon: Clipboard, view: "clipboard" },
 ]
 
 // ---------------------------------------------------------------------------
@@ -338,11 +341,13 @@ function SidebarDetailPanel({
           {view === "docs" && "Documents"}
           {view === "actions" && "Actions"}
           {view === "agents" && "Agents"}
+          {view === "clipboard" && "Clipboard"}
         </h3>
       </div>
 
       {/* Content — scrollable */}
       <div className="flex-1 overflow-y-auto min-h-0 p-4">
+        {view === "clipboard" && <CrossDeviceClipboard />}
         {view === "diagrams" && (
           <div className="space-y-1">
             {diagrams.length === 0 && (
