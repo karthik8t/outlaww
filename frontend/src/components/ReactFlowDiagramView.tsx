@@ -58,7 +58,17 @@ interface ReactFlowDiagramViewProps {
   className?: string
 }
 
-// Detail field renderer for sidebar
+// ============================================================================
+// Sidebar — shows details for a selected node or edge
+// ============================================================================
+
+interface SelectedElement {
+  type: "node" | "edge"
+  id: string
+  elementType: string
+  data: any
+}
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   if (!value || value === "none") return null
   return (
@@ -69,92 +79,120 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function SidebarPanel({
-  element,
-  onClose,
-}: {
-  element: { type: "node" | "edge"; data: any } | null
-  onClose: () => void
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/80 mb-2">{title}</h4>
+      <dl className="space-y-2">{children}</dl>
+    </div>
+  )
+}
+
+function SidebarPanel({ element, onClose }: { element: SelectedElement | null; onClose: () => void }) {
   if (!element) return null
-  const { type, data: d } = element
+  const { type, id, elementType, data: d } = element
 
   return (
     <div className="fixed right-0 top-16 bottom-0 w-80 bg-background border-l border-border shadow-xl z-40 flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="capitalize text-[10px]">{type}</Badge>
-          <span className="text-xs font-mono text-muted-foreground truncate max-w-[180px]">{d?.id || d?.label}</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Badge variant="outline" className="capitalize text-[10px] shrink-0">{type}</Badge>
+          <span className="text-xs font-mono text-muted-foreground truncate">{id}</span>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onClose}>
           <X className="w-3.5 h-3.5" />
         </Button>
       </div>
 
-      {/* Content */}
+      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {type === "node" && (
-          <>
-            <Section title="Node">
-              <DetailRow label="Label" value={d?.label} />
-              <DetailRow label="Subtitle" value={d?.subtitle} />
-              <DetailRow label="Type" value={d?.borderStyle} />
-            </Section>
+        {/* Type badge */}
+        <div>
+          <Section title="Type">
+            <DetailRow label="Component Type" value={elementType} />
+            <DetailRow label="Label" value={d?.label} />
+            <DetailRow label="Subtitle" value={d?.subtitle} />
+          </Section>
+        </div>
 
-            {(d?.reasoning || d?.purpose) && (
-              <Section title="Architecture">
-                <DetailRow label="Reasoning" value={d?.reasoning} />
-                <DetailRow label="Purpose" value={d?.purpose} />
-                <DetailRow label="Benefit" value={d?.architectureBenefit} />
-                <DetailRow label="Design Justification" value={d?.designJustification} />
-              </Section>
-            )}
-
-            {(d?.languageRuntime || d?.frameworkLibrary || d?.databaseEngine || d?.cloudServiceName) && (
-              <Section title="Tech Stack">
-                <DetailRow label="Runtime" value={d?.languageRuntime} />
-                <DetailRow label="Framework" value={d?.frameworkLibrary} />
-                <DetailRow label="Database" value={d?.databaseEngine} />
-                <DetailRow label="Cloud Service" value={d?.cloudServiceName} />
-                <DetailRow label="Tier" value={d?.cloudTier} />
-              </Section>
-            )}
-          </>
+        {/* Architecture chain-of-thought (node + edge) */}
+        {(d?.reasoning || d?.purpose) && (
+          <Section title="Architecture">
+            <DetailRow label="Reasoning" value={d?.reasoning} />
+            <DetailRow label="Purpose" value={d?.purpose} />
+            {d?.architectureBenefit && <DetailRow label="Architecture Benefit" value={d?.architectureBenefit} />}
+            {d?.designJustification && <DetailRow label="Design Justification" value={d?.designJustification} />}
+            {d?.dependencyBenefit && <DetailRow label="Dependency Benefit" value={d?.dependencyBenefit} />}
+            {d?.couplingJustification && <DetailRow label="Coupling Justification" value={d?.couplingJustification} />}
+          </Section>
         )}
 
-        {type === "edge" && (
-          <>
-            {(d?.reasoning || d?.purpose) && (
-              <Section title="Architecture">
-                <DetailRow label="Reasoning" value={d?.reasoning} />
-                <DetailRow label="Purpose" value={d?.purpose} />
-                <DetailRow label="Benefit" value={d?.dependencyBenefit} />
-                <DetailRow label="Coupling" value={d?.couplingJustification} />
-              </Section>
-            )}
+        {/* Tech Stack (node only) */}
+        {(d?.languageRuntime || d?.frameworkLibrary || d?.databaseEngine || d?.cloudServiceName) && (
+          <Section title="Tech Stack">
+            <DetailRow label="Runtime" value={d?.languageRuntime} />
+            <DetailRow label="Framework" value={d?.frameworkLibrary} />
+            <DetailRow label="Database" value={d?.databaseEngine} />
+            <DetailRow label="Cloud Service" value={d?.cloudServiceName} />
+            <DetailRow label="Tier" value={d?.cloudTier} />
+          </Section>
+        )}
 
-            <Section title="Connection">
-              <DetailRow label="Protocol" value={d?.protocol} />
-              <DetailRow label="Flow Direction" value={d?.flowDirection} />
-              <DetailRow label="Logic" value={d?.logicVariant} />
-            </Section>
-          </>
+        {/* Connection details (edge only) */}
+        {(d?.protocol || d?.flowDirection || d?.logicVariant) && (
+          <Section title="Connection">
+            <DetailRow label="Protocol" value={d?.protocol} />
+            <DetailRow label="Flow Direction" value={d?.flowDirection} />
+            <DetailRow label="Logic Variant" value={d?.logicVariant} />
+          </Section>
+        )}
+
+        {/* Status / Metadata */}
+        {d?.statusState && <Section title="Status">
+          <DetailRow label="State" value={d?.statusState} />
+        </Section>}
+
+        {(d?.tableName || (d?.columns && d?.columns.length > 0)) && (
+          <Section title="Table">
+            <DetailRow label="Name" value={d?.tableName} />
+            {d?.columns && d?.columns.length > 0 && (
+              <DetailRow label="Columns" value={d?.columns.join(", ")} />
+            )}
+          </Section>
+        )}
+
+        {d?.metadataTags && d?.metadataTags.length > 0 && (
+          <Section title="Tags">
+            <div className="flex flex-wrap gap-1">
+              {d?.metadataTags.map((tag: string, i: number) => (
+                <span key={i} className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground border border-border">{tag}</span>
+              ))}
+            </div>
+          </Section>
         )}
       </div>
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h4 className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/80 mb-2">{title}</h4>
-      <dl className="space-y-2">
-        {children}
-      </dl>
-    </div>
-  )
+// ============================================================================
+// Direction-aware node enrichment
+// Updates BOTH data.layoutDirection (for custom NodeHandle resolution) AND
+// the top-level sourcePosition/targetPosition (for React Flow's default edge
+// path drawing when no explicit handle ID is matched on an edge).
+// ============================================================================
+
+const LAYOUT_SOURCE: Record<string, string> = { LR: "right", RL: "left",  TB: "bottom", BT: "top"    }
+const LAYOUT_TARGET: Record<string, string> = { LR: "left",  RL: "right", TB: "top",    BT: "bottom" }
+
+function enrichNodesWithDirection(nodes: any[], direction: string) {
+  return nodes.map((n: any) => ({
+    ...n,
+    sourcePosition: LAYOUT_SOURCE[direction] || "right",
+    targetPosition: LAYOUT_TARGET[direction] || "left",
+    data: { ...n.data, layoutDirection: direction },
+  }))
 }
 
 export function ReactFlowCanvas({
@@ -171,7 +209,7 @@ export function ReactFlowCanvas({
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [showSidebar, setShowSidebar] = useState(true)
-  const [selectedElement, setSelectedElement] = useState<{ type: 'node' | 'edge'; data: any } | null>(null)
+  const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(null)
   const [showMinimap, setShowMinimap] = useState(true)
 
   const reactFlowInstance = useReactFlow()
@@ -189,7 +227,10 @@ export function ReactFlowCanvas({
     setLayoutDirection(dir)
     setLoading(true)
     layoutNodes(diagramData.nodes, diagramData.edges || [], dir).then((positioned) => {
-      setNodes(positioned)
+      // Inject layoutDirection into each node's data + update top-level sourcePosition/targetPosition
+      // so edge paths always draw from the correct side when direction changes
+      const enriched = enrichNodesWithDirection(positioned, dir)
+      setNodes(enriched)
       setEdges(diagramData.edges || [])
       setLoading(false)
       setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
@@ -227,11 +268,11 @@ export function ReactFlowCanvas({
   }, [edges, nodes, onDiagramChange])
 
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node<any>) => {
-    setSelectedElement({ type: 'node', data: node.data })
+    setSelectedElement({ type: 'node', id: node.id, elementType: node.type || 'unknown', data: node.data })
   }, [])
 
   const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge<any>) => {
-    setSelectedElement({ type: 'edge', data: edge.data })
+    setSelectedElement({ type: 'edge', id: edge.id, elementType: edge.type || 'default', data: edge.data })
   }, [])
 
   const onPaneClick = useCallback(() => {
@@ -253,11 +294,12 @@ export function ReactFlowCanvas({
     reactFlowInstance?.fitView({ padding: 0.2 })
   }, [reactFlowInstance])
 
-  const runLayout = useCallback(async () => {
+  const runLayout = useCallback(async (dir?: string) => {
     if (nodes.length === 0) return
+    const direction = (dir || layoutDirection) as "TB" | "LR" | "BT" | "RL"
     setLoading(true)
-    const positioned = await layoutNodes(nodes, edges, layoutDirection)
-    setNodes(positioned)
+    const positioned = await layoutNodes(nodes, edges, direction)
+    setNodes(enrichNodesWithDirection(positioned, direction))
     setLoading(false)
     setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
   }, [nodes, edges, layoutDirection, reactFlowInstance])
@@ -285,7 +327,7 @@ export function ReactFlowCanvas({
           <div className="flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Select value={layoutDirection} onValueChange={v => setLayoutDirection(v as "TB" | "LR" | "BT" | "RL")}>
+                <Select value={layoutDirection} onValueChange={v => { const dir = v as "TB" | "LR" | "BT" | "RL"; setLayoutDirection(dir); runLayout(dir); }}>
                   <SelectTrigger className="w-[130px] h-8">
                     <SelectValue placeholder="Layout" />
                   </SelectTrigger>
@@ -305,7 +347,7 @@ export function ReactFlowCanvas({
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={runLayout}>
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => runLayout()}>
                     <Layout className="w-3.5 h-3.5" />
                   </Button>
                 </TooltipTrigger>

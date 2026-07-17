@@ -337,9 +337,45 @@ async def list_agents() -> AgentsResponse:
     return AgentsResponse(agents=registry.list_agents())
 
 
+# ---------------------------------------------------------------------------
+#  Session management
+# ---------------------------------------------------------------------------
 
 
+class CreateSessionResponse(BaseModel):
+    session_id: str
 
+
+@router.post("/sessions", response_model=CreateSessionResponse, status_code=201)
+async def create_session() -> CreateSessionResponse:
+    """Create a new blank session and return its ID."""
+    from uuid import uuid4
+
+    session_id = uuid4().hex
+    session_svc = get_session_service()
+    uid = user_id_for(session_id)
+    await session_svc.create_session(
+        app_name="outlaww",
+        user_id=uid,
+        session_id=session_id,
+    )
+    return CreateSessionResponse(session_id=session_id)
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session_route(session_id: str):
+    """Delete a session and all its data."""
+    session_svc = get_session_service()
+    uid = user_id_for(session_id)
+    await session_svc.delete_session(
+        app_name="outlaww",
+        user_id=uid,
+        session_id=session_id,
+    )
+
+
+# ---------------------------------------------------------------------------
+#  SSE streaming endpoint
 # ---------------------------------------------------------------------------
 #  SSE streaming endpoint
 # ---------------------------------------------------------------------------
