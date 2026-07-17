@@ -16,6 +16,7 @@ import {
   type EdgeChange,
   addEdge,
   MarkerType,
+  ConnectionMode,
   useReactFlow,
   type EdgeProps,
 } from "@xyflow/react"
@@ -287,7 +288,7 @@ interface ReactFlowDiagramViewProps {
   className?: string
 }
 
-export function ReactFlowDiagramView({
+export function ReactFlowCanvas({
   diagramData,
   diagramId,
   onDiagramChange,
@@ -409,7 +410,6 @@ export function ReactFlowDiagramView({
   const initialEdges = edges.length > 0 ? edges : undefined
 
   return (
-    <ReactFlowProvider>
     <TooltipProvider>
       <div className={cn("flex flex-col h-full bg-background", className)}>
         {/* Toolbar */}
@@ -508,7 +508,7 @@ export function ReactFlowDiagramView({
             edgeTypes={{
               default: CustomEdge,
             }}
-            connectionMode="loose" as const
+            connectionMode={ConnectionMode.Loose}
             fitView={!diagramData}
             defaultViewport={{ x: 0, y: 0, zoom: 1 }}
             attributionPosition="bottom-right"
@@ -556,6 +556,18 @@ export function ReactFlowDiagramView({
         )}
       </div>
     </TooltipProvider>
+  )
+}
+
+
+// ============================================================================
+// Outer wrapper providing ReactFlowProvider context
+// ============================================================================
+
+export function ReactFlowDiagramView(props: ReactFlowDiagramViewProps) {
+  return (
+    <ReactFlowProvider>
+      <ReactFlowCanvas {...props} />
     </ReactFlowProvider>
   )
 }
