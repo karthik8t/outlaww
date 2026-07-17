@@ -86,34 +86,46 @@ interface NodeTypeConfig {
 }
 
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
-  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-950/40",   badgeText: "text-blue-400",   accent: "text-blue-400",   border: "border-blue-800/50",   light: "bg-blue-950/10",   accentBg: "bg-blue-500/40"   } },
-  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
-  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-950/40",  badgeText: "text-amber-400",  accent: "text-amber-400",  border: "border-amber-800/50",  light: "bg-amber-950/10",  accentBg: "bg-amber-500/40"  } },
-  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-950/40",   badgeText: "text-cyan-400",   accent: "text-cyan-400",   border: "border-cyan-800/50",   light: "bg-cyan-950/10",   accentBg: "bg-cyan-500/40"   } },
-  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-950/40",   badgeText: "text-teal-400",   accent: "text-teal-400",   border: "border-teal-800/50",   light: "bg-teal-950/10",   accentBg: "bg-teal-500/40"   } },
-  group:           { label: "Group",   dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",   accentBg: "bg-gray-500/30"   } },
-  c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-950/40", badgeText: "text-indigo-400", accent: "text-indigo-400", border: "border-indigo-800/50", light: "bg-indigo-950/10", accentBg: "bg-indigo-500/40" } },
-  c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-950/40", badgeText: "text-indigo-400", accent: "text-indigo-400", border: "border-indigo-800/50", light: "bg-indigo-950/10", accentBg: "bg-indigo-500/40" } },
-  c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
-  c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-950/40", badgeText: "text-purple-400", accent: "text-purple-400", border: "border-purple-800/50", light: "bg-purple-950/10", accentBg: "bg-purple-500/40" } },
-  c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-950/40",badgeText: "text-fuchsia-400",accent: "text-fuchsia-400", border: "border-fuchsia-800/50",light: "bg-fuchsia-950/10", accentBg: "bg-fuchsia-500/40" } },
-  flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-950/40", badgeText: "text-amber-400", accent: "text-amber-400", border: "border-amber-800/50", light: "bg-amber-950/10", accentBg: "bg-amber-500/40" } },
-  flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-rose-950/40",  badgeText: "text-rose-400",  accent: "text-rose-400",  border: "border-rose-800/50",  light: "bg-rose-950/10",   accentBg: "bg-rose-500/40"  } },
-  flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-950/40",badgeText: "text-emerald-400",accent: "text-emerald-400", border: "border-emerald-800/50",light: "bg-emerald-950/10", accentBg: "bg-emerald-500/40" } },
-  flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
-  cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-950/40",   badgeText: "text-blue-400",   accent: "text-blue-400",   border: "border-blue-800/50",   light: "bg-blue-950/10",   accentBg: "bg-blue-500/40"   } },
-  cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-950/40",   badgeText: "text-cyan-400",   accent: "text-cyan-400",   border: "border-cyan-800/50",   light: "bg-cyan-950/10",   accentBg: "bg-cyan-500/40"   } },
-  cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
-  cloudNetwork:  { label: "Network",  dashed: false, zIndex: 10, theme: { badge: "bg-teal-950/40",   badgeText: "text-teal-400",   accent: "text-teal-400",   border: "border-teal-800/50",   light: "bg-teal-950/10",   accentBg: "bg-teal-500/40"   } },
-  cloudMessaging:{ label: "Messaging",dashed: false, zIndex: 10, theme: { badge: "bg-pink-950/40",   badgeText: "text-pink-400",   accent: "text-pink-400",   border: "border-pink-800/50",   light: "bg-pink-950/10",   accentBg: "bg-pink-500/40"   } },
-  cloudSecurity: { label: "Security", dashed: false, zIndex: 10, theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
-  cloudAnalytics:{ label: "Analytics",dashed: false, zIndex: 10, theme: { badge: "bg-rose-950/40",   badgeText: "text-rose-400",   accent: "text-rose-400",   border: "border-rose-800/50",   light: "bg-rose-950/10",   accentBg: "bg-rose-500/40"   } },
-  cloudBoundary: { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
+  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-100 dark:bg-blue-900/40",   badgeText: "text-blue-700 dark:text-blue-300",   accent: "text-blue-600 dark:text-blue-400",   border: "border-blue-300 dark:border-blue-600",   light: "bg-blue-50/20 dark:bg-blue-950/10",   accentBg: "bg-blue-500"   } },
+  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-300 dark:border-violet-600/70", light: "bg-violet-50/20 dark:bg-violet-950/10", accentBg: "bg-violet-500" } },
+  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-100 dark:bg-amber-900/40",  badgeText: "text-amber-700 dark:text-amber-300",  accent: "text-amber-600 dark:text-amber-400",  border: "border-amber-300 dark:border-amber-600/70",  light: "bg-amber-50/20 dark:bg-amber-950/10",  accentBg: "bg-amber-500"  } },
+  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40",   badgeText: "text-cyan-700 dark:text-cyan-300",   accent: "text-cyan-600 dark:text-cyan-400",   border: "border-cyan-300 dark:border-cyan-600/70",   light: "bg-cyan-50/20 dark:bg-cyan-950/10",   accentBg: "bg-cyan-500"   } },
+  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-100 dark:bg-teal-900/40",   badgeText: "text-teal-700 dark:text-teal-300",   accent: "text-teal-600 dark:text-teal-400",   border: "border-teal-300 dark:border-teal-600/70",   light: "bg-teal-50/20 dark:bg-teal-950/10",   accentBg: "bg-teal-500"   } },
+  group: {
+    label: "Group",
+    dashed: true,
+    zIndex: 0,
+    theme: {
+      badge: "bg-gray-200 dark:bg-gray-700",
+      badgeText: "text-gray-600 dark:text-gray-300",
+      accent: "text-gray-600 dark:text-gray-400",
+      border: "border-gray-400 dark:border-gray-500",
+      light: "bg-gray-50 dark:bg-gray-900/20",
+      accentBg: "bg-gray-400",
+    },
+  },
+  c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
+  c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
+  c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
+  c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-100 dark:bg-purple-900/40", badgeText: "text-purple-700 dark:text-purple-300", accent: "text-purple-600 dark:text-purple-400", border: "border-purple-400 dark:border-purple-500", light: "bg-purple-50/50 dark:bg-purple-950/20", accentBg: "bg-violet-500" } },
+  c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-100 dark:bg-fuchsia-900/40", badgeText: "text-fuchsia-700 dark:text-fuchsia-300", accent: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-300 dark:border-fuchsia-500/60", light: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10", accentBg: "bg-fuchsia-500" } },
+  flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-100 dark:bg-amber-900/40", badgeText: "text-amber-700 dark:text-amber-300", accent: "text-amber-600 dark:text-amber-400", border: "border-amber-400 dark:border-amber-500", light: "bg-amber-50/50 dark:bg-amber-950/20", accentBg: "bg-amber-500" } },
+  flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-red-100 dark:bg-red-900/40", badgeText: "text-red-700 dark:text-red-300", accent: "text-red-600 dark:text-red-400", border: "border-red-400 dark:border-red-500", light: "bg-red-50/50 dark:bg-red-950/20", accentBg: "bg-red-500" } },
+  flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-100 dark:bg-emerald-900/40", badgeText: "text-emerald-700 dark:text-emerald-300", accent: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-400 dark:border-emerald-500", light: "bg-emerald-50/50 dark:bg-emerald-950/20", accentBg: "bg-emerald-500" } },
+  flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/30", accentBg: "bg-gray-500" } },
+  cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-100 dark:bg-blue-900/40", badgeText: "text-blue-700 dark:text-blue-300", accent: "text-blue-600 dark:text-blue-400", border: "border-blue-400 dark:border-blue-500", light: "bg-blue-50/50 dark:bg-blue-950/20", accentBg: "bg-blue-500" } },
+  cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40", badgeText: "text-cyan-700 dark:text-cyan-300", accent: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-400 dark:border-cyan-500", light: "bg-cyan-50/50 dark:bg-cyan-950/20", accentBg: "bg-cyan-500" } },
+  cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
+  cloudNetwork:  { label: "Network",  dashed: false, zIndex: 10, theme: { badge: "bg-teal-100 dark:bg-teal-900/40", badgeText: "text-teal-700 dark:text-teal-300", accent: "text-teal-600 dark:text-teal-400", border: "border-teal-400 dark:border-teal-500", light: "bg-teal-50/50 dark:bg-teal-950/20", accentBg: "bg-teal-500" } },
+  cloudMessaging:{ label: "Messaging",dashed: false, zIndex: 10, theme: { badge: "bg-orange-100 dark:bg-orange-900/40", badgeText: "text-orange-700 dark:text-orange-300", accent: "text-orange-600 dark:text-orange-400", border: "border-orange-400 dark:border-orange-500", light: "bg-orange-50/50 dark:bg-orange-950/20", accentBg: "bg-orange-500" } },
+  cloudSecurity: { label: "Security", dashed: false, zIndex: 10, theme: { badge: "bg-slate-200 dark:bg-slate-700", badgeText: "text-slate-600 dark:text-slate-300", accent: "text-slate-600 dark:text-slate-400", border: "border-slate-400 dark:border-slate-500", light: "bg-slate-50 dark:bg-slate-950/20", accentBg: "bg-slate-500" } },
+  cloudAnalytics:{ label: "Analytics",dashed: false, zIndex: 10, theme: { badge: "bg-pink-100 dark:bg-pink-900/40", badgeText: "text-pink-700 dark:text-pink-300", accent: "text-pink-600 dark:text-pink-400", border: "border-pink-400 dark:border-pink-500", light: "bg-pink-50/50 dark:bg-pink-950/20", accentBg: "bg-pink-500" } },
+  cloudBoundary: { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-500 dark:text-gray-400", accent: "text-gray-500 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/20", accentBg: "bg-gray-500" } },
 }
 
 const DEFAULT_NODE_CONFIG: NodeTypeConfig = {
   label: "Node", dashed: false, zIndex: 10,
-  theme: { badge: "bg-gray-800/50", badgeText: "text-gray-400", accent: "text-gray-400", border: "border-gray-700/50", light: "bg-gray-900/20", accentBg: "bg-gray-500/30" },
+  theme: { badge: "bg-gray-100 dark:bg-gray-800", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/10", accentBg: "bg-gray-500" },
 }
 
 function getNodeConfig(nodeType: string): NodeTypeConfig {
@@ -222,11 +234,11 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
   return (
     <div
       className={cn(
-        "group relative border bg-[#0A0A0A] text-foreground transition-all duration-150",
-        "rounded",
+        "group relative border bg-background text-foreground transition-all duration-150",
+        "rounded-sm",
         cfg.dashed ? "border-dashed" : "border-solid",
         "min-w-[240px] max-w-[340px]",
-        selected ? "ring-1 ring-ring" : "hover:border-foreground/20",
+        selected ? "ring-1 ring-ring" : "hover:shadow-sm",
         theme.border,
       )}
     >
@@ -234,18 +246,18 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
 
-      {/* Accent bar */}
-      <div className={cn("h-0.5 rounded-t", theme.accentBg)} />
+      {/* Swiss accent bar — 4px solid top bar */}
+      <div className={cn("h-1", theme.accentBg)} />
 
-      <div className="p-3.5">
+      <div className="p-3">
         {/* Header: Icon + Type label + Status dot */}
-        <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {IconComponent && (
               <IconComponent className={cn("w-3.5 h-3.5 stroke-[2]", theme.accent)} />
             )}
             <span className={cn(
-              "inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-medium leading-none",
+              "inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider font-medium leading-none",
               "rounded-sm",
               theme.badge, theme.badgeText,
             )}>
@@ -253,64 +265,64 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
             </span>
           </div>
           {data.statusState && (
-            <span className={cn("w-1.5 h-1.5 rounded-sm shrink-0", STATUS_DOTS[data.statusState])} />
+            <span className={cn("w-2 h-2 rounded-sm shrink-0", STATUS_DOTS[data.statusState])} />
           )}
         </div>
 
         {/* Label + Subtitle */}
-        <div className="mb-2">
+        <div className="mb-1.5">
           <h3 className="text-sm font-semibold text-foreground leading-snug">
             {data.label}
           </h3>
           {data.subtitle && (
-            <p className="text-xs text-muted-foreground/60 leading-normal mt-0.5 line-clamp-2">
+            <p className="text-xs text-muted-foreground leading-normal mt-0.5 line-clamp-2">
               {data.subtitle}
             </p>
           )}
         </div>
 
-        {/* Purpose */}
+        {/* Purpose — clean text, no decoration */}
         {data.purpose && (
-          <p className="text-[11px] text-muted-foreground/50 leading-relaxed line-clamp-2 mb-2">
+          <p className="text-[11px] text-muted-foreground/60 leading-relaxed line-clamp-2 mb-1">
             {data.purpose}
           </p>
         )}
 
         {/* Tech stack */}
         {hasTech && (
-          <div className="flex flex-wrap gap-1 mt-2.5 pt-2.5 border-t border-[#1C1C1C]">
+          <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border">
             {data.languageRuntime !== "none" && (
-              <span className="px-1.5 py-[2px] text-[10px] font-mono rounded-sm border border-[#2E2E2E] text-muted-foreground">
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
                 {data.languageRuntime}
               </span>
             )}
             {data.frameworkLibrary !== "none" && (
-              <span className="px-1.5 py-[2px] text-[10px] font-mono rounded-sm border border-[#2E2E2E] text-muted-foreground">
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
                 {data.frameworkLibrary}
               </span>
             )}
             {data.databaseEngine !== "none" && (
-              <span className="px-1.5 py-[2px] text-[10px] font-mono rounded-sm border border-[#2E2E2E] text-muted-foreground">
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border bg-muted text-muted-foreground">
                 {data.databaseEngine}
               </span>
             )}
             {data.cloudServiceName !== "none" && (
-              <span className="px-1.5 py-[2px] text-[10px] font-mono rounded-sm border border-[#2E2E2E] text-muted-foreground">
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
                 {data.cloudServiceName}
               </span>
             )}
             {data.cloudTier !== "none" && (
-              <span className="px-1.5 py-[2px] text-[10px] font-mono rounded-sm text-muted-foreground/50">
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm text-muted-foreground">
                 {data.cloudTier}
               </span>
             )}
             {data.metadataTags && data.metadataTags.slice(0, 2).map((tag, i) => (
-              <span key={i} className="px-1.5 py-[2px] text-[10px] font-mono rounded-sm border border-[#2E2E2E] text-muted-foreground">
+              <span key={i} className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
                 {tag}
               </span>
             ))}
             {data.metadataTags && data.metadataTags.length > 2 && (
-              <span className="px-1.5 py-[2px] text-[10px] font-mono rounded-sm text-muted-foreground/50">
+              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm text-muted-foreground">
                 +{data.metadataTags.length - 2}
               </span>
             )}
@@ -320,12 +332,12 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
         {/* DB Schema */}
         {hasDbInfo && (
           <div className={cn(
-            "mt-2.5 pt-2.5 text-[11px] font-mono text-muted-foreground/60 truncate",
-            hasTech && "border-t border-[#1C1C1C]",
+            "mt-2 pt-2 text-[10px] font-mono text-muted-foreground truncate",
+            hasTech && "border-t border-border",
           )}>
-            <span className="font-medium text-foreground/70">{data.tableName}</span>
+            <span className="font-semibold text-foreground/70">{data.tableName}</span>
             {data.columns && data.columns.length > 0 && (
-              <span className="text-muted-foreground/40"> ({data.columns.join(", ")})</span>
+              <span className="text-muted-foreground/50"> ({data.columns.join(", ")})</span>
             )}
           </div>
         )}
@@ -348,7 +360,7 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
   return (
     <div
       className={cn(
-        "group w-full h-full rounded border transition-shadow relative",
+        "group w-full h-full rounded-sm border transition-shadow relative",
         cfg.dashed ? "border-dashed" : "border-solid",
         theme.border,
         theme.light,
@@ -367,19 +379,19 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
       ))}
 
       {/* Accent bar */}
-      <div className={cn("h-0.5 rounded-t", theme.accentBg)} />
+      <div className={cn("h-1 rounded-t-sm", theme.accentBg)} />
 
       {/* Drag handle header */}
       <div
         className={cn(
           "rf-group-drag-handle",
-          "flex items-center gap-2 px-3 py-2",
+          "flex items-center gap-2 px-3 py-1.5",
           "border-b cursor-grab active:cursor-grabbing select-none",
-          "border-[#2E2E2E]",
+          theme.border,
         )}
       >
         <GroupIcon className={cn("w-3.5 h-3.5 stroke-[2] shrink-0", theme.accent)} />
-        <span className="text-xs font-medium text-foreground/80 truncate">
+        <span className="text-xs font-semibold text-foreground/80 truncate">
           {data.label}
         </span>
         {data.subtitle && (
@@ -388,7 +400,7 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
           </span>
         )}
         <span className={cn(
-          "ml-auto px-1.5 py-[2px] text-[9px] font-mono font-medium shrink-0 rounded-sm",
+          "ml-auto px-1.5 py-[2px] text-[8px] font-mono uppercase tracking-wider shrink-0 rounded-sm",
           theme.badge, theme.badgeText,
         )}>
           {cfg.label}
@@ -409,7 +421,7 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
   return (
     <div
       className={cn(
-        "relative w-full h-full rounded border-2 border-dashed transition-shadow",
+        "relative w-full h-full rounded-sm border-2 border-dashed transition-shadow",
         selected && "ring-1 ring-ring",
         theme.border,
         theme.light,
@@ -424,10 +436,10 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
       />
       <div className={cn(
         "flex items-center gap-2 px-3 py-1.5 border-b border-dashed",
-        "border-[#2E2E2E]",
+        theme.border,
       )}>
         <span className={cn(
-          "text-[10px] font-mono font-medium leading-none",
+          "text-[8px] font-mono uppercase tracking-widest font-semibold leading-none",
           theme.badgeText,
         )}>
           {cfg.label}
