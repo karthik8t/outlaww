@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
 import { D2DiagramView } from "@/components/D2DiagramView"
-import { P2PClipboard } from "@/pages/P2PClipboard"
+import { LANClipboard } from "@/pages/LANClipboard"
 import {
   GitBranch,
   Plus,
@@ -347,7 +347,7 @@ function SidebarDetailPanel({
 
       {/* Content — scrollable */}
       <div className="flex-1 overflow-y-auto min-h-0 p-4">
-        {view === "clipboard" && <P2PClipboard />}
+        {view === "clipboard" && <LANClipboard />}
         {view === "diagrams" && (
           <div className="space-y-1">
             {diagrams.length === 0 && (
