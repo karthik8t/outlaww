@@ -1,4 +1,4 @@
-import { Handle, Position, BaseEdge, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, type NodeProps } from "@xyflow/react"
+import { Handle, Position, BaseEdge, NodeResizer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, type NodeProps } from "@xyflow/react"
 import { cn } from "@/lib/utils"
 import {
   User,
@@ -367,6 +367,13 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
         selected && "ring-1 ring-ring",
       )}
     >
+      <NodeResizer
+        isVisible={selected}
+        minWidth={280}
+        minHeight={160}
+        lineClassName="!border-foreground/30"
+        handleClassName="!bg-foreground/50 !w-2.5 !h-2.5 !border-0"
+      />
       {handles.map((h) => (
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
@@ -414,12 +421,19 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
   return (
     <div
       className={cn(
-        "relative min-w-[300px] min-h-[120px] rounded-sm border-2 border-dashed transition-shadow",
+        "relative w-full h-full rounded-sm border-2 border-dashed transition-shadow",
         selected && "ring-1 ring-ring",
         theme.border,
         theme.light,
       )}
     >
+      <NodeResizer
+        isVisible={selected}
+        minWidth={240}
+        minHeight={120}
+        lineClassName="!border-foreground/30"
+        handleClassName="!bg-foreground/50 !w-2.5 !h-2.5 !border-0"
+      />
       <div className={cn(
         "flex items-center gap-2 px-3 py-1.5 border-b border-dashed",
         theme.border,

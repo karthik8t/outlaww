@@ -7,8 +7,8 @@ const NODE_W = 260
 const NODE_H = 160
 
 // Container initial sizes — ELK will auto-expand to fit children + padding
-const CONTAINER_W = 440
-const CONTAINER_H = 320
+const CONTAINER_W = 500
+const CONTAINER_H = 380
 
 const DIRECTION_MAP: Record<string, string> = {
   TB: "DOWN",
@@ -210,10 +210,10 @@ export async function layoutNodes(
       elkNode.layoutOptions = {
         "elk.algorithm":    "layered",
         "elk.direction":    elkDir,
-        "elk.spacing.nodeNode": "50",
-        "elk.layered.spacing.nodeNodeBetweenLayers": "70",
+        "elk.spacing.nodeNode": "80",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "100",
         // 52px top = space for the container label header bar
-        "elk.padding": "[top=52, left=28, right=28, bottom=28]",
+        "elk.padding": "[top=56, left=36, right=36, bottom=36]",
       }
       elkNode.children = kids.map(buildElkNode)
       
@@ -234,8 +234,8 @@ export async function layoutNodes(
     layoutOptions: {
       "elk.algorithm":    "layered",
       "elk.direction":    elkDir,
-      "elk.spacing.nodeNode": "100",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "120",
+      "elk.spacing.nodeNode": "140",
+      "elk.layered.spacing.nodeNodeBetweenLayers": "160",
     },
     children: rootNodes.map(buildElkNode),
     edges: rootEdges.map(e => ({
