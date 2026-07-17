@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { MarkerType } from "@xyflow/react"
+import { BaseEdge, getBezierPath, MarkerType, type EdgeProps } from "@xyflow/react"
 
 // ============================================================================
 // Shared types
@@ -257,49 +257,40 @@ export const nodeTypes = {
 // Custom Edge Component
 // ============================================================================
 
-export function CustomEdge({
-  id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition,
-  label, data, selected,
-}: {
-  id: string; sourceX: number; sourceY: number; sourcePosition: any;
-  targetX: number; targetY: number; targetPosition: any;
-  label?: React.ReactNode; data?: EdgeData; selected?: boolean;
-}) {
-  const isAnimated = data?.logicVariant !== "standard_flow"
-  const markerEnd = { type: MarkerType.ArrowClosed as const, width: 20, height: 20, color: isAnimated ? "#3b82f6" : "#9ca3af" }
-  const markerStart = data?.flowDirection === "reverse" ? { type: MarkerType.ArrowClosed as const, width: 20, height: 20, color: isAnimated ? "#3b82f6" : "#9ca3af" } : undefined
+export function CustomEdge(props: EdgeProps) {
+  const { id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, label, data, selected } = props
+  const edgeData = data as EdgeData | undefined
+  const isAnimated = edgeData?.logicVariant !== "standard_flow"
 
-  const pathStyle: React.CSSProperties = {
-    stroke: isAnimated ? "#3b82f6" : "#9ca3af",
-    strokeWidth: isAnimated ? 2 : 1.5,
-    strokeDasharray: isAnimated ? "5,5" : "none",
-  }
-
-  const getPath = () => {
-    const dx = targetX - sourceX
-    const dy = targetY - sourceY
-    const curve = Math.min(Math.max(Math.abs(dx), Math.abs(dy)) * 0.3, 150)
-    const sx = sourceX + (sourcePosition === "right" ? curve : sourcePosition === "left" ? -curve : 0)
-    const sy = sourceY + (sourcePosition === "bottom" ? curve : sourcePosition === "top" ? -curve : 0)
-    const tx = targetX + (targetPosition === "left" ? curve : targetPosition === "right" ? -curve : 0)
-    const ty = targetY + (targetPosition === "top" ? curve : targetPosition === "bottom" ? -curve : 0)
-    return `M${sourceX},${sourceY} C${sx},${sy} ${tx},${ty} ${targetX},${targetY}`
-  }
+  const [edgePath] = getBezierPath({
+    sourceX, sourceY, sourcePosition: sourcePosition as any,
+    targetX, targetY, targetPosition: targetPosition as any,
+  })
 
   const midX = (sourceX + targetX) / 2
   const midY = (sourceY + targetY) / 2
 
   return (
     <g>
-      <path id={`${id}-path`} d={getPath()} fill="none" style={pathStyle} markerEnd={markerEnd as any} markerStart={markerStart as any} />
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        style={{
+          stroke: isAnimated ? "#3b82f6" : "#9ca3af",
+          strokeWidth: isAnimated ? 2 : 1.5,
+          strokeDasharray: isAnimated ? "5,5" : "none",
+        }}
+        markerEnd={{ type: MarkerType.ArrowClosed, width: 20, height: 20, color: isAnimated ? "#3b82f6" : "#9ca3af" }}
+        markerStart={edgeData?.flowDirection === "reverse" ? { type: MarkerType.ArrowClosed, width: 20, height: 20, color: isAnimated ? "#3b82f6" : "#9ca3af" } : undefined}
+      />
       {label && (
         <text x={midX} y={midY - 10} textAnchor="middle" className="text-xs font-medium text-gray-600 dark:text-gray-400">
           <tspan dx="-2" dy="0">{label as string}</tspan>
         </text>
       )}
-      {data?.protocol && data.protocol !== "none" && (
+      {edgeData?.protocol && edgeData.protocol !== "none" && (
         <text x={midX} y={midY + 12} textAnchor="middle" className="text-[9px] text-gray-400 dark:text-gray-500 font-mono">
-          {data.protocol}
+          {edgeData.protocol}
         </text>
       )}
     </g>

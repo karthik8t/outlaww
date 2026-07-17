@@ -449,16 +449,22 @@ function MarkdownViewer({
 //  Top Bar
 // ---------------------------------------------------------------------------
 
-function TopBar({ title }: { title: string }) {
+function TopBar({ title, viewMode, onViewModeChange }: { title: string; viewMode: "canvas" | "code"; onViewModeChange: (v: "canvas" | "code") => void }) {
   return (
     <header className="flex justify-between items-center w-full px-8 h-14 bg-background/80 backdrop-blur-sm border-b border-border z-30 shrink-0">
       <div className="flex items-center gap-8">
         <h2 className="text-sm font-semibold text-foreground">{title || "Untitled"}</h2>
         <nav className="flex items-center gap-6">
-          <a className="text-sm font-semibold text-foreground border-b-2 border-foreground pb-1 cursor-pointer">
+          <a
+            className={`text-sm cursor-pointer pb-1 transition-colors ${viewMode === "canvas" ? "font-semibold text-foreground border-b-2 border-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`}
+            onClick={() => onViewModeChange("canvas")}
+          >
             Canvas
           </a>
-          <a className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+          <a
+            className={`text-sm cursor-pointer pb-1 transition-colors ${viewMode === "code" ? "font-semibold text-foreground border-b-2 border-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`}
+            onClick={() => onViewModeChange("code")}
+          >
             Code
           </a>
         </nav>
@@ -483,6 +489,7 @@ function TopBar({ title }: { title: string }) {
 
 export default function App() {
   const session = useSession()
+  const [viewMode, setViewMode] = useState<"canvas" | "code">("canvas")
 
   const selectedDiagram = useMemo(
     () => session.diagrams.find((d) => d.id === session.selectedDiagramId) || null,
@@ -552,9 +559,15 @@ export default function App() {
           />
         )}
         <section className="flex-1 flex flex-col h-full relative overflow-hidden">
-          <TopBar title={projectName} />
+          <TopBar title={projectName} viewMode={viewMode} onViewModeChange={setViewMode} />
           {selectedDoc ? (
             <MarkdownViewer doc={selectedDoc} />
+          ) : viewMode === "code" ? (
+            <div className="flex-1 overflow-auto p-6 bg-background">
+              <pre className="text-xs font-mono text-foreground whitespace-pre-wrap">
+                {JSON.stringify(getDiagramData(selectedDiagram), null, 2)}
+              </pre>
+            </div>
           ) : (
             <ReactFlowDiagramView
               diagramData={getDiagramData(selectedDiagram)}

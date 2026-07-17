@@ -72,20 +72,24 @@ export function ReactFlowCanvas({
 
   const reactFlowInstance = useReactFlow()
   const containerRef = useRef<HTMLDivElement>(null)
+  const dataRef = useRef<string>("")
 
-  // Sync props to state — run ELK layout on new data
+  // Run ELK layout when diagram data content changes (deep compare by JSON)
   useEffect(() => {
-    if (diagramData?.nodes) {
-      const dir = (diagramData.metadata?.layoutDirection as any) || "LR"
-      setLayoutDirection(dir)
-      setLoading(true)
-      layoutNodes(diagramData.nodes, diagramData.edges || [], dir).then((positioned) => {
-        setNodes(positioned)
-        setEdges(diagramData.edges || [])
-        setLoading(false)
-        setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
-      })
-    }
+    if (!diagramData?.nodes) return
+    const key = JSON.stringify({ nodes: diagramData.nodes, edges: diagramData.edges })
+    if (key === dataRef.current) return
+    dataRef.current = key
+
+    const dir = (diagramData.metadata?.layoutDirection as any) || "LR"
+    setLayoutDirection(dir)
+    setLoading(true)
+    layoutNodes(diagramData.nodes, diagramData.edges || [], dir).then((positioned) => {
+      setNodes(positioned)
+      setEdges(diagramData.edges || [])
+      setLoading(false)
+      setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2 }), 100)
+    })
   }, [diagramData])
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
