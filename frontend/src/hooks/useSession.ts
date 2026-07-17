@@ -47,7 +47,7 @@ export function useSession() {
   // ---- data from backend ----
   const [sessions, setSessions] = useState<api.SessionListItem[]>([])
   const [diagrams, setDiagrams] = useState<api.Diagram[]>([])
-  const [d2Sources, setD2Sources] = useState<Record<string, string>>({}) // diagram_id -> D2 source
+  const [rfData, setRfData] = useState<Record<string, api.RfData>>({}) // diagram_id -> React Flow data
   const [markdownDocs, setMarkdownDocs] = useState<api.MarkdownDoc[]>([])
   const [actions, setActions] = useState<api.AppAction[]>([])
   const [agents, setAgents] = useState<string[]>([])
@@ -61,7 +61,7 @@ export function useSession() {
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
 
   // ---- active view in sidebar ----
-  const [sidebarView, setSidebarView] = useState<"chat" | "diagrams" | "docs" | "actions" | "agents" | "clipboard">("chat")
+  const [sidebarView, setSidebarView] = useState<"chat" | "diagrams" | "docs" | "actions" | "agents">("chat")
 
   // Ref to avoid stale closures in async callbacks
   const sessionIdRef = useRef(sessionId)
@@ -89,7 +89,7 @@ export function useSession() {
       .then(([diagRes, mdRes, sessRes]) => {
         if (diagRes) {
           setDiagrams(diagRes.diagrams)
-          if (diagRes.d2_sources) setD2Sources(diagRes.d2_sources)
+          if (diagRes.rf_data) setRfData(diagRes.rf_data)
         }
         if (mdRes) setMarkdownDocs(mdRes.markdown_docs)
         // Rehydrate chat from session events (optional)
@@ -136,19 +136,17 @@ export function useSession() {
     try {
       const res = await api.getDiagrams(sid)
       setDiagrams(res.diagrams)
-      if (res.d2_sources) setD2Sources(res.d2_sources)
+      if (res.rf_data) setRfData(res.rf_data)
     } catch { /* ignore */ }
   }, [])
 
-  // Fetch a specific diagram's D2 source
+  // Fetch a specific diagram's React Flow data
   const fetchDiagramSource = useCallback(async (diagramId: string) => {
     const sid = sessionIdRef.current
     if (!sid) return
     try {
-      const res = await api.getDiagrams(sid)
-      if (res.d2_sources?.[diagramId]) {
-        setD2Sources(prev => ({ ...prev, [diagramId]: res.d2_sources[diagramId] }))
-      }
+      const rf = await api.transformDiagramToReactFlow(sid, diagramId)
+      setRfData(prev => ({ ...prev, [diagramId]: rf }))
     } catch { /* ignore */ }
   }, [])
 
@@ -198,7 +196,7 @@ export function useSession() {
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
       }
-      if (res.d2_sources) setD2Sources(res.d2_sources)
+      if (res.rf_data) setRfData(res.rf_data)
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("chat error:", err)
@@ -240,7 +238,7 @@ export function useSession() {
       if (res.diagrams.length > 0) {
         setDiagrams(res.diagrams)
       }
-      if (res.d2_sources) setD2Sources(res.d2_sources)
+      if (res.rf_data) setRfData(res.rf_data)
       if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
     } catch (err) {
       console.error("action error:", err)
@@ -256,7 +254,7 @@ export function useSession() {
     // data
     sessions,
     diagrams,
-    d2Sources,
+    rfData,
     markdownDocs,
     actions,
     agents,

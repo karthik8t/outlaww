@@ -15,6 +15,12 @@ export interface ChatRequest {
   action?: string
 }
 
+export interface RfData {
+  nodes: any[]
+  edges: any[]
+  metadata: { layoutDirection: string }
+}
+
 export interface ChatResponse {
   session_id: string
   routed_to: string
@@ -25,8 +31,7 @@ export interface ChatResponse {
   structured_output: unknown
   reflection: unknown
   diagrams: Diagram[]
-  d2_sources: Record<string, string>  // diagram_id -> D2 source code
-  svgs: Record<string, string>        // diagram_id -> SVG base64
+  rf_data: Record<string, RfData>  // diagram_id -> React Flow data
   markdown_docs: MarkdownDoc[]
   active_ids: Record<string, string>
 }
@@ -61,8 +66,7 @@ export interface SessionsListResponse {
 export interface DiagramsResponse {
   session_id: string
   diagrams: Diagram[]
-  d2_sources: Record<string, string>
-  svgs: Record<string, string>
+  rf_data: Record<string, RfData>
   active_diagram_id: string
 }
 
@@ -70,8 +74,8 @@ export interface Diagram {
   id: string
   name: string
   description: string
-  d2_source: string          // D2 source code for rendering
-  graph: Record<string, unknown>  // Full D2Diagram flat-graph JSON
+  d2_source: string
+  graph: Record<string, unknown>  // UltimateDiagramGraphSchema JSON
   created_at: string
   updated_at: string
 }
@@ -180,6 +184,17 @@ export async function getActions(): Promise<ActionsResponse> {
 /** List all available agents. */
 export async function getAgents(): Promise<AgentsResponse> {
   return get<AgentsResponse>("/chat/agents")
+}
+
+/** Transform a stored diagram (by diagram_id) to React Flow format. */
+export async function transformDiagramToReactFlow(
+  sessionId: string,
+  diagramId: string,
+): Promise<RfData> {
+  return post<RfData>("/chat/transform/reactflow-from-diagram", {
+    session_id: sessionId,
+    diagram_id: diagramId,
+  })
 }
 
 /** Render D2 diagram to SVG via backend CLI. */

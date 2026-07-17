@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
-import { D2DiagramView } from "@/components/D2DiagramView"
-import { LANClipboard } from "@/pages/LANClipboard"
+import { ReactFlowDiagramView } from "@/components/ReactFlowDiagramView"
+
 import {
   GitBranch,
   Plus,
@@ -20,14 +20,13 @@ import {
   Zap,
   Loader2,
   MessageCircle,
-  Clipboard,
 } from "lucide-react"
 
 // ---------------------------------------------------------------------------
-//  Sidebar view type — now includes "clipboard"
+//  Sidebar view type
 // ---------------------------------------------------------------------------
 
-type SidebarView = "chat" | "diagrams" | "docs" | "actions" | "agents" | "clipboard"
+type SidebarView = "chat" | "diagrams" | "docs" | "actions" | "agents"
 
 interface SidebarItemDef {
   id: string
@@ -42,7 +41,6 @@ const SIDEBAR_ITEMS: SidebarItemDef[] = [
   { id: "docs", label: "Documents", icon: FileText, view: "docs" },
   { id: "actions", label: "Actions", icon: Zap, view: "actions" },
   { id: "agents", label: "Agents", icon: Bot, view: "agents" },
-  { id: "clipboard", label: "Clipboard", icon: Clipboard, view: "clipboard" },
 ]
 
 // ---------------------------------------------------------------------------
@@ -341,13 +339,11 @@ function SidebarDetailPanel({
           {view === "docs" && "Documents"}
           {view === "actions" && "Actions"}
           {view === "agents" && "Agents"}
-          {view === "clipboard" && "Clipboard"}
         </h3>
       </div>
 
       {/* Content — scrollable */}
       <div className="flex-1 overflow-y-auto min-h-0 p-4">
-        {view === "clipboard" && <LANClipboard />}
         {view === "diagrams" && (
           <div className="space-y-1">
             {diagrams.length === 0 && (
@@ -498,22 +494,27 @@ export default function App() {
     [session.markdownDocs, session.selectedDocId],
   )
 
-  // Get D2 source from the diagram
-  const d2Source = useMemo(() => {
-    if (!selectedDiagram) return ""
-    // First try the d2Sources mapping from the session hook
-    if (session.d2Sources && session.d2Sources[selectedDiagram.id]) {
-      return session.d2Sources[selectedDiagram.id]
-    }
-    // Fallback to diagram's own d2_source field
-    return (selectedDiagram as any).d2_source || ""
-  }, [selectedDiagram, session.d2Sources])
-
   const projectName = useMemo(() => {
     if (selectedDiagram?.name) return selectedDiagram.name
     if (selectedDoc?.name) return selectedDoc.name
     return "Untitled"
   }, [selectedDiagram, selectedDoc])
+
+  const getDiagramData = useCallback((diagram: any) => {
+    if (!diagram) return undefined
+    // Prefer pre-transformed React Flow data from rfData cache
+    const cached = session.rfData[diagram.id]
+    if (cached?.nodes?.length) return cached
+    // Fallback: extract from graph directly
+    if (diagram.graph?.nodes?.length) {
+      return {
+        nodes: diagram.graph.nodes,
+        edges: diagram.graph.edges || [],
+        metadata: diagram.graph.metadata || { layoutDirection: "LR" }
+      }
+    }
+    return undefined
+  }, [session.rfData])
 
   const showChat = session.sidebarView === "chat"
   const showDetail = session.sidebarView !== "chat"
@@ -555,17 +556,15 @@ export default function App() {
           {selectedDoc ? (
             <MarkdownViewer doc={selectedDoc} />
           ) : (
-            <D2DiagramView
-              d2Source={d2Source}
+            <ReactFlowDiagramView
+              diagramData={getDiagramData(selectedDiagram)}
               diagramId={selectedDiagram?.id}
-              onD2SourceChange={(newSource) => {
-                // If user edits D2 source directly, update the diagram
+              onDiagramChange={(nodes, edges) => {
                 if (selectedDiagram) {
-                  // This would need backend API to update
-                  console.log("D2 source changed:", newSource)
+                  console.log("Diagram changed:", { nodes, edges })
                 }
               }}
-              fetchDiagramSource={session.fetchDiagramSource}
+              fetchDiagramData={session.fetchDiagramSource}
             />
           )}
         </section>

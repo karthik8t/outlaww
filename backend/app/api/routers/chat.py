@@ -21,64 +21,48 @@ from app.api.dependencies import (
     get_workflow_runner,
     user_id_for,
 )
-from app.schema.d2_models import D2Diagram, RenderOptions
-from app.schema.d2_serializer import serialize_d2
-from app.schema.d2_renderer import render_cli, render_sse_response, RenderOptions as RendererOptions
-from app.schema.models import Diagram, diagram_to_tldraw_records, validate_tldraw_records
+from app.schema.reactflow_models import (
+    UltimateDiagramGraphSchema,
+    ReactFlowNode,
+    ReactFlowEdge,
+    NodeData,
+    DiagramMetadata,
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-#  Helper: Diagram → D2 source + rendered SVG (new pipeline with D2)
+#  Helper: Diagram → React Flow data + optional SVG render
 # ---------------------------------------------------------------------------
 
-def _diagram_to_records(diagram_data: dict[str, Any]) -> dict[str, Any] | None:
+def _diagram_to_reactflow(diagram_data: dict[str, Any]) -> dict[str, Any] | None:
     """
-    Convert a diagram dict to D2 source and rendered SVG.
-    
+    Convert a diagram dict to React Flow compatible format.
+
     Returns dict with:
-    - d2_source: str (the D2 source code)
-    - svg: bytes (rendered SVG)
-    - tldraw_records: empty list (deprecated)
+    - rf_data: dict with nodes[], edges[], metadata{} (React Flow format)
+    - d2_source: "" (deprecated, kept for backward compat)
+    - svg: b"" (deprecated, kept for backward compat)
     """
-    # Try D2 pipeline first (graph field contains D2Diagram)
+    from app.schema.reactflow_transformer import extract_reactflow_from_diagram
+
     graph_data = diagram_data.get("graph")
     if graph_data:
-        try:
-            from app.schema.d2_models import D2Diagram
-            from app.schema.d2_serializer import serialize_d2
-            from app.schema.d2_renderer import render_cli_sync
-            
-            d2_diagram = D2Diagram.model_validate(graph_data)
-            d2_source = serialize_d2(d2_diagram)
-            svg_bytes = render_cli_sync(d2_diagram)
-            
+        rf_result = extract_reactflow_from_diagram(diagram_data)
+        if rf_result:
             return {
-                "d2_source": d2_source,
-                "svg": svg_bytes,
-                "tldraw_records": [],  # deprecated
+                "rf_data": rf_result,
+                "d2_source": "",
+                "svg": b"",
             }
-        except Exception as exc:
-            logger.error(f"[chat] D2 pipeline failed: {exc}")
 
-    # Fallback to old pipeline (store field)
-    try:
-        from app.schema.models import Diagram, diagram_to_tldraw_records, validate_tldraw_records
-        diagram_model = Diagram(**diagram_data)
-        records = diagram_to_tldraw_records(diagram_model)
-        is_valid, errs = validate_tldraw_records(records)
-        if not is_valid:
-            logger.warning(f"[chat] old pipeline validation errors: {errs}")
-        return {
-            "d2_source": "",
-            "svg": b"",
-            "tldraw_records": records,
-        }
-    except Exception as exc:
-        logger.error(f"[chat] old pipeline failed: {exc}")
-        return None
+    return {
+        "rf_data": None,
+        "d2_source": "",
+        "svg": b"",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +101,7 @@ class ChatResponse(BaseModel):
     structured_output: Any = None
     reflection: Any = None
     diagrams: list[Any] = []
-    d2_sources: dict[str, str] = Field(default_factory=dict)  # diagram_id -> D2 source
-    svgs: dict[str, bytes] = Field(default_factory=dict)      # diagram_id -> SVG bytes
+    rf_data: dict[str, Any] = Field(default_factory=dict, description="diagram_id -> React Flow data {nodes, edges, metadata}")
     markdown_docs: list[Any] = []
     active_ids: dict[str, str] = {}
 
@@ -143,8 +126,7 @@ class SessionsListResponse(BaseModel):
 class DiagramsResponse(BaseModel):
     session_id: str
     diagrams: list[Any] = []
-    d2_sources: dict[str, str] = Field(default_factory=dict)
-    svgs: dict[str, bytes] = Field(default_factory=dict)
+    rf_data: dict[str, Any] = Field(default_factory=dict)
     active_diagram_id: str = ""
 
 
@@ -255,16 +237,13 @@ async def chat(req: ChatRequest) -> ChatResponse:
     docs = await runner.get_markdown_docs()
     active = await runner.get_active_ids()
 
-    # Build D2 sources and SVGs for each diagram
-    d2_sources: dict[str, str] = {}
-    svgs: dict[str, bytes] = {}
+    # Build React Flow data for each diagram
+    rf_data: dict[str, Any] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            result = _diagram_to_records(d)
-            if result:
-                d2_sources[d["id"]] = result.get("d2_source", "")
-                if result.get("svg"):
-                    svgs[d["id"]] = result["svg"]
+            result = _diagram_to_reactflow(d)
+            if result and result.get("rf_data"):
+                rf_data[d["id"]] = result["rf_data"]
 
     return ChatResponse(
         session_id=session_id,
@@ -275,8 +254,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         structured_output=structured_output,
         reflection=reflection,
         diagrams=diagrams,
-        d2_sources=d2_sources,
-        svgs=svgs,
+        rf_data=rf_data,
         markdown_docs=docs,
         active_ids=active,
     )
@@ -331,22 +309,18 @@ async def get_diagrams(session_id: str) -> DiagramsResponse:
     diagrams = await runner.get_diagrams()
     active = await runner.get_active_ids()
 
-    # Build D2 sources and SVGs for each diagram
-    d2_sources: dict[str, str] = {}
-    svgs: dict[str, bytes] = {}
+    # Build React Flow data for each diagram
+    rf_data: dict[str, Any] = {}
     for d in diagrams:
         if isinstance(d, dict):
-            result = _diagram_to_records(d)
-            if result:
-                d2_sources[d["id"]] = result.get("d2_source", "")
-                if result.get("svg"):
-                    svgs[d["id"]] = result["svg"]
+            result = _diagram_to_reactflow(d)
+            if result and result.get("rf_data"):
+                rf_data[d["id"]] = result["rf_data"]
 
     return DiagramsResponse(
         session_id=session_id,
         diagrams=diagrams,
-        d2_sources=d2_sources,
-        svgs=svgs,
+        rf_data=rf_data,
         active_diagram_id=active.get("active_diagram_id", ""),
     )
 
@@ -582,23 +556,19 @@ async def _stream_gen(
         docs = await runner.get_markdown_docs()
         active = await runner.get_active_ids()
 
-        # Build D2 sources and SVGs for each diagram
-        d2_sources: dict[str, str] = {}
-        svgs: dict[str, bytes] = {}
+        # Build React Flow data for each diagram
+        rf_data: dict[str, Any] = {}
         for d in diagrams:
             if isinstance(d, dict):
-                result = _diagram_to_records(d)
-                if result:
-                    d2_sources[d["id"]] = result.get("d2_source", "")
-                    if result.get("svg"):
-                        svgs[d["id"]] = result["svg"]
+                result = _diagram_to_reactflow(d)
+                if result and result.get("rf_data"):
+                    rf_data[d["id"]] = result["rf_data"]
 
         yield _sse("workflow_complete", {
             "dispatch_result": dispatch_result,
             "reflection": reflection,
             "diagrams": diagrams,
-            "d2_sources": d2_sources,
-            "svgs": {k: v.hex() for k, v in svgs.items()},  # hex encode bytes for JSON
+            "rf_data": rf_data,
             "markdown_docs": docs,
             "active_ids": active,
         })
@@ -616,3 +586,67 @@ async def chat_stream(req: ChatRequest) -> StreamingResponse:
     message = req.text or ""
     gen = _stream_gen(req.session_id, message, action=req.action)
     return StreamingResponse(gen, media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+#  React Flow Transform Endpoint
+# ---------------------------------------------------------------------------
+
+class ReactFlowTransformRequest(BaseModel):
+    """Request to transform UltimateDiagramGraphSchema to React Flow format."""
+    schema: UltimateDiagramGraphSchema
+
+
+class ReactFlowTransformResponse(BaseModel):
+    """React Flow compatible diagram data."""
+    nodes: list[dict]
+    edges: list[dict]
+    metadata: dict
+
+
+@router.post("/transform/reactflow", response_model=ReactFlowTransformResponse)
+async def transform_to_reactflow(req: ReactFlowTransformRequest) -> ReactFlowTransformResponse:
+    """Transform UltimateDiagramGraphSchema to React Flow (xyflow) compatible JSON.
+    
+    Takes the LLM-generated diagram schema and converts it to the format
+    expected by @xyflow/react frontend components.
+    """
+    from app.schema.reactflow_transformer import validate_and_transform
+    
+    try:
+        result = validate_and_transform(req.schema)
+        return ReactFlowTransformResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"[transform/reactflow] failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+#  React Flow from Diagram Endpoint (for frontend to fetch RF data by diagram_id)
+# ---------------------------------------------------------------------------
+
+class ReactFlowFromDiagramRequest(BaseModel):
+    session_id: str
+    diagram_id: str
+
+
+@router.post("/transform/reactflow-from-diagram")
+async def transform_reactflow_from_diagram(req: ReactFlowFromDiagramRequest) -> dict:
+    """Extract React Flow data from a stored diagram by diagram_id.
+
+    Frontend calls this to get the React Flow nodes/edges/metadata
+    for a specific diagram in a session.
+    """
+    runner = get_workflow_runner(session_id=req.session_id)
+    diagrams = await runner.get_diagrams()
+
+    for d in diagrams:
+        if isinstance(d, dict) and d.get("id") == req.diagram_id:
+            result = _diagram_to_reactflow(d)
+            if result and result.get("rf_data"):
+                return result["rf_data"]
+            raise HTTPException(status_code=404, detail=f"Diagram '{req.diagram_id}' has no React Flow data.")
+
+    raise HTTPException(status_code=404, detail=f"Diagram '{req.diagram_id}' not found in session '{req.session_id}'.")
