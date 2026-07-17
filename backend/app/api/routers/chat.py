@@ -399,7 +399,7 @@ class RenderRequest(BaseModel):
     format: Literal["svg", "png", "pdf", "gif", "pptx"] = "svg"
     theme_id: Optional[int] = None
     dark_theme_id: Optional[int] = None
-    layout_engine: Literal["dagre", "elk", "tala"] = "dagre"
+    layout_engine: Literal["elk"] = "elk"
     direction: Literal["right", "down", "left", "up"] = "right"
     pad: int = 100
     sketch: bool = False

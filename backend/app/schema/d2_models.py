@@ -27,7 +27,7 @@ ShapeType = Literal[
 
 ConnectionDirection = Literal["->", "<-", "<->", "--"]
 
-LayoutEngine = Literal["dagre", "elk", "tala"]
+LayoutEngine = Literal["elk"]
 
 DiagramDirection = Literal["right", "down", "left", "up"]
 
@@ -205,7 +205,7 @@ class D2DiagramConfig(BaseModel):
     """Diagram-level configuration (maps to vars.d2-config)."""
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    layout_engine: LayoutEngine = Field(default="dagre", serialization_alias="layout-engine")
+    layout_engine: LayoutEngine = Field(default="elk", serialization_alias="layout-engine")
     direction: DiagramDirection = Field(default="right")
     theme_id: Optional[ThemeID] = Field(None, serialization_alias="theme-id")
     dark_theme_id: Optional[ThemeID] = Field(None, serialization_alias="dark-theme-id")

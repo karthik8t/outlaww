@@ -245,7 +245,7 @@ def test_serialize_simple_diagram():
     diagram = D2Diagram(
         architectural_reasoning="Basic client-server architecture with load balancer routing requests.",
         name="Web Architecture",
-        config=D2DiagramConfig(layout_engine="dagre", direction="right"),
+        config=D2DiagramConfig(layout_engine="elk", direction="right"),
         nodes=[
             D2Node(id="client", label="Client", shape="person"),
             D2Node(id="lb", label="Load Balancer", shape="rectangle"),
@@ -263,7 +263,7 @@ def test_serialize_simple_diagram():
 
     # Check key elements present
     assert "vars:" in d2_source
-    # layout-engine: dagre is default, so omitted
+    # layout-engine: elk is the default, so omitted
     # direction: right is default, so omitted
     assert "client:" in d2_source or "client {" in d2_source
     assert "lb:" in d2_source

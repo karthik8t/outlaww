@@ -1,6 +1,6 @@
 """D2 Size Hints.
 
-D2 handles all layout automatically via dagre/ELK/TALA engines.
+D2 handles all layout automatically via ELK engine.
 This module provides optional size hints for specific shapes.
 """
 from __future__ import annotations

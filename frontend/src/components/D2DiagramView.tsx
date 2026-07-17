@@ -31,7 +31,7 @@ export function D2DiagramView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [theme, setTheme] = useState<ThemeId>(0)
-  const [layoutEngine, setLayoutEngine] = useState<"dagre" | "elk" | "tala">("dagre")
+  const [layoutEngine, setLayoutEngine] = useState<"elk">("elk")
   const [zoom, setZoom] = useState(1)
   const [showSource, setShowSource] = useState(true)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -82,11 +82,9 @@ export function D2DiagramView({
       if (renderMode === "wasm") {
         // Browser WASM rendering
         const d2 = new D2()
-        // tala is only supported on backend; use dagre for WASM
-        const wasmLayout = layoutEngine === "tala" ? "dagre" : layoutEngine
         const compileResponse = await d2.compile(d2Source, {
           options: {
-            layout: wasmLayout,
+            layout: layoutEngine,
             themeID: theme,
             sketch: false,
           },
@@ -198,7 +196,6 @@ export function D2DiagramView({
   }
 
   const layoutNames: Record<string, string> = {
-    dagre: "Dagre (Hierarchical)",
     elk: "ELK (Orthogonal)",
   }
 
@@ -269,12 +266,12 @@ export function D2DiagramView({
             {/* Layout Engine Selector */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Select value={layoutEngine} onValueChange={v => setLayoutEngine(v as "dagre" | "elk")}>
+                <Select value={layoutEngine} onValueChange={v => setLayoutEngine(v as "elk")}>
                   <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Layout" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(["dagre", "elk"] as const).map(l => (
+                    {(["elk"] as const).map(l => (
                       <SelectItem key={l} value={l}>
                         {layoutNames[l]}
                       </SelectItem>

@@ -282,7 +282,7 @@ class D2Serializer:
         inner = "    "
 
         # Only include non-default values
-        if cfg.layout_engine != "dagre":
+        if cfg.layout_engine != "elk":
             lines.append(f"{inner}layout-engine: {cfg.layout_engine}")
         if cfg.direction != "right":
             lines.append(f"{inner}direction: {cfg.direction}")
