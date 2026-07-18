@@ -37,13 +37,23 @@ export interface ChatResponse {
 }
 
 export interface EventDict {
-  event_class: string        // "thought" | "agent_text" | "agent_output" | "tool_call" | "tool_response" | "error" | "user"
+  event_class: string
   author: string
   text: string
   is_thought: boolean
   is_partial: boolean
-  output: Record<string, unknown> | null
-  output_schema_name: string
+
+  // Per-agent output fields — only one is populated per event
+  diagram_creator: Record<string, unknown> | null
+  create_markdown: Record<string, unknown> | null
+  edit_markdown: Record<string, unknown> | null
+  explainer: Record<string, unknown> | null
+  gap_suggestion: Record<string, unknown> | null
+  research: Record<string, unknown> | null
+  router: Record<string, unknown> | null
+  reflection: Record<string, unknown> | null
+
+  // Tool fields
   tool_name: string
   tool_args: Record<string, unknown> | null
   tool_result: unknown

@@ -24,7 +24,7 @@ export interface ChatMsg {
   reflectionSummary?: string
   interactionSummary?: string
   reflectionGoals?: string[]
-  structuredOutput?: Record<string, unknown>
+  structuredOutput?: AgentOutputDto
   routedTo?: string
   isError?: boolean
 }
@@ -65,16 +65,12 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
       }
 
       // Reflection — extract interaction_summary and goals
-      if (author === "reflection" && e.output) {
-        const out = e.output
-        if (out.interaction_summary) {
-          currentTurn.interactionSummary = out.interaction_summary as string
-        }
-        if (out.summary) {
-          currentTurn.reflectionSummary = out.summary as string
-        }
-        if (Array.isArray(out.new_goals)) {
-          currentTurn.reflectionGoals = out.new_goals as string[]
+      if (e.reflection) {
+        currentTurn.interactionSummary = (e.reflection as any).interaction_summary || undefined
+        currentTurn.reflectionSummary = (e.reflection as any).summary || undefined
+        const goals = (e.reflection as any).new_goals
+        if (Array.isArray(goals) && goals.length) {
+          currentTurn.reflectionGoals = goals
         }
       }
 
@@ -85,9 +81,12 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
           currentTurn.agentText = e.text
           currentTurn.routedTo = author
         }
-        if (e.output && author !== "router" && author !== "reflection"
+        // Use whichever per-agent field is populated
+        const agentOutput = e.diagram_creator ?? e.create_markdown ?? e.edit_markdown
+          ?? e.explainer ?? e.gap_suggestion ?? e.research ?? e.router
+        if (agentOutput && author !== "router" && author !== "reflection"
             && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
-          currentTurn.structuredOutput = e.output
+          currentTurn.structuredOutput = agentOutput as Record<string, unknown>
           currentTurn.routedTo = author
         }
       }

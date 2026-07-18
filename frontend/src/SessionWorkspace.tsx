@@ -22,7 +22,12 @@ import {
   Zap,
   Loader2,
   MessageCircle,
+  Lightbulb,
+  Search,
+  AlertTriangle,
+  Workflow,
 } from "lucide-react"
+
 
 // ---------------------------------------------------------------------------
 //  Sidebar view type
@@ -117,6 +122,166 @@ function IconRail({
         </button>
       </div>
     </aside>
+  )
+}
+
+// ---------------------------------------------------------------------------
+//  Agent Output Renderer — displays structured output per agent type
+// ---------------------------------------------------------------------------
+
+function AgentOutputRenderer({ output, agent }: { output?: Record<string, unknown>; agent?: string }) {
+  if (!output) return null
+
+  const agentKey = agent?.replace(/^(outlaww_|flow_|c4_)/, "").replace(/_workflow$/, "")
+  const out = output
+
+  // Diagram agents
+  if (agentKey === "create_diagram" || agentKey === "edit_diagram" || agentKey === "patch_diagram") {
+    const name = (out as any).metadata?.label || (out as any).name || ""
+    const nodeCount = Array.isArray((out as any).nodes) ? (out as any).nodes.length : 0
+    return (
+      <details className="group pt-1">
+        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+          <GitBranch className="w-3 h-3 inline" />
+          {agentKey === "create_diagram" ? "Created" : "Edited"} diagram
+          {name && <>: <span className="font-medium">{name}</span></>}
+          {nodeCount > 0 && <> · {nodeCount} {nodeCount === 1 ? "node" : "nodes"}</>}
+        </summary>
+      </details>
+    )
+  }
+
+  // Create markdown
+  if (agentKey === "create_markdown") {
+    const title = (out as any).title || ""
+    const sections = Array.isArray((out as any).sections) ? (out as any).sections : []
+    return (
+      <details className="group pt-1">
+        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+          <FileText className="w-3 h-3 inline" />
+          Created document{title && <>: <span className="font-medium">{title}</span></>}
+          {sections.length > 0 && <> · {sections.length} {sections.length === 1 ? "section" : "sections"}</>}
+        </summary>
+      </details>
+    )
+  }
+
+  // Edit markdown
+  if (agentKey === "edit_markdown") {
+    const edits = Array.isArray((out as any).edits) ? (out as any).edits : []
+    return (
+      <details className="group pt-1">
+        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+          <FileText className="w-3 h-3 inline" />
+          Edited document · {edits.length} {edits.length === 1 ? "change" : "changes"}
+        </summary>
+        {(out as any).reasoning && (
+          <p className="text-xs text-muted-foreground mt-1.5 pl-4">{(out as any).reasoning}</p>
+        )}
+      </details>
+    )
+  }
+
+  // Explainer
+  if (agentKey === "explainer") {
+    const keyPoints = Array.isArray((out as any).key_points) ? (out as any).key_points : []
+    return (
+      <details className="group pt-1" defaultOpen>
+        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+          <Lightbulb className="w-3 h-3 inline" />
+          Explanation · {keyPoints.length} {keyPoints.length === 1 ? "key point" : "key points"}
+        </summary>
+        {(out as any).explanation && (
+          <p className="text-xs text-foreground mt-1.5 pl-4 leading-relaxed">{(out as any).explanation}</p>
+        )}
+        {keyPoints.length > 0 && (
+          <ul className="mt-1.5 pl-6 space-y-1">
+            {keyPoints.map((pt: string, i: number) => (
+              <li key={i} className="text-xs text-muted-foreground list-disc">{pt}</li>
+            ))}
+          </ul>
+        )}
+      </details>
+    )
+  }
+
+  // Gap suggestion
+  if (agentKey === "gap_suggestion") {
+    const dg = Array.isArray((out as any).diagram_gaps) ? (out as any).diagram_gaps.length : 0
+    const dg2 = Array.isArray((out as any).documentation_gaps) ? (out as any).documentation_gaps.length : 0
+    const cn = Array.isArray((out as any).concerns) ? (out as any).concerns.length : 0
+    const sg = Array.isArray((out as any).suggestions) ? (out as any).suggestions.length : 0
+    return (
+      <details className="group pt-1">
+        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+          <AlertTriangle className="w-3 h-3 inline" />
+          Analysis
+          {dg > 0 && <> · {dg} diagram {dg === 1 ? "gap" : "gaps"}</>}
+          {dg2 > 0 && <> · {dg2} doc {dg2 === 1 ? "gap" : "gaps"}</>}
+          {cn > 0 && <> · {cn} {cn === 1 ? "concern" : "concerns"}</>}
+          {sg > 0 && <> · {sg} {sg === 1 ? "suggestion" : "suggestions"}</>}
+        </summary>
+      </details>
+    )
+  }
+
+  // Research
+  if (agentKey === "research") {
+    const findings = Array.isArray((out as any).findings) ? (out as any).findings : []
+    const confidence = (out as any).confidence || 0
+    return (
+      <details className="group pt-1" defaultOpen>
+        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+          <Search className="w-3 h-3 inline" />
+          Research · {findings.length} {findings.length === 1 ? "finding" : "findings"}
+          {confidence > 0 && <> · {Math.round(confidence * 100)}% confidence</>}
+        </summary>
+        {(out as any).summary && (
+          <p className="text-xs text-foreground mt-1.5 pl-4 leading-relaxed">{(out as any).summary}</p>
+        )}
+        {(out as any).recommendation && (
+          <div className="mt-1.5 pl-4">
+            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-muted-foreground">Recommendation</span>
+            <p className="text-xs text-foreground mt-0.5">{(out as any).recommendation}</p>
+          </div>
+        )}
+      </details>
+    )
+  }
+
+  // Router
+  if (agentKey === "router") {
+    const target = ((out as any).target || "").replace(/_/g, " ")
+    return (
+      <div className="pt-1">
+        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Workflow className="w-3 h-3" />
+          Routed to <span className="font-medium text-foreground">{target}</span>
+        </div>
+        {(out as any).reasoning && (
+          <p className="text-[10px] text-muted-foreground mt-0.5 pl-5">{(out as any).reasoning}</p>
+        )}
+      </div>
+    )
+  }
+
+  // Fallback — raw JSON
+  return (
+    <details className="group pt-1">
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+        <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+        Structured output
+      </summary>
+      <pre className="bg-muted p-3 rounded-lg border border-border font-mono text-[11px] text-foreground mt-2.5 overflow-x-auto max-h-48 overflow-y-auto">
+        {JSON.stringify(output, null, 2)}
+      </pre>
+    </details>
   )
 }
 
@@ -226,17 +391,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
               </div>
             )}
 
-            {msg.structuredOutput && (
-              <details className="group pt-1">
-                <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
-                  <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-                  Show details & structured output
-                </summary>
-                <pre className="bg-muted p-3 rounded-lg border border-border font-mono text-[11px] text-foreground mt-2.5 overflow-x-auto max-h-48 overflow-y-auto">
-                  {JSON.stringify(msg.structuredOutput, null, 2)}
-                </pre>
-              </details>
-            )}
+            <AgentOutputRenderer output={msg.structuredOutput} agent={msg.routedTo} />
           </div>
         </div>
       )}

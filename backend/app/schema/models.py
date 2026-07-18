@@ -1551,37 +1551,36 @@ class ReflectionOutput(BaseModel):
 
 
 # ===========================================================================
-#  Decoded ADK Events
+#  Decoded ADK Events – per-agent typed output fields
 # ===========================================================================
 
-# Agent name -> output_schema class name mapping
-_AGENT_SCHEMA_MAP: dict[str, str] = {
-    "create_diagram": "Diagram",
-    "edit_diagram": "Diagram",
-    "patch_diagram": "Diagram",
-    "create_markdown": "CreateMarkdownOutput",
-    "edit_markdown": "EditMarkdownOutput",
-    "explainer": "ExplainerOutput",
-    "gap_suggestion": "GapSuggestionOutput",
-    "research": "ResearchOutput",
-    "router": "RouterOutput",
-    "reflection": "ReflectionOutput",
-}
+from app.schema.reactflow_models import Diagram as DiagramOutput
 
 
 class DecodedEvent(BaseModel):
-    """A decoded ADK event with typed fields for the frontend.
+    """A decoded ADK event with typed per-agent output fields.
 
-    Instead of sending raw ADK event dicts, each ADK Event is decoded
-    into this model with explicit fields the frontend can use directly.
+    Instead of a single ``output`` dict, each agent that can produce
+    structured output gets its own typed field.  Only the field matching
+    ``author`` will be non-None for any given event.
     """
     event_class: str = "agent_text"
     author: str = ""
     text: str = ""
     is_thought: bool = False
     is_partial: bool = False
-    output: dict[str, Any] | None = None
-    output_schema_name: str = ""
+
+    # Per-agent output fields — only one populated per event
+    diagram_creator: DiagramOutput | None = None
+    create_markdown: CreateMarkdownOutput | None = None
+    edit_markdown: EditMarkdownOutput | None = None
+    explainer: ExplainerOutput | None = None
+    gap_suggestion: GapSuggestionOutput | None = None
+    research: ResearchOutput | None = None
+    router: RouterOutput | None = None
+    reflection: ReflectionOutput | None = None
+
+    # Tool fields
     tool_name: str = ""
     tool_args: dict[str, Any] | None = None
     tool_result: Any = None
@@ -1592,11 +1591,53 @@ class DecodedEvent(BaseModel):
     timestamp: float = 0.0
 
 
+_AUTHOR_FIELD_MAP: dict[str, str] = {
+    "create_diagram": "diagram_creator",
+    "edit_diagram": "diagram_creator",
+    "patch_diagram": "diagram_creator",
+    "create_markdown": "create_markdown",
+    "edit_markdown": "edit_markdown",
+    "explainer": "explainer",
+    "gap_suggestion": "gap_suggestion",
+    "research": "research",
+    "router": "router",
+    "reflection": "reflection",
+}
+
+_AUTHOR_MODEL_MAP: dict[str, type] = {
+    "create_diagram": DiagramOutput,
+    "edit_diagram": DiagramOutput,
+    "patch_diagram": DiagramOutput,
+    "create_markdown": CreateMarkdownOutput,
+    "edit_markdown": EditMarkdownOutput,
+    "explainer": ExplainerOutput,
+    "gap_suggestion": GapSuggestionOutput,
+    "research": ResearchOutput,
+    "router": RouterOutput,
+    "reflection": ReflectionOutput,
+}
+
+
+def _to_model(output: Any, model_cls: type) -> Any | None:
+    """Convert raw output to a Pydantic model, handling instances + dicts."""
+    if output is None:
+        return None
+    if isinstance(output, model_cls):
+        return output
+    if isinstance(output, dict):
+        try:
+            return model_cls.model_validate(output)
+        except Exception:
+            return model_cls(**output)
+    if hasattr(output, "model_dump"):
+        return model_cls.model_validate(output.model_dump())
+    return None
+
+
 def decode_adk_event(event: Any) -> DecodedEvent:
     """Convert a raw ADK Event into a typed DecodedEvent.
 
-    Examines content parts, function calls/responses, error fields,
-    and author to determine event_class and extract structured fields.
+    Each agent's structured output is placed in its own named field.
     """
     author = getattr(event, "author", "unknown")
     event_id = getattr(event, "id", "")
@@ -1607,14 +1648,8 @@ def decode_adk_event(event: Any) -> DecodedEvent:
     error_code = getattr(event, "error_code", None) or ""
     error_message = getattr(event, "error_message", None) or ""
 
-    # Structured output from ADK (set when output_schema is configured)
     output = getattr(event, "output", None)
-    if hasattr(output, "model_dump"):
-        output = output.model_dump()
-    elif hasattr(output, "dict"):
-        output = output.dict()
 
-    # Text from content parts
     text = ""
     if hasattr(event, "content") and event.content is not None:
         for p in (getattr(event.content, "parts", []) or []):
@@ -1622,11 +1657,9 @@ def decode_adk_event(event: Any) -> DecodedEvent:
             if txt:
                 text += txt
 
-    # Function calls / responses
     function_calls = getattr(event, "get_function_calls", lambda: [])() or []
     function_responses = getattr(event, "get_function_responses", lambda: [])() or []
 
-    # Determine event_class
     if author == "user":
         event_class = "user"
     elif function_calls:
@@ -1644,7 +1677,6 @@ def decode_adk_event(event: Any) -> DecodedEvent:
     else:
         event_class = "agent_text"
 
-    # Tool details
     tool_name = ""
     tool_args: dict[str, Any] | None = None
     tool_result: Any = None
@@ -1657,23 +1689,28 @@ def decode_adk_event(event: Any) -> DecodedEvent:
         tool_name = getattr(fr, "name", "") or tool_name
         tool_result = getattr(fr, "response", None)
 
-    return DecodedEvent(
-        event_class=event_class,
-        author=author,
-        text=text,
-        is_thought=(event_class == "thought"),
-        is_partial=is_partial,
-        output=output,
-        output_schema_name=_AGENT_SCHEMA_MAP.get(author, ""),
-        tool_name=tool_name,
-        tool_args=tool_args,
-        tool_result=tool_result,
-        error_code=error_code,
-        error_message=error_message,
-        id=event_id,
-        invocation_id=invocation_id,
-        timestamp=timestamp,
-    )
+    kw: dict[str, Any] = {
+        "event_class": event_class,
+        "author": author,
+        "text": text,
+        "is_thought": (event_class == "thought"),
+        "is_partial": is_partial,
+        "tool_name": tool_name,
+        "tool_args": tool_args,
+        "tool_result": tool_result,
+        "error_code": error_code,
+        "error_message": error_message,
+        "id": event_id,
+        "invocation_id": invocation_id,
+        "timestamp": timestamp,
+    }
+
+    field_name = _AUTHOR_FIELD_MAP.get(author)
+    model_cls = _AUTHOR_MODEL_MAP.get(author)
+    if field_name and model_cls:
+        kw[field_name] = _to_model(output, model_cls)
+
+    return DecodedEvent(**kw)
 
 
 # ===========================================================================
