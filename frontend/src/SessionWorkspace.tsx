@@ -5,8 +5,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession, type ChatMsg } from "@/hooks/useSession"
 import { ReactFlowDiagramView } from "@/components/ReactFlowDiagramView"
-
-
+import { useTheme } from "@/components/theme-provider"
 import {
   GitBranch,
   Plus,
@@ -27,6 +26,8 @@ import {
   Compass,
   CheckCircle2,
   ChevronRight,
+  Sun,
+  Moon,
 } from "lucide-react"
 
 
@@ -67,6 +68,12 @@ function IconRail({
   docCount: number
 }) {
   const navigate = useNavigate()
+  const { theme, setTheme } = useTheme()
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark")
+  }
+
   return (
     <aside className="hidden md:flex w-16 flex-col bg-background border-r border-border z-40 h-full shrink-0">
       <button
@@ -114,10 +121,17 @@ function IconRail({
         </button>
       </div>
 
-      <div className="p-4 border-t border-border flex justify-center">
+      <div className="p-4 border-t border-border flex flex-col items-center gap-3">
+        <button
+          title={`${theme === "dark" ? "Light" : "Dark"} mode`}
+          onClick={toggleTheme}
+          className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-all cursor-pointer"
+        >
+          {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
         <button
           title="Settings"
-          className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-all"
+          className="p-2 rounded-lg text-muted-foreground hover:bg-muted transition-all cursor-pointer"
         >
           <Settings className="w-5 h-5" />
         </button>
@@ -447,7 +461,7 @@ function AgentWorkflowPipeline({
           <div key={step.id} className="flex items-center gap-1.5 shrink-0 flex-nowrap">
             {idx > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />}
             <div
-              className={`flex items-center gap-1.5 px-2 py-0.5 border rounded-none text-[9px] font-semibold uppercase tracking-wider font-mono shadow-none transition-colors ${step.bgColor} ${step.borderColor} ${step.color}`}
+              className={`flex items-center gap-1.5 px-2 py-0.5 border rounded-sm text-[9px] font-semibold uppercase tracking-wider font-mono shadow-none transition-colors ${step.bgColor} ${step.borderColor} ${step.color}`}
             >
               <Icon className="w-2.5 h-2.5 shrink-0" />
               <span>{step.label}</span>
@@ -474,7 +488,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
             System Error · {msg.timestamp}
           </span>
         </div>
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-none p-3 text-sm text-red-850 dark:text-red-305 font-mono whitespace-pre-wrap">
+        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg p-3 text-sm text-red-850 dark:text-red-305 font-mono whitespace-pre-wrap">
           {msg.agentText}
         </div>
       </div>
@@ -501,7 +515,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
       {/* ── User message: right-aligned ── */}
       {msg.userText && (
         <div className="flex justify-end">
-          <div className="bg-primary text-primary-foreground rounded-none px-4 py-2.5 text-sm max-w-[80%] border border-primary/20 shadow-none">
+          <div className="bg-primary text-primary-foreground rounded-md px-4 py-2.5 text-sm max-w-[80%] border border-primary/20 shadow-none">
             {msg.userText}
           </div>
         </div>
@@ -518,10 +532,10 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
           />
 
           {/* Response card */}
-          <div className="bg-background border border-border rounded-none p-4 shadow-none space-y-3">
+          <div className="bg-background border border-border rounded-lg p-4 shadow-none space-y-3">
             {/* Primary response text (interaction_summary) in a nice styled callout */}
             {displaySummary && (
-              <div className="bg-muted/40 border-l-2 border-primary/40 px-3 py-2 rounded-none text-sm text-foreground font-semibold leading-relaxed">
+              <div className="bg-muted/40 border-l-2 border-primary/40 px-3 py-2 rounded-sm text-sm text-foreground font-semibold leading-relaxed">
                 {displaySummary}
               </div>
             )}
@@ -560,7 +574,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
                 </span>
                 <div className="space-y-2">
                   {msg.structuredOutputs!.map((so, i) => (
-                    <div key={i} className="p-3 rounded-none bg-muted/20 border border-border/60 hover:bg-muted/30 transition-colors">
+                    <div key={i} className="p-3 rounded-md bg-muted/20 border border-border/60 hover:bg-muted/30 transition-colors">
                       <AgentOutputRenderer output={so.output} agent={so.agent} />
                     </div>
                   ))}
@@ -577,7 +591,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
                 <div className="space-y-1.5">
                   {reflectionGoals.map((goal, index) => (
                     <div key={index} className="flex items-start gap-2 group/goal">
-                      <span className="mt-2 w-1.5 h-1.5 rounded-none bg-primary/60 shrink-0 transition-colors group-hover/goal:bg-primary" />
+                      <span className="mt-2 w-1.5 h-1.5 rounded-sm bg-primary/60 shrink-0 transition-colors group-hover/goal:bg-primary" />
                       <span className="text-xs text-muted-foreground leading-tight group-hover/goal:text-foreground transition-colors">
                         {goal}
                       </span>
@@ -605,12 +619,14 @@ function ChatPane({
   onSend,
   onAction,
   actions,
+  fullWidth = false,
 }: {
   messages: ChatMsg[]
   sending: boolean
   onSend: (text: string) => void
   onAction: (name: string) => void
   actions: { name: string; description: string }[]
+  fullWidth?: boolean
 }) {
   const [input, setInput] = useState("")
 
@@ -622,10 +638,14 @@ function ChatPane({
 
   return (
     <section
-      className={`flex flex-col bg-background border-r border-border z-40 h-full shrink-0 overflow-hidden ${PANEL_WIDTH}`}
+      className={`flex flex-col bg-background z-40 h-full overflow-hidden ${
+        fullWidth ? "flex-1 w-full" : `border-r border-border shrink-0 ${PANEL_WIDTH}`
+      }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 h-16 border-b border-border shrink-0">
+      <div className={`flex items-center justify-between h-16 border-b border-border shrink-0 ${
+        fullWidth ? "px-8 max-w-4xl mx-auto w-full" : "px-4"
+      }`}>
         <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">
           Chat & History
         </h3>
@@ -641,7 +661,9 @@ function ChatPane({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="p-6 space-y-6">
+        <div className={`py-6 space-y-6 ${
+          fullWidth ? "max-w-4xl mx-auto w-full px-8" : "p-6"
+        }`}>
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground text-sm py-12">
               Start a conversation to build your architecture.
@@ -660,8 +682,10 @@ function ChatPane({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-border shrink-0">
-        <div className="bg-background border border-border rounded-lg p-2 focus-within:border-foreground/30 transition-colors shadow-sm flex flex-col gap-2">
+      <div className={`border-t border-border shrink-0 py-4 ${
+        fullWidth ? "max-w-4xl mx-auto w-full px-8 pb-6" : "p-4"
+      }`}>
+        <div className="bg-background border border-border rounded-lg p-2 focus-within:border-foreground/30 transition-colors shadow-none flex flex-col gap-2">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -683,7 +707,7 @@ function ChatPane({
             </div>
             <Button
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 rounded-sm"
               onClick={handleSend}
               disabled={sending || !input.trim()}
             >
@@ -699,7 +723,7 @@ function ChatPane({
                 onClick={() => onAction(a.name)}
                 disabled={sending}
                 title={a.description}
-                className="px-3 py-1.5 text-[11px] uppercase font-semibold border border-border rounded-md bg-background hover:bg-muted transition-colors text-muted-foreground disabled:opacity-50"
+                className="px-3 py-1.5 text-[11px] uppercase font-semibold border border-border rounded-sm bg-background hover:bg-muted transition-colors text-muted-foreground disabled:opacity-50"
               >
                 {a.name.replace(/_/g, " ")}
               </button>
@@ -718,111 +742,114 @@ function ChatPane({
 //  Sidebar Detail Panel
 // ---------------------------------------------------------------------------
 
-function SidebarDetailPanel({
-  view,
-  diagrams,
-  docs,
+const DiagramsEmptyState = () => (
+  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-background text-center">
+    <div className="border border-border p-6 max-w-md bg-muted/10 rounded-lg">
+      <GitBranch className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+      <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-1">No Diagram Active</h3>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Select a diagram from the dropdown at the top, or use the Chat to ask the AI to design a new architecture diagram.
+      </p>
+    </div>
+  </div>
+)
+
+const DocsEmptyState = () => (
+  <div className="flex-1 flex flex-col items-center justify-center p-8 bg-background text-center">
+    <div className="border border-border p-6 max-w-md bg-muted/10 rounded-lg">
+      <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+      <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-1">No Document Active</h3>
+      <p className="text-xs text-muted-foreground leading-relaxed">
+        Select a document from the dropdown at the top, or use the Chat to ask the AI to write technical documentation.
+      </p>
+    </div>
+  </div>
+)
+
+function ActionsPage({
   actions,
-  agents,
-  selectedDiagramId,
-  onSelectDiagram,
-  selectedDocId,
-  onSelectDoc,
+  sending,
+  onAction,
 }: {
-  view: SidebarView
-  diagrams: { id: string; name: string; description?: string }[]
-  docs: { id: string; name: string; content?: string }[]
   actions: { name: string; description: string; default_agent: string }[]
-  agents: string[]
-  selectedDiagramId: string | null
-  onSelectDiagram: (id: string) => void
-  selectedDocId: string | null
-  onSelectDoc: (id: string) => void
+  sending: boolean
+  onAction: (name: string) => void
 }) {
   return (
-    <div
-      className={`flex flex-col bg-background border-r border-border z-40 h-full shrink-0 overflow-hidden ${PANEL_WIDTH}`}
-    >
-      <div className="flex items-center px-4 h-16 border-b border-border shrink-0">
+    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
+      <header className="px-8 h-16 border-b border-border flex items-center justify-between shrink-0">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">
-          {view === "diagrams" && "Diagrams"}
-          {view === "docs" && "Documents"}
-          {view === "actions" && "Actions"}
-          {view === "agents" && "Agents"}
+          Available Actions
         </h3>
-      </div>
-
-      <div className="flex-1 overflow-y-auto min-h-0 p-4">
-        {view === "diagrams" && (
-          <div className="space-y-1">
-            {diagrams.length === 0 && (
-              <p className="text-xs text-muted-foreground py-4 text-center">No diagrams yet</p>
-            )}
-            {diagrams.map((d) => (
-              <button
-                key={d.id}
-                onClick={() => onSelectDiagram(d.id)}
-                className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                  selectedDiagramId === d.id
-                    ? "bg-muted text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-muted/50"
-                }`}
-              >
-                <div className="truncate">{d.name || "Untitled"}</div>
-                {d.description && (
-                  <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                    {d.description}
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {view === "docs" && (
-          <div className="space-y-1">
-            {docs.length === 0 && (
-              <p className="text-xs text-muted-foreground py-4 text-center">No documents yet</p>
-            )}
-            {docs.map((d) => (
-              <button
-                key={d.id}
-                onClick={() => onSelectDoc(d.id)}
-                className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                  selectedDocId === d.id
-                    ? "bg-muted text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-muted/50"
-                }`}
-              >
-                <div className="truncate">{d.name || "Untitled"}</div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {view === "actions" && (
-          <div className="space-y-1">
-            {actions.map((a) => (
-              <div key={a.name} className="px-3 py-2 rounded text-sm">
-                <div className="text-foreground font-medium">{a.name.replace(/_/g, " ")}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{a.description}</div>
-                <div className="text-[10px] text-muted-foreground mt-1 font-mono">
+      </header>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+          {actions.map((a) => (
+            <div
+              key={a.name}
+              className="border border-border p-4 bg-muted/10 hover:bg-muted/20 transition-all flex flex-col justify-between rounded-lg"
+            >
+              <div>
+                <h4 className="text-sm font-bold text-foreground uppercase tracking-wider mb-1">
+                  {a.name.replace(/_/g, " ")}
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                  {a.description}
+                </p>
+              </div>
+              <div className="flex items-center justify-between mt-auto">
+                <span className="text-[10px] font-mono text-muted-foreground/80">
                   agent: {a.default_agent}
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() => onAction(a.name)}
+                  disabled={sending}
+                  className="uppercase tracking-wider text-[10px] font-semibold h-7 rounded-sm border border-primary px-3"
+                >
+                  Trigger Action
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AgentsPage({ agents }: { agents: string[] }) {
+  return (
+    <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
+      <header className="px-8 h-16 border-b border-border flex items-center shrink-0">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">
+          AI Dispatched Agents
+        </h3>
+      </header>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+          {agents.map((name) => {
+            const cleanName = name.replace(/^(outlaww_|flow_|c4_)/, "").replace(/_workflow$/, "")
+            let label = cleanName.replace(/_/g, " ")
+            label = label.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+            
+            return (
+              <div key={name} className="border border-border p-4 bg-muted/10 rounded-lg flex items-start gap-3">
+                <div className="p-2 border border-border bg-background rounded-sm text-primary">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-foreground uppercase tracking-wider mb-1">
+                    {label}
+                  </h4>
+                  <p className="text-[11px] font-mono text-muted-foreground">
+                    {name}
+                  </p>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-
-        {view === "agents" && (
-          <div className="space-y-1">
-            {agents.map((name) => (
-              <div key={name} className="px-3 py-2 rounded text-sm text-foreground font-mono">
-                {name}
-              </div>
-            ))}
-          </div>
-        )}
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -858,33 +885,77 @@ function MarkdownViewer({
 //  Top Bar
 // ---------------------------------------------------------------------------
 
-function TopBar({ title, viewMode, onViewModeChange }: { title: string; viewMode: "canvas" | "code"; onViewModeChange: (v: "canvas" | "code") => void }) {
+function TopBar({
+  title,
+  viewMode,
+  onViewModeChange,
+  items,
+  selectedId,
+  onSelect,
+  placeholder = "Select item",
+  showViewToggle = false,
+}: {
+  title: string
+  viewMode?: "canvas" | "code"
+  onViewModeChange?: (v: "canvas" | "code") => void
+  items?: { id: string; name: string }[]
+  selectedId?: string | null
+  onSelect?: (id: string) => void
+  placeholder?: string
+  showViewToggle?: boolean
+}) {
   return (
     <header className="flex justify-between items-center w-full px-8 h-14 bg-background/80 backdrop-blur-sm border-b border-border z-30 shrink-0">
-      <div className="flex items-center gap-8">
-        <h2 className="text-sm font-semibold text-foreground">{title || "Untitled"}</h2>
-        <nav className="flex items-center gap-6">
-          <a
-            className={`text-sm cursor-pointer pb-1 transition-colors ${viewMode === "canvas" ? "font-semibold text-foreground border-b-2 border-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`}
-            onClick={() => onViewModeChange("canvas")}
+      <div className="flex items-center gap-6">
+        {items && items.length > 0 && onSelect ? (
+          <select
+            value={selectedId || ""}
+            onChange={(e) => onSelect(e.target.value)}
+            className="bg-background border border-border px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wider text-foreground focus:outline-none focus:ring-0 cursor-pointer"
           >
-            Canvas
-          </a>
-          <a
-            className={`text-sm cursor-pointer pb-1 transition-colors ${viewMode === "code" ? "font-semibold text-foreground border-b-2 border-foreground" : "font-medium text-muted-foreground hover:text-foreground"}`}
-            onClick={() => onViewModeChange("code")}
-          >
-            Code
-          </a>
-        </nav>
+            <option value="" disabled>{placeholder}</option>
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name || "Untitled"}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <h2 className="text-sm font-semibold text-foreground">{title || "Untitled"}</h2>
+        )}
+
+        {showViewToggle && onViewModeChange && viewMode && (
+          <nav className="flex items-center gap-6">
+            <button
+              className={`text-xs uppercase tracking-wider cursor-pointer pb-1 transition-colors ${
+                viewMode === "canvas"
+                  ? "font-semibold text-foreground border-b border-foreground"
+                  : "font-medium text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => onViewModeChange("canvas")}
+            >
+              Canvas
+            </button>
+            <button
+              className={`text-xs uppercase tracking-wider cursor-pointer pb-1 transition-colors ${
+                viewMode === "code"
+                  ? "font-semibold text-foreground border-b border-foreground"
+                  : "font-medium text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => onViewModeChange("code")}
+            >
+              Code
+            </button>
+          </nav>
+        )}
       </div>
       <div className="flex items-center gap-4">
         <button className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
-          <span className="text-sm font-medium">Export</span>
+          <span className="text-xs uppercase tracking-wider font-semibold">Export</span>
           <Download className="w-4 h-4" />
         </button>
         <Separator orientation="vertical" className="h-4" />
-        <Button variant="default" size="sm" className="uppercase tracking-wider text-xs">
+        <Button variant="default" size="sm" className="uppercase tracking-wider text-xs rounded-sm border border-primary">
           Share
         </Button>
       </div>
@@ -932,63 +1003,96 @@ export default function SessionWorkspace() {
     return undefined
   }, [session.rfData])
 
-  const showChat = session.sidebarView === "chat"
-  const showDetail = session.sidebarView !== "chat"
+  const activeView = session.sidebarView
 
   return (
     <div className="h-screen w-full overflow-hidden flex font-sans antialiased bg-background">
       <IconRail
-        activeView={session.sidebarView}
+        activeView={activeView}
         onViewChange={session.setSidebarView}
         diagramCount={session.diagrams.length}
         docCount={session.markdownDocs.length}
       />
-      <main className="flex-1 flex h-full relative overflow-hidden">
-        {showChat && (
-          <ChatPane
-            messages={session.messages}
-            sending={session.sending}
-            onSend={session.sendMessage}
-            onAction={session.runAction}
-            actions={session.actions}
-          />
-        )}
-        {showDetail && (
-          <SidebarDetailPanel
-            view={session.sidebarView}
-            diagrams={session.diagrams}
-            docs={session.markdownDocs}
-            actions={session.actions}
-            agents={session.agents}
-            selectedDiagramId={session.selectedDiagramId}
-            onSelectDiagram={session.setSelectedDiagramId}
-            selectedDocId={session.selectedDocId}
-            onSelectDoc={session.setSelectedDocId}
-          />
-        )}
-        <section className="flex-1 flex flex-col h-full relative overflow-hidden">
-          <TopBar title={projectName} viewMode={viewMode} onViewModeChange={setViewMode} />
-          {selectedDoc ? (
-            <MarkdownViewer doc={selectedDoc} />
-          ) : viewMode === "code" ? (
-            <div className="flex-1 overflow-auto p-6 bg-background">
-              <pre className="text-xs font-mono text-foreground whitespace-pre-wrap">
-                {JSON.stringify(getDiagramData(selectedDiagram), null, 2)}
-              </pre>
-            </div>
-          ) : (
-            <ReactFlowDiagramView
-              diagramData={getDiagramData(selectedDiagram)}
-              diagramId={selectedDiagram?.id}
-              onDiagramChange={(nodes, edges) => {
-                if (selectedDiagram) {
-                  console.log("Diagram changed:", { nodes, edges })
-                }
-              }}
-              fetchDiagramData={session.fetchDiagramSource}
+      <main className="flex-1 flex h-full relative overflow-hidden bg-background">
+        {activeView === "chat" && (
+          <div className="flex-1 flex justify-center h-full overflow-hidden">
+            <ChatPane
+              messages={session.messages}
+              sending={session.sending}
+              onSend={session.sendMessage}
+              onAction={session.runAction}
+              actions={session.actions}
+              fullWidth
             />
-          )}
-        </section>
+          </div>
+        )}
+
+        {activeView === "diagrams" && (
+          <section className="flex-1 flex flex-col h-full relative overflow-hidden">
+            <TopBar
+              title={projectName}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              items={session.diagrams}
+              selectedId={session.selectedDiagramId}
+              onSelect={session.setSelectedDiagramId}
+              placeholder="Select Diagram"
+              showViewToggle
+            />
+            {session.diagrams.length === 0 || !session.selectedDiagramId ? (
+              <DiagramsEmptyState />
+            ) : viewMode === "code" ? (
+              <div className="flex-1 overflow-auto p-6 bg-background">
+                <pre className="text-xs font-mono text-foreground whitespace-pre-wrap">
+                  {JSON.stringify(getDiagramData(selectedDiagram), null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <ReactFlowDiagramView
+                diagramData={getDiagramData(selectedDiagram)}
+                diagramId={selectedDiagram?.id}
+                onDiagramChange={(nodes, edges) => {
+                  if (selectedDiagram) {
+                    console.log("Diagram changed:", { nodes, edges })
+                  }
+                }}
+                fetchDiagramData={session.fetchDiagramSource}
+              />
+            )}
+          </section>
+        )}
+
+        {activeView === "docs" && (
+          <section className="flex-1 flex flex-col h-full relative overflow-hidden">
+            <TopBar
+              title={projectName}
+              items={session.markdownDocs}
+              selectedId={session.selectedDocId}
+              onSelect={session.setSelectedDocId}
+              placeholder="Select Document"
+            />
+            {session.markdownDocs.length === 0 || !session.selectedDocId || !selectedDoc ? (
+              <DocsEmptyState />
+            ) : (
+              <MarkdownViewer doc={selectedDoc} />
+            )}
+          </section>
+        )}
+
+        {activeView === "actions" && (
+          <ActionsPage
+            actions={session.actions}
+            sending={session.sending}
+            onAction={(name) => {
+              session.runAction(name)
+              session.setSidebarView("chat")
+            }}
+          />
+        )}
+
+        {activeView === "agents" && (
+          <AgentsPage agents={session.agents} />
+        )}
       </main>
     </div>
   )

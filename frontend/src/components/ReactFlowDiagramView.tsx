@@ -29,8 +29,6 @@ import {
   ZoomOut,
   Layout,
   Map,
-  Sun,
-  Moon,
   Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -38,7 +36,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Sheet, SheetContent, SheetHeader, SheetBody } from "@/components/ui/sheet"
-import { useTheme } from "@/components/theme-provider"
+
 import { cn } from "@/lib/utils"
 import { nodeTypes, edgeTypes } from "@/components/nodes/components"
 import { layoutNodes } from "@/lib/layout"
@@ -416,11 +414,6 @@ export function ReactFlowCanvas({
 
   const toggleMinimap = useCallback(() => setShowMinimap(p => !p), [])
 
-  const { theme, setTheme } = useTheme()
-  const toggleTheme = useCallback(() => {
-    setTheme(theme === "dark" ? "light" : "dark")
-  }, [theme, setTheme])
-
   const fetchDiagram = useCallback(async () => {
     if (!diagramId || !fetchDiagramData) return
     setLoading(true)
@@ -495,18 +488,6 @@ export function ReactFlowCanvas({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Theme toggle */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="h-7 w-7" onClick={toggleTheme}>
-                  {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{theme === "dark" ? "Light" : "Dark"} mode</TooltipContent>
-            </Tooltip>
-
-            <Separator orientation="vertical" className="h-5" />
-
             {/* Zoom */}
             <div className="flex items-center gap-1 bg-muted p-0.5 rounded-md">
               <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => reactFlowInstance?.zoomOut()}>
