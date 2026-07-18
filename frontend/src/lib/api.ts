@@ -27,6 +27,7 @@ export interface ChatResponse {
   action_name: string
   agents_involved: string[]
   final_text: string
+  dispatch_text: string
   structured_outputs: Array<{ agent: string; output: Record<string, unknown> }>
   reflection: unknown
   diagrams: Diagram[]

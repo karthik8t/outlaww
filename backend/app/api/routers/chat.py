@@ -78,6 +78,7 @@ class ChatResponse(BaseModel):
     action_name: str = ""
     agents_involved: list[str] = []
     final_text: str = ""
+    dispatch_text: str = ""
     structured_outputs: list[dict[str, Any]] = []
     reflection: dict[str, Any] | None = None
     diagrams: list[dict[str, Any]] = []
@@ -192,11 +193,13 @@ async def chat(req: ChatRequest) -> ChatResponse:
     active: dict[str, str] = await runner.get_active_ids()
 
     # Primary response text = interaction_summary from reflection
+    # dispatch_text = full dispatch agent text (shown in collapsible if different)
     final_text = ""
+    dispatch_text = dispatch_result.get("text", "") if dispatch_result else ""
     if reflection and reflection.get("interaction_summary"):
         final_text = reflection["interaction_summary"]
-    if not final_text and dispatch_result:
-        final_text = dispatch_result.get("text", "")
+    if not final_text:
+        final_text = dispatch_text
 
     routed_to = dispatch_result.get("agent_name", "") if dispatch_result else (agents_involved[0] if agents_involved else "")
 
@@ -214,6 +217,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         action_name=req.action or "",
         agents_involved=agents_involved,
         final_text=final_text,
+        dispatch_text=dispatch_text,
         structured_outputs=structured_outputs,
         reflection=reflection,
         diagrams=diagrams,

@@ -1724,8 +1724,8 @@ def decode_adk_event(event: Any) -> DecodedEvent:
     # 1. From event.output (some ADK nodes set this)
     # 2. From text content (LlmAgent stores output_schema as JSON text)
     model_cls = _AUTHOR_MODEL_MAP.get(author)
+    model_dict: dict[str, Any] | None = None
     if model_cls:
-        model_dict: dict[str, Any] | None = None
         if output is not None:
             model = _to_model(output, model_cls)
             if model is not None:
@@ -1735,7 +1735,47 @@ def decode_adk_event(event: Any) -> DecodedEvent:
         if model_dict is not None:
             kw["agent_output"] = {author: model_dict}
 
+            # Replace raw JSON text with a human-readable field from the model
+            human_text = _extract_human_text(author, model_dict)
+            if human_text:
+                kw["text"] = human_text
+
     return DecodedEvent(**kw)
+
+
+_HUMAN_TEXT_FIELDS: dict[str, str] = {
+    "reflection": "interaction_summary",
+    "router": "reasoning",
+    "explainer": "explanation",
+    "research": "summary",
+    "create_markdown": "title",
+    "edit_markdown": "reasoning",
+    "gap_suggestion": "concerns",
+}
+
+
+def _extract_human_text(author: str, model_dict: dict[str, Any]) -> str | None:
+    """Extract a human-readable text from a structured output model dict.
+
+    Priority: author-specific field → common fallbacks → None.
+    """
+    field = _HUMAN_TEXT_FIELDS.get(author)
+    if field:
+        val = model_dict.get(field)
+        if isinstance(val, str) and val.strip():
+            if field == "concerns" and isinstance(val, str):
+                return val[:300]
+            return val
+        if isinstance(val, list) and val:
+            first = val[0]
+            if isinstance(first, dict):
+                return str(first.get("description", "")) or str(first.get("title", ""))
+    # General fallback: common text-y fields across models
+    for key in ("interaction_summary", "explanation", "summary", "reasoning", "description", "title"):
+        val = model_dict.get(key)
+        if isinstance(val, str) and val.strip():
+            return val
+    return None
 
 
 # ===========================================================================

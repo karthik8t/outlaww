@@ -239,6 +239,7 @@ export function useSession() {
         userText: text.trim(),
         agentsInvolved: res.agents_involved || [],
         agentResponse: res.final_text || "(no response)",
+        agentText: res.dispatch_text || undefined,
         structuredOutputs: (res.structured_outputs ?? []) as Array<{ agent: string; output: Record<string, unknown> }>,
       }
 
@@ -310,6 +311,7 @@ export function useSession() {
         userText: `Action: ${actionName.replace(/_/g, " ")}`,
         agentsInvolved: res.agents_involved || [],
         agentResponse: res.final_text || `Action "${actionName}" completed`,
+        agentText: res.dispatch_text || undefined,
         structuredOutputs: (res.structured_outputs ?? []) as Array<{ agent: string; output: Record<string, unknown> }>,
       }
 
