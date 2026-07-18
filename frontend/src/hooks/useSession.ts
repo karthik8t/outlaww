@@ -12,8 +12,10 @@ export interface ChatMsg {
   timestamp?: string
   userText?: string
   agentsInvolved: string[]
+  /** Primary response text — the reflection's interaction_summary */
+  agentResponse?: string
+  /** Full dispatch text (shown in collapsible if different from agentResponse) */
   agentText?: string
-  interactionSummary?: string
   reflectionSummary?: string
   reflectionGoals?: string[]
   structuredOutputs?: Array<{ agent: string; output: Record<string, unknown> }>
@@ -24,6 +26,9 @@ export interface ChatMsg {
 //  groupEventsIntoTurns  — consolidate all events between user messages
 //  into a single turn per user message
 // ---------------------------------------------------------------------------
+
+/** Agents to exclude from the visible agent chain */
+const _SYSTEM_AUTHORS = new Set(["user", "router", "reflection", "outlaww_text_workflow", "outlaww_action_workflow"])
 
 export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
   const turns: ChatMsg[] = []
@@ -54,15 +59,15 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
       }
 
       const { author } = e
-      if (author && author !== "user") {
+      if (author && !_SYSTEM_AUTHORS.has(author)) {
         if (!currentTurn.agentsInvolved.includes(author)) {
           currentTurn.agentsInvolved.push(author)
         }
       }
 
-      // Reflection — extract interaction_summary and goals
+      // Reflection — extract interaction_summary as agentResponse + goals
       if (e.agent_output?.reflection) {
-        currentTurn.interactionSummary = e.agent_output.reflection.interaction_summary || undefined
+        currentTurn.agentResponse = e.agent_output.reflection.interaction_summary || undefined
         currentTurn.reflectionSummary = e.agent_output.reflection.summary || undefined
         if (e.agent_output.reflection.new_goals?.length) {
           currentTurn.reflectionGoals = e.agent_output.reflection.new_goals
@@ -71,14 +76,12 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
 
       // Agent output / text events — capture text and structured outputs
       if (e.event_class === "agent_output" || e.event_class === "agent_text") {
-        if (e.text && author !== "router" && author !== "reflection"
-            && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
+        if (e.text && !_SYSTEM_AUTHORS.has(author)) {
           currentTurn.agentText = e.text
         }
         // Collect structured output keyed by agent
         const agentOut = e.agent_output?.[author as keyof AgentOutputDict]
-        if (agentOut && author !== "router" && author !== "reflection"
-            && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
+        if (agentOut && !_SYSTEM_AUTHORS.has(author)) {
           if (!currentTurn.structuredOutputs) {
             currentTurn.structuredOutputs = []
           }
@@ -230,32 +233,17 @@ export function useSession() {
         navigate(`/session/${encodeURIComponent(res.session_id)}`, { replace: true })
       }
 
-      const parsedTurns = groupEventsIntoTurns(res.events || [])
-      let finalTurn: ChatMsg
-
-      if (parsedTurns.length > 0) {
-        finalTurn = {
-          ...parsedTurns[0],
-          userText: text.trim(),
-        }
-      } else {
-        finalTurn = {
-          id: `agent-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          userText: text.trim(),
-          agentText: res.final_text || "(no response)",
-          agentsInvolved: res.routed_to ? [res.routed_to] : ["agent"],
-          structuredOutputs: res.structured_output
-            ? [{ agent: res.routed_to || "agent", output: res.structured_output as Record<string, unknown> }]
-            : undefined,
-        }
+      const finalTurn: ChatMsg = {
+        id: `turn-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        userText: text.trim(),
+        agentsInvolved: res.agents_involved || [],
+        agentResponse: res.final_text || "(no response)",
+        structuredOutputs: (res.structured_outputs ?? []) as Array<{ agent: string; output: Record<string, unknown> }>,
       }
 
       const ref = res.reflection as any
       if (ref) {
-        if (ref.interaction_summary) {
-          finalTurn.interactionSummary = ref.interaction_summary
-        }
         if (ref.summary) {
           finalTurn.reflectionSummary = ref.summary
         }
@@ -316,32 +304,17 @@ export function useSession() {
         navigate(`/session/${encodeURIComponent(res.session_id)}`, { replace: true })
       }
 
-      const parsedTurns = groupEventsIntoTurns(res.events || [])
-      let finalTurn: ChatMsg
-
-      if (parsedTurns.length > 0) {
-        finalTurn = {
-          ...parsedTurns[0],
-          userText: `Action: ${actionName.replace(/_/g, " ")}`,
-        }
-      } else {
-        finalTurn = {
-          id: `action-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          userText: `Action: ${actionName.replace(/_/g, " ")}`,
-          agentText: res.final_text || `Action "${actionName}" completed`,
-          agentsInvolved: res.routed_to ? [res.routed_to] : ["agent"],
-          structuredOutputs: res.structured_output
-            ? [{ agent: res.routed_to || "agent", output: res.structured_output as Record<string, unknown> }]
-            : undefined,
-        }
+      const finalTurn: ChatMsg = {
+        id: `act-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        userText: `Action: ${actionName.replace(/_/g, " ")}`,
+        agentsInvolved: res.agents_involved || [],
+        agentResponse: res.final_text || `Action "${actionName}" completed`,
+        structuredOutputs: (res.structured_outputs ?? []) as Array<{ agent: string; output: Record<string, unknown> }>,
       }
 
       const ref = res.reflection as any
       if (ref) {
-        if (ref.interaction_summary) {
-          finalTurn.interactionSummary = ref.interaction_summary
-        }
         if (ref.summary) {
           finalTurn.reflectionSummary = ref.summary
         }

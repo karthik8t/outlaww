@@ -293,10 +293,8 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
     )
   }
 
-  const primaryText = msg.interactionSummary || msg.agentText
-  const agents = msg.agentsInvolved.filter(
-    (a) => a !== "reflection" && a !== "outlaww_text_workflow" && a !== "outlaww_action_workflow"
-  )
+  const primaryText = msg.agentResponse || msg.agentText
+  const agents = msg.agentsInvolved
 
   return (
     <div className="flex flex-col gap-4">

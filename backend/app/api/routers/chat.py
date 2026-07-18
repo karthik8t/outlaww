@@ -67,13 +67,18 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    """Consolidated chat response.
+
+    Raw ADK events stay in the backend session. The frontend receives
+    a clean turn with the agents involved, the main response text
+    (interaction_summary from reflection), and any structured outputs.
+    """
     session_id: str
     routed_to: str = ""
     action_name: str = ""
-    reasoning: str = ""
-    events: list[DecodedEvent] = []
+    agents_involved: list[str] = []
     final_text: str = ""
-    structured_output: dict[str, Any] | None = None
+    structured_outputs: list[dict[str, Any]] = []
     reflection: dict[str, Any] | None = None
     diagrams: list[dict[str, Any]] = []
     rf_data: dict[str, ReactFlowDiagramOutput] = Field(default_factory=dict, description="diagram_id -> post-processed ReactFlowDiagramOutput")
@@ -140,6 +145,10 @@ async def chat(req: ChatRequest) -> ChatResponse:
     Predefined action: START → dispatch → reflection (router skipped)
 
     Session is created automatically if session_id is new.
+
+    The response is a consolidated turn — raw events live in the backend session.
+    The frontend receives agents_involved, the interaction_summary as final_text,
+    and structured_outputs for rendering artifacts.
     """
     session_id = req.session_id
     pipeline = "action" if req.action else "text"
@@ -148,46 +157,48 @@ async def chat(req: ChatRequest) -> ChatResponse:
     runner = get_workflow_runner(session_id=session_id, action=req.action)
     message = req.text or ""
 
-    # For actions, inject action_name into state so dispatch_node picks it up
     state_delta = {"action_name": req.action} if req.action else None
 
-    events_out: list[DecodedEvent] = []
-    final_text = ""
-    structured_output: dict[str, Any] | None = None
-    routed_to = ""
-    action_name = req.action or ""
+    # Track agents and structured outputs as events stream by
+    _system_authors = {"user", "router", "reflection", "outlaww_text_workflow", "outlaww_action_workflow"}
+    agents_involved: list[str] = []
+    structured_outputs: list[dict[str, Any]] = []
 
     start = time.perf_counter()
 
     try:
         async for event in runner.run(message, state_delta=state_delta):
             dto = _event_to_dto(event)
-            events_out.append(dto)
-            if dto.text:
-                final_text = dto.text
-            if dto.agent_output is not None:
-                structured_output = dto.agent_output
-            if dto.author and dto.author not in ("router", "user", "reflection"):
-                routed_to = dto.author
+            if dto.author and dto.author not in _system_authors:
+                if dto.author not in agents_involved:
+                    agents_involved.append(dto.author)
+                if dto.agent_output and dto.author in dto.agent_output:
+                    structured_outputs.append({
+                        "agent": dto.author,
+                        "output": dto.agent_output[dto.author],
+                    })
     except Exception as exc:
         elapsed = (time.perf_counter() - start) * 1000
         logger.error(f"[chat] {pipeline} failed after {elapsed:.0f}ms: {exc}")
         raise
 
     elapsed = (time.perf_counter() - start) * 1000
-    logger.info(f"[chat] {pipeline} done in {elapsed:.0f}ms → agent={routed_to or 'generic'} events={len(events_out)}")
+    logger.info(f"[chat] {pipeline} done in {elapsed:.0f}ms agents={agents_involved}")
 
     dispatch_result = await runner.get_dispatch_result()
-    if dispatch_result:
-        if not structured_output:
-            structured_output = dispatch_result.get("output")
-        if not final_text:
-            final_text = dispatch_result.get("text", "")
-
     reflection: dict[str, Any] | None = await runner.get_reflection()
     diagrams: list[dict[str, Any]] = await runner.get_diagrams()
     docs: list[dict[str, Any]] = await runner.get_markdown_docs()
     active: dict[str, str] = await runner.get_active_ids()
+
+    # Primary response text = interaction_summary from reflection
+    final_text = ""
+    if reflection and reflection.get("interaction_summary"):
+        final_text = reflection["interaction_summary"]
+    if not final_text and dispatch_result:
+        final_text = dispatch_result.get("text", "")
+
+    routed_to = dispatch_result.get("agent_name", "") if dispatch_result else (agents_involved[0] if agents_involved else "")
 
     # Build typed ReactFlowDiagramOutput for each diagram
     rf_data: dict[str, ReactFlowDiagramOutput] = {}
@@ -199,11 +210,11 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     return ChatResponse(
         session_id=session_id,
-        routed_to=routed_to or dispatch_result.get("agent_name", "generic") if dispatch_result else "generic",
-        action_name=action_name,
-        events=events_out,
+        routed_to=routed_to or "generic",
+        action_name=req.action or "",
+        agents_involved=agents_involved,
         final_text=final_text,
-        structured_output=structured_output,
+        structured_outputs=structured_outputs,
         reflection=reflection,
         diagrams=diagrams,
         rf_data=rf_data,

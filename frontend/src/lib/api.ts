@@ -25,10 +25,9 @@ export interface ChatResponse {
   session_id: string
   routed_to: string
   action_name: string
-  reasoning: string
-  events: EventDict[]
+  agents_involved: string[]
   final_text: string
-  structured_output: unknown
+  structured_outputs: Array<{ agent: string; output: Record<string, unknown> }>
   reflection: unknown
   diagrams: Diagram[]
   rf_data: Record<string, RfData>  // diagram_id -> React Flow data
