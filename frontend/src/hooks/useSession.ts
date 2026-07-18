@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import * as api from "@/lib/api"
+import type { EventDict } from "@/lib/api"
 
 // ---------------------------------------------------------------------------
 //  Hook
@@ -28,17 +29,16 @@ export interface ChatMsg {
   isError?: boolean
 }
 
-export function groupEventsIntoTurns(events: any[]): ChatMsg[] {
+export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
   const turns: ChatMsg[] = []
   let currentTurn: ChatMsg | null = null
 
   for (const e of events) {
-    const isUser = e.author === "user"
     const timeStr = e.timestamp
       ? new Date(e.timestamp * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
-    if (isUser) {
+    if (e.event_class === "user") {
       if (currentTurn) {
         turns.push(currentTurn)
       }
@@ -57,42 +57,39 @@ export function groupEventsIntoTurns(events: any[]): ChatMsg[] {
         }
       }
 
-      const author = e.author
+      const { author } = e
       if (author && author !== "user") {
         if (!currentTurn.agentsInvolved.includes(author)) {
           currentTurn.agentsInvolved.push(author)
         }
       }
 
-      if (author === "reflection") {
-        let out = e.output
-        if (typeof out === "string") {
-          try { out = JSON.parse(out) } catch { /* ignore */ }
+      // Reflection — extract interaction_summary and goals
+      if (author === "reflection" && e.output) {
+        const out = e.output
+        if (out.interaction_summary) {
+          currentTurn.interactionSummary = out.interaction_summary as string
         }
-        if (out && typeof out === "object") {
-          if (out.interaction_summary) {
-            currentTurn.interactionSummary = out.interaction_summary
-          }
-          if (out.summary) {
-            currentTurn.reflectionSummary = out.summary
-          }
-          if (Array.isArray(out.new_goals) && out.new_goals.length > 0) {
-            currentTurn.reflectionGoals = out.new_goals
-          }
+        if (out.summary) {
+          currentTurn.reflectionSummary = out.summary as string
+        }
+        if (Array.isArray(out.new_goals)) {
+          currentTurn.reflectionGoals = out.new_goals as string[]
         }
       }
 
-      if (e.text && author !== "router" && author !== "reflection" && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
-        currentTurn.agentText = e.text
-        currentTurn.routedTo = author
-      }
-      if (e.output && author !== "router" && author !== "reflection" && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
-        let out = e.output
-        if (typeof out === "string") {
-          try { out = JSON.parse(out) } catch { /* ignore */ }
+      // Agent output events — capture the final text and structured output
+      if (e.event_class === "agent_output" || e.event_class === "agent_text") {
+        if (e.text && author !== "router" && author !== "reflection"
+            && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
+          currentTurn.agentText = e.text
+          currentTurn.routedTo = author
         }
-        currentTurn.structuredOutput = out
-        currentTurn.routedTo = author
+        if (e.output && author !== "router" && author !== "reflection"
+            && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
+          currentTurn.structuredOutput = e.output
+          currentTurn.routedTo = author
+        }
       }
     }
   }

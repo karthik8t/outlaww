@@ -37,12 +37,20 @@ export interface ChatResponse {
 }
 
 export interface EventDict {
-  id: string
+  event_class: string        // "thought" | "agent_text" | "agent_output" | "tool_call" | "tool_response" | "error" | "user"
   author: string
   text: string
-  output: unknown
-  function_call: unknown
-  function_response: unknown
+  is_thought: boolean
+  is_partial: boolean
+  output: Record<string, unknown> | null
+  output_schema_name: string
+  tool_name: string
+  tool_args: Record<string, unknown> | null
+  tool_result: unknown
+  error_code: string
+  error_message: string
+  id: string
+  invocation_id: string
   timestamp: number
 }
 

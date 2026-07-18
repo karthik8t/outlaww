@@ -23,6 +23,7 @@ from app.api.dependencies import (
 )
 from app.schema.reactflow_models import Diagram
 from app.schema.reactflow_output import ReactFlowDiagramOutput
+from app.schema.models import DecodedEvent, decode_adk_event
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -70,20 +71,20 @@ class ChatResponse(BaseModel):
     routed_to: str = ""
     action_name: str = ""
     reasoning: str = ""
-    events: list[dict[str, Any]] = []
+    events: list[DecodedEvent] = []
     final_text: str = ""
-    structured_output: Any = None
-    reflection: Any = None
-    diagrams: list[Any] = []
+    structured_output: dict[str, Any] | None = None
+    reflection: dict[str, Any] | None = None
+    diagrams: list[dict[str, Any]] = []
     rf_data: dict[str, ReactFlowDiagramOutput] = Field(default_factory=dict, description="diagram_id -> post-processed ReactFlowDiagramOutput")
-    markdown_docs: list[Any] = []
+    markdown_docs: list[dict[str, Any]] = []
     active_ids: dict[str, str] = {}
 
 
 class SessionDetailResponse(BaseModel):
     session_id: str
     event_count: int = 0
-    events: list[dict[str, Any]] = []
+    events: list[DecodedEvent] = []
     state: dict[str, Any] = {}
 
 
@@ -122,29 +123,9 @@ class ActionsResponse(BaseModel):
 #  Helpers
 # ---------------------------------------------------------------------------
 
-def _event_to_dict(event: Any) -> dict[str, Any]:
-    text = ""
-    if hasattr(event, "content") and event.content is not None:
-        parts = getattr(event.content, "parts", []) or []
-        for p in parts:
-            text += getattr(p, "text", "") or ""
-
-    # ADK stores structured output in event.output when output_schema is set
-    output = getattr(event, "output", None)
-
-    # Also check function_call / function_response for tool-based agents
-    function_call = getattr(event, "function_call", None)
-    function_response = getattr(event, "function_response", None)
-
-    return {
-        "id": getattr(event, "id", ""),
-        "author": getattr(event, "author", ""),
-        "text": text,
-        "output": output,
-        "function_call": function_call,
-        "function_response": function_response,
-        "timestamp": getattr(event, "timestamp", 0.0),
-    }
+def _event_to_dto(event: Any) -> DecodedEvent:
+    """Convert a raw ADK Event into a typed DecodedEvent DTO."""
+    return decode_adk_event(event)
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +151,9 @@ async def chat(req: ChatRequest) -> ChatResponse:
     # For actions, inject action_name into state so dispatch_node picks it up
     state_delta = {"action_name": req.action} if req.action else None
 
-    events_out: list[dict[str, Any]] = []
+    events_out: list[DecodedEvent] = []
     final_text = ""
-    structured_output = None
+    structured_output: dict[str, Any] | None = None
     routed_to = ""
     action_name = req.action or ""
 
@@ -180,16 +161,14 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     try:
         async for event in runner.run(message, state_delta=state_delta):
-            out = _event_to_dict(event)
-            events_out.append(out)
-            if out["text"]:
-                final_text = out["text"]
-            if out["output"] is not None:
-                structured_output = out["output"]
-            # Detect which agent handled it
-            author = event.author or ""
-            if author and author not in ("router", "user", "reflection"):
-                routed_to = author
+            dto = _event_to_dto(event)
+            events_out.append(dto)
+            if dto.text:
+                final_text = dto.text
+            if dto.output is not None:
+                structured_output = dto.output
+            if dto.author and dto.author not in ("router", "user", "reflection"):
+                routed_to = dto.author
     except Exception as exc:
         elapsed = (time.perf_counter() - start) * 1000
         logger.error(f"[chat] {pipeline} failed after {elapsed:.0f}ms: {exc}")
@@ -198,7 +177,6 @@ async def chat(req: ChatRequest) -> ChatResponse:
     elapsed = (time.perf_counter() - start) * 1000
     logger.info(f"[chat] {pipeline} done in {elapsed:.0f}ms → agent={routed_to or 'generic'} events={len(events_out)}")
 
-    # Get dispatch result from state for structured output
     dispatch_result = await runner.get_dispatch_result()
     if dispatch_result:
         if not structured_output:
@@ -206,10 +184,10 @@ async def chat(req: ChatRequest) -> ChatResponse:
         if not final_text:
             final_text = dispatch_result.get("text", "")
 
-    reflection = await runner.get_reflection()
-    diagrams = await runner.get_diagrams()
-    docs = await runner.get_markdown_docs()
-    active = await runner.get_active_ids()
+    reflection: dict[str, Any] | None = await runner.get_reflection()
+    diagrams: list[dict[str, Any]] = await runner.get_diagrams()
+    docs: list[dict[str, Any]] = await runner.get_markdown_docs()
+    active: dict[str, str] = await runner.get_active_ids()
 
     # Build typed ReactFlowDiagramOutput for each diagram
     rf_data: dict[str, ReactFlowDiagramOutput] = {}
@@ -267,11 +245,11 @@ async def get_session_detail(
     if session is None:
         return SessionDetailResponse(session_id=session_id, event_count=0, events=[], state={})
 
-    events = list(session.events)[-num_recent:] if session.events else []
+    raw_events = list(session.events)[-num_recent:] if session.events else []
     return SessionDetailResponse(
         session_id=session_id,
-        event_count=len(events),
-        events=[_event_to_dict(e) for e in events],
+        event_count=len(raw_events),
+        events=[_event_to_dto(e) for e in raw_events],
         state=dict(session.state),
     )
 
@@ -400,22 +378,8 @@ async def _stream_gen(
 
     try:
         async for event in runner.run(message, state_delta=state_delta):
-            parts = []
-            if hasattr(event, "content") and event.content is not None:
-                for p in getattr(event.content, "parts", []) or []:
-                    txt = getattr(p, "text", "") or ""
-                    if txt:
-                        parts.append(txt)
-
-            text = "\n".join(parts) if parts else ""
-            author = getattr(event, "author", "unknown")
-            output = getattr(event, "output", None)
-
-            yield _sse("agent_event", {
-                "author": author,
-                "text": text,
-                "output": output,
-            })
+            decoded = decode_adk_event(event)
+            yield _sse("agent_event", decoded.model_dump())
 
         reflection = await runner.get_reflection()
         dispatch_result = await runner.get_dispatch_result()

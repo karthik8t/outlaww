@@ -145,7 +145,6 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 1. User Message (if present) */}
       {msg.userText && (
         <div className="flex flex-col gap-1.5 items-end">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -160,10 +159,8 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
         </div>
       )}
 
-      {/* 2. AI Consolidated Response Card */}
       {primaryText && (
         <div className="flex flex-col gap-2">
-          {/* Header & Pipeline Trail */}
           <div className="flex items-center justify-between text-muted-foreground px-0.5">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -189,14 +186,11 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
             </span>
           </div>
 
-          {/* Response Container */}
           <div className="bg-background border border-border rounded-xl p-4 shadow-sm space-y-3">
-            {/* Primary concise text */}
             <p className="text-sm font-semibold text-foreground leading-snug">
               {primaryText}
             </p>
 
-            {/* Collapsible full agent response */}
             {msg.agentText && primaryText !== msg.agentText && (
               <details className="group">
                 <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
@@ -209,7 +203,6 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
               </details>
             )}
 
-            {/* Goals checklist */}
             {msg.reflectionGoals && msg.reflectionGoals.length > 0 && (
               <div className="pt-2 border-t border-border">
                 <span className="text-[9px] font-mono uppercase tracking-wider font-semibold text-muted-foreground block mb-2">
@@ -233,7 +226,6 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
               </div>
             )}
 
-            {/* Structured output drawer */}
             {msg.structuredOutput && (
               <details className="group pt-1">
                 <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">

@@ -1551,6 +1551,132 @@ class ReflectionOutput(BaseModel):
 
 
 # ===========================================================================
+#  Decoded ADK Events
+# ===========================================================================
+
+# Agent name -> output_schema class name mapping
+_AGENT_SCHEMA_MAP: dict[str, str] = {
+    "create_diagram": "Diagram",
+    "edit_diagram": "Diagram",
+    "patch_diagram": "Diagram",
+    "create_markdown": "CreateMarkdownOutput",
+    "edit_markdown": "EditMarkdownOutput",
+    "explainer": "ExplainerOutput",
+    "gap_suggestion": "GapSuggestionOutput",
+    "research": "ResearchOutput",
+    "router": "RouterOutput",
+    "reflection": "ReflectionOutput",
+}
+
+
+class DecodedEvent(BaseModel):
+    """A decoded ADK event with typed fields for the frontend.
+
+    Instead of sending raw ADK event dicts, each ADK Event is decoded
+    into this model with explicit fields the frontend can use directly.
+    """
+    event_class: str = "agent_text"
+    author: str = ""
+    text: str = ""
+    is_thought: bool = False
+    is_partial: bool = False
+    output: dict[str, Any] | None = None
+    output_schema_name: str = ""
+    tool_name: str = ""
+    tool_args: dict[str, Any] | None = None
+    tool_result: Any = None
+    error_code: str = ""
+    error_message: str = ""
+    id: str = ""
+    invocation_id: str = ""
+    timestamp: float = 0.0
+
+
+def decode_adk_event(event: Any) -> DecodedEvent:
+    """Convert a raw ADK Event into a typed DecodedEvent.
+
+    Examines content parts, function calls/responses, error fields,
+    and author to determine event_class and extract structured fields.
+    """
+    author = getattr(event, "author", "unknown")
+    event_id = getattr(event, "id", "")
+    invocation_id = getattr(event, "invocation_id", "")
+    raw_ts = getattr(event, "timestamp", 0.0)
+    timestamp = raw_ts if isinstance(raw_ts, (int, float)) else 0.0
+    is_partial = bool(getattr(event, "partial", False))
+    error_code = getattr(event, "error_code", None) or ""
+    error_message = getattr(event, "error_message", None) or ""
+
+    # Structured output from ADK (set when output_schema is configured)
+    output = getattr(event, "output", None)
+    if hasattr(output, "model_dump"):
+        output = output.model_dump()
+    elif hasattr(output, "dict"):
+        output = output.dict()
+
+    # Text from content parts
+    text = ""
+    if hasattr(event, "content") and event.content is not None:
+        for p in (getattr(event.content, "parts", []) or []):
+            txt = getattr(p, "text", "") or ""
+            if txt:
+                text += txt
+
+    # Function calls / responses
+    function_calls = getattr(event, "get_function_calls", lambda: [])() or []
+    function_responses = getattr(event, "get_function_responses", lambda: [])() or []
+
+    # Determine event_class
+    if author == "user":
+        event_class = "user"
+    elif function_calls:
+        event_class = "tool_call"
+    elif function_responses:
+        event_class = "tool_response"
+    elif error_code:
+        event_class = "error"
+    elif is_partial and text:
+        event_class = "thought"
+    elif output is not None:
+        event_class = "agent_output"
+    elif text:
+        event_class = "agent_text"
+    else:
+        event_class = "agent_text"
+
+    # Tool details
+    tool_name = ""
+    tool_args: dict[str, Any] | None = None
+    tool_result: Any = None
+    if function_calls:
+        fc = function_calls[0]
+        tool_name = getattr(fc, "name", "") or ""
+        tool_args = getattr(fc, "args", None)
+    if function_responses:
+        fr = function_responses[0]
+        tool_name = getattr(fr, "name", "") or tool_name
+        tool_result = getattr(fr, "response", None)
+
+    return DecodedEvent(
+        event_class=event_class,
+        author=author,
+        text=text,
+        is_thought=(event_class == "thought"),
+        is_partial=is_partial,
+        output=output,
+        output_schema_name=_AGENT_SCHEMA_MAP.get(author, ""),
+        tool_name=tool_name,
+        tool_args=tool_args,
+        tool_result=tool_result,
+        error_code=error_code,
+        error_message=error_message,
+        id=event_id,
+        invocation_id=invocation_id,
+        timestamp=timestamp,
+    )
+
+
+# ===========================================================================
 #  Session State (top-level)
 # ===========================================================================
 
