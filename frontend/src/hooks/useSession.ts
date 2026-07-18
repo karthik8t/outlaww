@@ -1,31 +1,29 @@
-/**
- * useSession — manages session lifecycle and backend data.
- *
- * - Reads session ID from React Router /session/:sessionId
- * - Creates new session on first message if none in URL
- * - Syncs diagrams / markdown docs after each chat response
- */
-
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import * as api from "@/lib/api"
 import type { EventDict, AgentOutputDict } from "@/lib/api"
 
 // ---------------------------------------------------------------------------
-//  Hook
+//  ChatMsg — consolidated turn between user messages
 // ---------------------------------------------------------------------------
 
 export interface ChatMsg {
   id: string
-  role: "user" | "agent"
-  text: string
+  timestamp?: string
+  userText?: string
+  agentsInvolved: string[]
   agentText?: string
-  routedTo?: string
   interactionSummary?: string
   reflectionSummary?: string
   reflectionGoals?: string[]
-  structuredOutput?: Record<string, unknown>
+  structuredOutputs?: Array<{ agent: string; output: Record<string, unknown> }>
+  isError?: boolean
 }
+
+// ---------------------------------------------------------------------------
+//  groupEventsIntoTurns  — consolidate all events between user messages
+//  into a single turn per user message
+// ---------------------------------------------------------------------------
 
 export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
   const turns: ChatMsg[] = []
@@ -71,19 +69,23 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
         }
       }
 
-      // Agent output events — capture the final text and structured output
+      // Agent output / text events — capture text and structured outputs
       if (e.event_class === "agent_output" || e.event_class === "agent_text") {
         if (e.text && author !== "router" && author !== "reflection"
             && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
           currentTurn.agentText = e.text
-          currentTurn.routedTo = author
         }
-        // Extract the agent's output from the agent_output dict
+        // Collect structured output keyed by agent
         const agentOut = e.agent_output?.[author as keyof AgentOutputDict]
         if (agentOut && author !== "router" && author !== "reflection"
             && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
-          currentTurn.structuredOutput = agentOut as Record<string, unknown>
-          currentTurn.routedTo = author
+          if (!currentTurn.structuredOutputs) {
+            currentTurn.structuredOutputs = []
+          }
+          currentTurn.structuredOutputs.push({
+            agent: author,
+            output: agentOut as Record<string, unknown>,
+          })
         }
       }
     }
@@ -96,6 +98,9 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
   return turns
 }
 
+// ---------------------------------------------------------------------------
+//  Hook
+// ---------------------------------------------------------------------------
 
 export function useSession() {
   const { sessionId: routeSessionId } = useParams<{ sessionId: string }>()
@@ -105,12 +110,12 @@ export function useSession() {
   const [sessionId, setSessionId] = useState<string | null>(
     () => routeSessionId ? decodeURIComponent(routeSessionId) : null
   )
-  const [ready, setReady] = useState(true) // false while loading session data on mount
+  const [ready, setReady] = useState(true)
 
   // ---- data from backend ----
   const [sessions, setSessions] = useState<api.SessionListItem[]>([])
   const [diagrams, setDiagrams] = useState<api.Diagram[]>([])
-  const [rfData, setRfData] = useState<Record<string, api.RfData>>({}) // diagram_id -> React Flow data
+  const [rfData, setRfData] = useState<Record<string, api.RfData>>({})
   const [markdownDocs, setMarkdownDocs] = useState<api.MarkdownDoc[]>([])
   const [actions, setActions] = useState<api.AppAction[]>([])
   const [agents, setAgents] = useState<string[]>([])
@@ -126,11 +131,10 @@ export function useSession() {
   // ---- active view in sidebar ----
   const [sidebarView, setSidebarView] = useState<"chat" | "diagrams" | "docs" | "actions" | "agents">("chat")
 
-  // Ref to avoid stale closures in async callbacks
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
 
-  // ---- boot: load actions + agents + sessions list (session-independent) ----
+  // ---- boot: load actions + agents + sessions list ----
   useEffect(() => {
     api.getActions().then((r) => setActions(r.actions)).catch(console.error)
     api.getAgents().then((r) => setAgents(r.agents)).catch(console.error)
@@ -155,7 +159,6 @@ export function useSession() {
           if (diagRes.rf_data) setRfData(diagRes.rf_data)
         }
         if (mdRes) setMarkdownDocs(mdRes.markdown_docs)
-        // Rehydrate chat from session events
         if (sessRes && sessRes.events.length > 0) {
           const hist = groupEventsIntoTurns(sessRes.events)
           setMessages(hist)
@@ -164,7 +167,7 @@ export function useSession() {
       .finally(() => setReady(true))
   }, [sessionId])
 
-  // ---- sync with route param changes (back/forward via React Router) ----
+  // ---- sync with route param changes ----
   useEffect(() => {
     const id = routeSessionId ? decodeURIComponent(routeSessionId) : null
     setSessionId(id)
@@ -188,7 +191,6 @@ export function useSession() {
     } catch { /* ignore */ }
   }, [])
 
-  // Fetch a specific diagram's React Flow data
   const fetchDiagramSource = useCallback(async (diagramId: string) => {
     const sid = sessionIdRef.current
     if (!sid) return
@@ -228,7 +230,6 @@ export function useSession() {
         navigate(`/session/${encodeURIComponent(res.session_id)}`, { replace: true })
       }
 
-      // Group response events into a single turn
       const parsedTurns = groupEventsIntoTurns(res.events || [])
       let finalTurn: ChatMsg
 
@@ -238,19 +239,18 @@ export function useSession() {
           userText: text.trim(),
         }
       } else {
-        // Fallback if events list is empty
         finalTurn = {
           id: `agent-${Date.now()}`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           userText: text.trim(),
           agentText: res.final_text || "(no response)",
           agentsInvolved: res.routed_to ? [res.routed_to] : ["agent"],
-          routedTo: res.routed_to,
-          structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
+          structuredOutputs: res.structured_output
+            ? [{ agent: res.routed_to || "agent", output: res.structured_output as Record<string, unknown> }]
+            : undefined,
         }
       }
 
-      // Merge reflection fields if returned at top level
       const ref = res.reflection as any
       if (ref) {
         if (ref.interaction_summary) {
@@ -331,8 +331,9 @@ export function useSession() {
           userText: `Action: ${actionName.replace(/_/g, " ")}`,
           agentText: res.final_text || `Action "${actionName}" completed`,
           agentsInvolved: res.routed_to ? [res.routed_to] : ["agent"],
-          routedTo: res.routed_to,
-          structuredOutput: (res.structured_output as Record<string, unknown>) || undefined,
+          structuredOutputs: res.structured_output
+            ? [{ agent: res.routed_to || "agent", output: res.structured_output as Record<string, unknown> }]
+            : undefined,
         }
       }
 
@@ -381,30 +382,24 @@ export function useSession() {
   }, [sending])
 
   return {
-    // session
     sessionId,
     ready,
-    // data
     sessions,
     diagrams,
     rfData,
     markdownDocs,
     actions,
     agents,
-    // messages
     messages,
     sending,
     sendMessage,
     runAction,
-    // selected artifacts
     selectedDiagramId,
     setSelectedDiagramId,
     selectedDocId,
     setSelectedDocId,
-    // sidebar
     sidebarView,
     setSidebarView,
-    // refresh
     refreshSessions,
     refreshDiagrams,
     refreshDocs,

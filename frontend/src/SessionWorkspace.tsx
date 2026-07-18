@@ -126,7 +126,7 @@ function IconRail({
 }
 
 // ---------------------------------------------------------------------------
-//  Agent Output Renderer — displays structured output per agent type
+//  Agent output summary components
 // ---------------------------------------------------------------------------
 
 function DiagramSummary({ output }: { output: Record<string, unknown> }) {
@@ -241,21 +241,6 @@ function ResearchSummary({ output }: { output: Record<string, unknown> }) {
   )
 }
 
-function RouterSummary({ output }: { output: Record<string, unknown> }) {
-  const target = String(output.target ?? "").replace(/_/g, " ")
-  return (
-    <div className="pt-1">
-      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <Workflow className="w-3 h-3" />
-        Routed to <span className="font-medium text-foreground">{target}</span>
-      </div>
-      {output.reasoning && (
-        <p className="text-[10px] text-muted-foreground mt-0.5 pl-5">{String(output.reasoning)}</p>
-      )}
-    </div>
-  )
-}
-
 const _AGENT_RENDERERS: Record<string, (o: Record<string, unknown>) => React.ReactNode> = {
   create_diagram: (o) => <DiagramSummary output={o} />,
   edit_diagram: (o) => <DiagramSummary output={o} />,
@@ -265,7 +250,6 @@ const _AGENT_RENDERERS: Record<string, (o: Record<string, unknown>) => React.Rea
   explainer: (o) => <ExplainerSummary output={o} />,
   gap_suggestion: (o) => <GapSuggestionSummary output={o} />,
   research: (o) => <ResearchSummary output={o} />,
-  router: (o) => <RouterSummary output={o} />,
 }
 
 function AgentOutputRenderer({ output, agent }: { output?: Record<string, unknown>; agent?: string }) {
@@ -273,10 +257,8 @@ function AgentOutputRenderer({ output, agent }: { output?: Record<string, unknow
 
   const agentKey = agent.replace(/^(outlaww_|flow_|c4_)/, "").replace(/_workflow$/, "")
   const renderer = _AGENT_RENDERERS[agentKey]
-
   if (renderer) return renderer(output)
 
-  // Fallback — raw JSON
   return (
     <details className="group pt-1">
       <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
@@ -291,7 +273,7 @@ function AgentOutputRenderer({ output, agent }: { output?: Record<string, unknow
 }
 
 // ---------------------------------------------------------------------------
-//  Chat Message Bubble
+//  Chat Message Bubble — redesigned
 // ---------------------------------------------------------------------------
 
 function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
@@ -311,10 +293,14 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
     )
   }
 
-  const primaryText = msg.interactionSummary || msg.reflectionSummary || msg.agentText
+  const primaryText = msg.interactionSummary || msg.agentText
+  const agents = msg.agentsInvolved.filter(
+    (a) => a !== "reflection" && a !== "outlaww_text_workflow" && a !== "outlaww_action_workflow"
+  )
 
   return (
     <div className="flex flex-col gap-4">
+      {/* ── User message: right-aligned ── */}
       {msg.userText && (
         <div className="flex flex-col gap-1.5 items-end">
           <div className="flex items-center gap-2 text-muted-foreground">
@@ -329,24 +315,23 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
         </div>
       )}
 
-      {primaryText && (
+      {/* ── Consolidated agent response card ── */}
+      {(primaryText || msg.structuredOutputs?.length) && (
         <div className="flex flex-col gap-2">
+          {/* Agent chain header */}
           <div className="flex items-center justify-between text-muted-foreground px-0.5">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Bot className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <div className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider">
-                {msg.agentsInvolved.map((agent, index) => (
+                {agents.map((agent, index) => (
                   <span key={index} className="flex items-center gap-1">
                     {index > 0 && <span className="opacity-40 text-slate-400">→</span>}
-                    <span className={cn(
-                      "font-semibold",
-                      agent === msg.routedTo ? "text-blue-600 dark:text-blue-400" : "text-slate-500"
-                    )}>
+                    <span className="font-semibold text-slate-500">
                       {agent.replace(/^(outlaww_|flow_|c4_)/, "").replace(/_workflow$/, "").replace(/_/g, " ")}
                     </span>
                   </span>
                 ))}
-                {msg.agentsInvolved.length === 0 && (
+                {agents.length === 0 && (
                   <span className="text-slate-500 font-semibold">AI</span>
                 )}
               </div>
@@ -356,11 +341,16 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
             </span>
           </div>
 
+          {/* Main card */}
           <div className="bg-background border border-border rounded-xl p-4 shadow-sm space-y-3">
-            <p className="text-sm font-semibold text-foreground leading-snug">
-              {primaryText}
-            </p>
+            {/* Primary response text (interaction_summary or agent text) */}
+            {primaryText && (
+              <p className="text-sm text-foreground leading-relaxed">
+                {primaryText}
+              </p>
+            )}
 
+            {/* Collapsible full agent text if different from primary */}
             {msg.agentText && primaryText !== msg.agentText && (
               <details className="group">
                 <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
@@ -373,6 +363,16 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
               </details>
             )}
 
+            {/* Structured outputs from each agent */}
+            {msg.structuredOutputs && msg.structuredOutputs.length > 0 && (
+              <div className="space-y-1 pt-1">
+                {msg.structuredOutputs.map((so, i) => (
+                  <AgentOutputRenderer key={i} output={so.output} agent={so.agent} />
+                ))}
+              </div>
+            )}
+
+            {/* Reflection goals */}
             {msg.reflectionGoals && msg.reflectionGoals.length > 0 && (
               <div className="pt-2 border-t border-border">
                 <span className="text-[9px] font-mono uppercase tracking-wider font-semibold text-muted-foreground block mb-2">
@@ -395,8 +395,6 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
                 </div>
               </div>
             )}
-
-            <AgentOutputRenderer output={msg.structuredOutput} agent={msg.routedTo} />
           </div>
         </div>
       )}
@@ -405,7 +403,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
 }
 
 // ---------------------------------------------------------------------------
-//  Chat Pane — fixed scroll, same width used by detail panels
+//  Chat Pane
 // ---------------------------------------------------------------------------
 
 const PANEL_WIDTH = "w-[380px] min-w-[340px] max-w-[480px]"
@@ -450,7 +448,7 @@ function ChatPane({
         </div>
       </div>
 
-      {/* Messages — scrollable */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="p-6 space-y-6">
           {messages.length === 0 && (
@@ -526,7 +524,7 @@ function ChatPane({
 }
 
 // ---------------------------------------------------------------------------
-//  Sidebar Detail Panel — same width as ChatPane
+//  Sidebar Detail Panel
 // ---------------------------------------------------------------------------
 
 function SidebarDetailPanel({
@@ -554,7 +552,6 @@ function SidebarDetailPanel({
     <div
       className={`flex flex-col bg-background border-r border-border z-40 h-full shrink-0 overflow-hidden ${PANEL_WIDTH}`}
     >
-      {/* Header */}
       <div className="flex items-center px-4 h-16 border-b border-border shrink-0">
         <h3 className="text-sm font-bold text-foreground uppercase tracking-widest">
           {view === "diagrams" && "Diagrams"}
@@ -564,7 +561,6 @@ function SidebarDetailPanel({
         </h3>
       </div>
 
-      {/* Content — scrollable */}
       <div className="flex-1 overflow-y-auto min-h-0 p-4">
         {view === "diagrams" && (
           <div className="space-y-1">

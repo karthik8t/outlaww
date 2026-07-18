@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, Literal, Optional, Union
@@ -1614,8 +1616,43 @@ def _to_model(output: Any, model_cls: type) -> Any | None:
     return None
 
 
+def _try_parse_text_as_output(
+    text: str, model_cls: type
+) -> dict[str, Any] | None:
+    """Try to parse event text as JSON structured output.
+
+    The ADK's LlmAgent stores output_schema results as JSON text in
+    event.content.parts[].text (event.output is never set).  Attempt
+    JSON extraction from the text and convert to the target model.
+    """
+    if not text or not text.strip():
+        return None
+    # Try full-text as JSON first
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        # Try to find a JSON code block
+        m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+        if m:
+            try:
+                data = json.loads(m.group(1))
+            except json.JSONDecodeError:
+                return None
+        else:
+            return None
+    model = _to_model(data, model_cls)
+    if model is None:
+        return None
+    return model.model_dump(mode="json")
+
+
 def decode_adk_event(event: Any) -> DecodedEvent:
-    """Convert a raw ADK Event into a DecodedEvent with agent_output dict."""
+    """Convert a raw ADK Event into a DecodedEvent with agent_output dict.
+
+    The ADK's LlmAgent stores structured output (from output_schema) as
+    JSON text in event.content.parts[].text — event.output is never set.
+    We attempt JSON extraction from the text for known agent authors.
+    """
     author = getattr(event, "author", "unknown")
     event_id = getattr(event, "id", "")
     invocation_id = getattr(event, "invocation_id", "")
@@ -1625,6 +1662,7 @@ def decode_adk_event(event: Any) -> DecodedEvent:
     error_code = getattr(event, "error_code", None) or ""
     error_message = getattr(event, "error_message", None) or ""
 
+    # event.output is always None for LlmAgent with output_schema
     output = getattr(event, "output", None)
 
     text = ""
@@ -1682,11 +1720,20 @@ def decode_adk_event(event: Any) -> DecodedEvent:
         "timestamp": timestamp,
     }
 
+    # Try to extract structured output:
+    # 1. From event.output (some ADK nodes set this)
+    # 2. From text content (LlmAgent stores output_schema as JSON text)
     model_cls = _AUTHOR_MODEL_MAP.get(author)
     if model_cls:
-        model = _to_model(output, model_cls)
-        if model is not None:
-            kw["agent_output"] = {author: model.model_dump(mode="json")}
+        model_dict: dict[str, Any] | None = None
+        if output is not None:
+            model = _to_model(output, model_cls)
+            if model is not None:
+                model_dict = model.model_dump(mode="json")
+        if model_dict is None:
+            model_dict = _try_parse_text_as_output(text, model_cls)
+        if model_dict is not None:
+            kw["agent_output"] = {author: model_dict}
 
     return DecodedEvent(**kw)
 
