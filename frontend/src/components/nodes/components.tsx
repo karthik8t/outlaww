@@ -86,46 +86,34 @@ interface NodeTypeConfig {
 }
 
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
-  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-100 dark:bg-blue-900/40",   badgeText: "text-blue-700 dark:text-blue-300",   accent: "text-blue-600 dark:text-blue-400",   border: "border-blue-300 dark:border-blue-600",   light: "bg-blue-50/20 dark:bg-blue-950/10",   accentBg: "bg-blue-500"   } },
-  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-300 dark:border-violet-600/70", light: "bg-violet-50/20 dark:bg-violet-950/10", accentBg: "bg-violet-500" } },
-  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-100 dark:bg-amber-900/40",  badgeText: "text-amber-700 dark:text-amber-300",  accent: "text-amber-600 dark:text-amber-400",  border: "border-amber-300 dark:border-amber-600/70",  light: "bg-amber-50/20 dark:bg-amber-950/10",  accentBg: "bg-amber-500"  } },
-  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40",   badgeText: "text-cyan-700 dark:text-cyan-300",   accent: "text-cyan-600 dark:text-cyan-400",   border: "border-cyan-300 dark:border-cyan-600/70",   light: "bg-cyan-50/20 dark:bg-cyan-950/10",   accentBg: "bg-cyan-500"   } },
-  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-100 dark:bg-teal-900/40",   badgeText: "text-teal-700 dark:text-teal-300",   accent: "text-teal-600 dark:text-teal-400",   border: "border-teal-300 dark:border-teal-600/70",   light: "bg-teal-50/20 dark:bg-teal-950/10",   accentBg: "bg-teal-500"   } },
-  group: {
-    label: "Group",
-    dashed: true,
-    zIndex: 0,
-    theme: {
-      badge: "bg-gray-200 dark:bg-gray-700",
-      badgeText: "text-gray-600 dark:text-gray-300",
-      accent: "text-gray-600 dark:text-gray-400",
-      border: "border-gray-400 dark:border-gray-500",
-      light: "bg-gray-50 dark:bg-gray-900/20",
-      accentBg: "bg-gray-400",
-    },
-  },
-  c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
-  c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-100 dark:bg-indigo-900/40", badgeText: "text-indigo-700 dark:text-indigo-300", accent: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-400 dark:border-indigo-500", light: "bg-indigo-50/50 dark:bg-indigo-950/20", accentBg: "bg-indigo-500" } },
-  c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
-  c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-100 dark:bg-purple-900/40", badgeText: "text-purple-700 dark:text-purple-300", accent: "text-purple-600 dark:text-purple-400", border: "border-purple-400 dark:border-purple-500", light: "bg-purple-50/50 dark:bg-purple-950/20", accentBg: "bg-violet-500" } },
-  c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-100 dark:bg-fuchsia-900/40", badgeText: "text-fuchsia-700 dark:text-fuchsia-300", accent: "text-fuchsia-600 dark:text-fuchsia-400", border: "border-fuchsia-300 dark:border-fuchsia-500/60", light: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10", accentBg: "bg-fuchsia-500" } },
-  flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-100 dark:bg-amber-900/40", badgeText: "text-amber-700 dark:text-amber-300", accent: "text-amber-600 dark:text-amber-400", border: "border-amber-400 dark:border-amber-500", light: "bg-amber-50/50 dark:bg-amber-950/20", accentBg: "bg-amber-500" } },
-  flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-red-100 dark:bg-red-900/40", badgeText: "text-red-700 dark:text-red-300", accent: "text-red-600 dark:text-red-400", border: "border-red-400 dark:border-red-500", light: "bg-red-50/50 dark:bg-red-950/20", accentBg: "bg-red-500" } },
-  flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-100 dark:bg-emerald-900/40", badgeText: "text-emerald-700 dark:text-emerald-300", accent: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-400 dark:border-emerald-500", light: "bg-emerald-50/50 dark:bg-emerald-950/20", accentBg: "bg-emerald-500" } },
-  flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/30", accentBg: "bg-gray-500" } },
-  cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-100 dark:bg-blue-900/40", badgeText: "text-blue-700 dark:text-blue-300", accent: "text-blue-600 dark:text-blue-400", border: "border-blue-400 dark:border-blue-500", light: "bg-blue-50/50 dark:bg-blue-950/20", accentBg: "bg-blue-500" } },
-  cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-100 dark:bg-cyan-900/40", badgeText: "text-cyan-700 dark:text-cyan-300", accent: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-400 dark:border-cyan-500", light: "bg-cyan-50/50 dark:bg-cyan-950/20", accentBg: "bg-cyan-500" } },
-  cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-100 dark:bg-violet-900/40", badgeText: "text-violet-700 dark:text-violet-300", accent: "text-violet-600 dark:text-violet-400", border: "border-violet-400 dark:border-violet-500", light: "bg-violet-50/50 dark:bg-violet-950/20", accentBg: "bg-violet-500" } },
-  cloudNetwork:  { label: "Network",  dashed: false, zIndex: 10, theme: { badge: "bg-teal-100 dark:bg-teal-900/40", badgeText: "text-teal-700 dark:text-teal-300", accent: "text-teal-600 dark:text-teal-400", border: "border-teal-400 dark:border-teal-500", light: "bg-teal-50/50 dark:bg-teal-950/20", accentBg: "bg-teal-500" } },
-  cloudMessaging:{ label: "Messaging",dashed: false, zIndex: 10, theme: { badge: "bg-orange-100 dark:bg-orange-900/40", badgeText: "text-orange-700 dark:text-orange-300", accent: "text-orange-600 dark:text-orange-400", border: "border-orange-400 dark:border-orange-500", light: "bg-orange-50/50 dark:bg-orange-950/20", accentBg: "bg-orange-500" } },
-  cloudSecurity: { label: "Security", dashed: false, zIndex: 10, theme: { badge: "bg-slate-200 dark:bg-slate-700", badgeText: "text-slate-600 dark:text-slate-300", accent: "text-slate-600 dark:text-slate-400", border: "border-slate-400 dark:border-slate-500", light: "bg-slate-50 dark:bg-slate-950/20", accentBg: "bg-slate-500" } },
-  cloudAnalytics:{ label: "Analytics",dashed: false, zIndex: 10, theme: { badge: "bg-pink-100 dark:bg-pink-900/40", badgeText: "text-pink-700 dark:text-pink-300", accent: "text-pink-600 dark:text-pink-400", border: "border-pink-400 dark:border-pink-500", light: "bg-pink-50/50 dark:bg-pink-950/20", accentBg: "bg-pink-500" } },
-  cloudBoundary: { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-200 dark:bg-gray-700", badgeText: "text-gray-500 dark:text-gray-400", accent: "text-gray-500 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/20", accentBg: "bg-gray-500" } },
+  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-950/40",   badgeText: "text-blue-400",   accent: "text-blue-400",   border: "border-blue-800/50",   light: "bg-blue-950/10",   accentBg: "bg-blue-500/40"   } },
+  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
+  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-950/40",  badgeText: "text-amber-400",  accent: "text-amber-400",  border: "border-amber-800/50",  light: "bg-amber-950/10",  accentBg: "bg-amber-500/40"  } },
+  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-950/40",   badgeText: "text-cyan-400",   accent: "text-cyan-400",   border: "border-cyan-800/50",   light: "bg-cyan-950/10",   accentBg: "bg-cyan-500/40"   } },
+  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-950/40",   badgeText: "text-teal-400",   accent: "text-teal-400",   border: "border-teal-800/50",   light: "bg-teal-950/10",   accentBg: "bg-teal-500/40"   } },
+  group:           { label: "Group",   dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",   accentBg: "bg-gray-500/30"   } },
+  c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-950/40", badgeText: "text-indigo-400", accent: "text-indigo-400", border: "border-indigo-800/50", light: "bg-indigo-950/10", accentBg: "bg-indigo-500/40" } },
+  c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-950/40", badgeText: "text-indigo-400", accent: "text-indigo-400", border: "border-indigo-800/50", light: "bg-indigo-950/10", accentBg: "bg-indigo-500/40" } },
+  c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
+  c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-950/40", badgeText: "text-purple-400", accent: "text-purple-400", border: "border-purple-800/50", light: "bg-purple-950/10", accentBg: "bg-purple-500/40" } },
+  c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-950/40",badgeText: "text-fuchsia-400",accent: "text-fuchsia-400", border: "border-fuchsia-800/50",light: "bg-fuchsia-950/10", accentBg: "bg-fuchsia-500/40" } },
+  flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-950/40", badgeText: "text-amber-400", accent: "text-amber-400", border: "border-amber-800/50", light: "bg-amber-950/10", accentBg: "bg-amber-500/40" } },
+  flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-rose-950/40",  badgeText: "text-rose-400",  accent: "text-rose-400",  border: "border-rose-800/50",  light: "bg-rose-950/10",   accentBg: "bg-rose-500/40"  } },
+  flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-950/40",badgeText: "text-emerald-400",accent: "text-emerald-400", border: "border-emerald-800/50",light: "bg-emerald-950/10", accentBg: "bg-emerald-500/40" } },
+  flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
+  cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-950/40",   badgeText: "text-blue-400",   accent: "text-blue-400",   border: "border-blue-800/50",   light: "bg-blue-950/10",   accentBg: "bg-blue-500/40"   } },
+  cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-950/40",   badgeText: "text-cyan-400",   accent: "text-cyan-400",   border: "border-cyan-800/50",   light: "bg-cyan-950/10",   accentBg: "bg-cyan-500/40"   } },
+  cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
+  cloudNetwork:  { label: "Network",  dashed: false, zIndex: 10, theme: { badge: "bg-teal-950/40",   badgeText: "text-teal-400",   accent: "text-teal-400",   border: "border-teal-800/50",   light: "bg-teal-950/10",   accentBg: "bg-teal-500/40"   } },
+  cloudMessaging:{ label: "Messaging",dashed: false, zIndex: 10, theme: { badge: "bg-pink-950/40",   badgeText: "text-pink-400",   accent: "text-pink-400",   border: "border-pink-800/50",   light: "bg-pink-950/10",   accentBg: "bg-pink-500/40"   } },
+  cloudSecurity: { label: "Security", dashed: false, zIndex: 10, theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
+  cloudAnalytics:{ label: "Analytics",dashed: false, zIndex: 10, theme: { badge: "bg-rose-950/40",   badgeText: "text-rose-400",   accent: "text-rose-400",   border: "border-rose-800/50",   light: "bg-rose-950/10",   accentBg: "bg-rose-500/40"   } },
+  cloudBoundary: { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
 }
 
 const DEFAULT_NODE_CONFIG: NodeTypeConfig = {
   label: "Node", dashed: false, zIndex: 10,
-  theme: { badge: "bg-gray-100 dark:bg-gray-800", badgeText: "text-gray-600 dark:text-gray-300", accent: "text-gray-600 dark:text-gray-400", border: "border-gray-300 dark:border-gray-600", light: "bg-gray-50 dark:bg-gray-900/10", accentBg: "bg-gray-500" },
+  theme: { badge: "bg-gray-800/50", badgeText: "text-gray-400", accent: "text-gray-400", border: "border-gray-700/50", light: "bg-gray-900/20", accentBg: "bg-gray-500/30" },
 }
 
 function getNodeConfig(nodeType: string): NodeTypeConfig {
@@ -214,7 +202,7 @@ const GROUP_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>
 }
 
 // ============================================================================
-// Card Node — Swiss minimalistic with sharp lines
+// Card Node — Blueprint card with left accent bar
 // ============================================================================
 
 function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -234,11 +222,11 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
   return (
     <div
       className={cn(
-        "group relative border bg-background text-foreground transition-all duration-150",
-        "rounded-sm",
+        "group relative border bg-[#0A0A0A] text-foreground transition-all duration-150",
+        "rounded-none",
         cfg.dashed ? "border-dashed" : "border-solid",
-        "min-w-[240px] max-w-[340px]",
-        selected ? "ring-1 ring-ring" : "hover:shadow-sm",
+        "min-w-[260px] max-w-[360px]",
+        selected ? "ring-1 ring-ring" : "hover:border-foreground/20",
         theme.border,
       )}
     >
@@ -246,84 +234,83 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
 
-      {/* Swiss accent bar — 4px solid top bar */}
-      <div className={cn("h-1", theme.accentBg)} />
+      {/* Left accent bar */}
+      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", theme.accentBg)} />
 
-      <div className="p-3">
-        {/* Header: Icon + Type label + Status dot */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {IconComponent && (
-              <IconComponent className={cn("w-3.5 h-3.5 stroke-[2]", theme.accent)} />
+      <div className="pl-[18px] pr-4 pt-3.5 pb-3.5">
+        {/* Header with icon box + stacked title */}
+        <div className="flex items-start gap-3 mb-3 border-b border-[#1C1C1C] pb-3">
+          {IconComponent && (
+            <div className="w-8 h-8 flex items-center justify-center bg-[#141414] border border-[#2E2E2E] shrink-0">
+              <IconComponent className={cn("w-4 h-4 stroke-[2]", theme.accent)} />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className={cn(
+                "inline-flex items-center px-1.5 py-[2px] text-[10px] font-mono font-medium leading-none",
+                theme.badge, theme.badgeText,
+              )}>
+                {cfg.label}
+              </span>
+              {data.statusState && (
+                <span className={cn("w-1.5 h-1.5 shrink-0", STATUS_DOTS[data.statusState])} />
+              )}
+            </div>
+            <div className="text-sm font-semibold text-foreground leading-snug">
+              {data.label}
+            </div>
+            {data.subtitle && (
+              <div className="text-[12px] text-muted-foreground/60 leading-normal mt-px">
+                {data.subtitle}
+              </div>
             )}
-            <span className={cn(
-              "inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider font-medium leading-none",
-              "rounded-sm",
-              theme.badge, theme.badgeText,
-            )}>
-              {cfg.label}
-            </span>
           </div>
-          {data.statusState && (
-            <span className={cn("w-2 h-2 rounded-sm shrink-0", STATUS_DOTS[data.statusState])} />
-          )}
         </div>
 
-        {/* Label + Subtitle */}
-        <div className="mb-1.5">
-          <h3 className="text-sm font-semibold text-foreground leading-snug">
-            {data.label}
-          </h3>
-          {data.subtitle && (
-            <p className="text-xs text-muted-foreground leading-normal mt-0.5 line-clamp-2">
-              {data.subtitle}
-            </p>
-          )}
-        </div>
-
-        {/* Purpose — clean text, no decoration */}
+        {/* Purpose */}
         {data.purpose && (
-          <p className="text-[11px] text-muted-foreground/60 leading-relaxed line-clamp-2 mb-1">
+          <p className="text-[12px] text-muted-foreground/50 leading-relaxed mb-3 line-clamp-2">
             {data.purpose}
           </p>
         )}
 
         {/* Tech stack */}
         {hasTech && (
-          <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-border">
+          <div className="flex flex-wrap gap-1.5 pt-3 border-t border-[#1C1C1C]">
             {data.languageRuntime !== "none" && (
-              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
                 {data.languageRuntime}
               </span>
             )}
             {data.frameworkLibrary !== "none" && (
-              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
                 {data.frameworkLibrary}
               </span>
             )}
             {data.databaseEngine !== "none" && (
-              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border bg-muted text-muted-foreground">
+              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
                 {data.databaseEngine}
               </span>
             )}
             {data.cloudServiceName !== "none" && (
-              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
                 {data.cloudServiceName}
               </span>
             )}
             {data.cloudTier !== "none" && (
-              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm text-muted-foreground">
+              <span className="px-2 py-[3px] text-[10px] font-mono text-muted-foreground/50">
                 {data.cloudTier}
               </span>
             )}
-            {data.metadataTags && data.metadataTags.slice(0, 2).map((tag, i) => (
-              <span key={i} className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm border border-border text-muted-foreground">
+            {data.metadataTags && data.metadataTags.slice(0, 3).map((tag, i) => (
+              <span key={i} className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
                 {tag}
               </span>
             ))}
-            {data.metadataTags && data.metadataTags.length > 2 && (
-              <span className="px-1.5 py-[2px] text-[9px] font-mono font-medium rounded-sm text-muted-foreground">
-                +{data.metadataTags.length - 2}
+            {data.metadataTags && data.metadataTags.length > 3 && (
+              <span className="px-2 py-[3px] text-[10px] font-mono text-muted-foreground/50">
+                +{data.metadataTags.length - 3}
               </span>
             )}
           </div>
@@ -332,12 +319,12 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
         {/* DB Schema */}
         {hasDbInfo && (
           <div className={cn(
-            "mt-2 pt-2 text-[10px] font-mono text-muted-foreground truncate",
-            hasTech && "border-t border-border",
+            "pt-3 text-[11px] font-mono text-muted-foreground/60 truncate",
+            hasTech && "border-t border-[#1C1C1C] mt-3",
           )}>
-            <span className="font-semibold text-foreground/70">{data.tableName}</span>
+            <span className="font-medium text-foreground/70">{data.tableName}</span>
             {data.columns && data.columns.length > 0 && (
-              <span className="text-muted-foreground/50"> ({data.columns.join(", ")})</span>
+              <span className="text-muted-foreground/40"> ({data.columns.join(", ")})</span>
             )}
           </div>
         )}
@@ -347,7 +334,7 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
 }
 
 // ============================================================================
-// Container Node — Swiss minimalistic groups
+// Container Node — Blueprint container with left accent bar
 // ============================================================================
 
 function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
@@ -360,7 +347,7 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
   return (
     <div
       className={cn(
-        "group w-full h-full rounded-sm border transition-shadow relative",
+        "group w-full h-full rounded-none border transition-shadow relative",
         cfg.dashed ? "border-dashed" : "border-solid",
         theme.border,
         theme.light,
@@ -378,29 +365,29 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
         <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
       ))}
 
-      {/* Accent bar */}
-      <div className={cn("h-1 rounded-t-sm", theme.accentBg)} />
+      {/* Left accent bar */}
+      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", theme.accentBg)} />
 
       {/* Drag handle header */}
       <div
         className={cn(
           "rf-group-drag-handle",
-          "flex items-center gap-2 px-3 py-1.5",
+          "flex items-center gap-3 pl-[18px] pr-4 py-2.5",
           "border-b cursor-grab active:cursor-grabbing select-none",
-          theme.border,
+          "border-[#2E2E2E]",
         )}
       >
-        <GroupIcon className={cn("w-3.5 h-3.5 stroke-[2] shrink-0", theme.accent)} />
-        <span className="text-xs font-semibold text-foreground/80 truncate">
+        <GroupIcon className={cn("w-4 h-4 stroke-[2] shrink-0", theme.accent)} />
+        <span className="text-sm font-medium text-foreground/80 truncate">
           {data.label}
         </span>
         {data.subtitle && (
-          <span className="text-[10px] text-muted-foreground/50 truncate hidden sm:inline">
+          <span className="text-[11px] text-muted-foreground/50 truncate hidden sm:inline">
             — {data.subtitle}
           </span>
         )}
         <span className={cn(
-          "ml-auto px-1.5 py-[2px] text-[8px] font-mono uppercase tracking-wider shrink-0 rounded-sm",
+          "ml-auto px-1.5 py-[2px] text-[9px] font-mono font-medium shrink-0",
           theme.badge, theme.badgeText,
         )}>
           {cfg.label}
@@ -421,7 +408,7 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
   return (
     <div
       className={cn(
-        "relative w-full h-full rounded-sm border-2 border-dashed transition-shadow",
+        "relative w-full h-full rounded-none border-2 border-dashed transition-shadow",
         selected && "ring-1 ring-ring",
         theme.border,
         theme.light,
@@ -434,31 +421,33 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
         lineClassName="!border-foreground/30"
         handleClassName="!bg-foreground/50 !w-2.5 !h-2.5 !border-0"
       />
+      {/* Left accent bar */}
+      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", theme.accentBg)} />
       <div className={cn(
-        "flex items-center gap-2 px-3 py-1.5 border-b border-dashed",
-        theme.border,
+        "flex items-center gap-2 pl-[18px] pr-3 py-2 border-b border-dashed",
+        "border-[#2E2E2E]",
       )}>
         <span className={cn(
-          "text-[8px] font-mono uppercase tracking-widest font-semibold leading-none",
+          "text-[10px] font-mono font-medium leading-none",
           theme.badgeText,
         )}>
           {cfg.label}
         </span>
-        <span className="text-xs font-medium text-foreground/70 truncate">{data.label}</span>
+        <span className="text-sm font-medium text-foreground/70 truncate">{data.label}</span>
       </div>
       {data.title && (
-        <div className="px-3 py-1.5 border-b border-dashed" style={{ borderColor: "inherit" }}>
+        <div className="px-[18px] py-2 border-b border-dashed" style={{ borderColor: "inherit" }}>
           <h4 className={cn("text-sm font-semibold", theme.accent)}>{data.title}</h4>
         </div>
       )}
       {data.description && (
-        <div className="px-3 py-1.5">
+        <div className="px-[18px] py-2">
           <p className="text-xs text-muted-foreground">{data.description}</p>
         </div>
       )}
       {data.purpose && !data.title && !data.description && (
-        <div className="px-3 py-2">
-          <p className="text-[11px] text-muted-foreground/60">{data.purpose}</p>
+        <div className="px-[18px] py-2">
+          <p className="text-[12px] text-muted-foreground/60">{data.purpose}</p>
         </div>
       )}
     </div>
@@ -475,17 +464,17 @@ function SwimlaneNode({ data, selected }: { data: NodeData; selected?: boolean }
   return (
     <div
       className={cn(
-        "relative flex rounded-sm border border-border bg-muted/20 transition-shadow min-h-[80px]",
+        "relative flex rounded-none border border-border bg-muted/20 transition-shadow min-h-[80px]",
         isHorizontal ? "flex-row" : "flex-col",
         selected && "ring-1 ring-ring",
       )}
     >
       <div
         className={cn(
-          "flex items-center justify-center font-semibold text-muted-foreground",
+          "flex items-center justify-center font-medium text-muted-foreground",
           isHorizontal
-            ? "w-7 min-h-full border-r border-border text-[9px] [writing-mode:vertical-rl] tracking-widest uppercase"
-            : "h-6 w-full border-b border-border text-[9px] tracking-widest uppercase",
+            ? "w-8 min-h-full border-r border-[#2E2E2E] text-[10px] [writing-mode:vertical-rl] tracking-wider"
+            : "h-7 w-full border-b border-[#2E2E2E] text-[10px] tracking-wider",
         )}
       >
         {data.label || "Swimlane"}
