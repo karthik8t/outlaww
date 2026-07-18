@@ -32,7 +32,8 @@ export interface ChatResponse {
   reflection: unknown
   diagrams: Diagram[]
   rf_data: Record<string, RfData>  // diagram_id -> React Flow data
-  markdown_docs: MarkdownDoc[]
+  documents?: Document[]
+  markdown_docs: Document[]
   active_ids: Record<string, string>
 }
 
@@ -94,6 +95,8 @@ export interface AgentOutputDict {
   create_diagram?: AgentDiagramOutput
   edit_diagram?: AgentDiagramOutput
   patch_diagram?: AgentDiagramOutput
+  create_document?: AgentCreateMarkdownOutput
+  edit_document?: AgentEditMarkdownOutput
   create_markdown?: AgentCreateMarkdownOutput
   edit_markdown?: AgentEditMarkdownOutput
   explainer?: AgentExplainerOutput
@@ -158,19 +161,26 @@ export interface Diagram {
   updated_at: string
 }
 
-export interface MarkdownDocsResponse {
+export interface DocumentsResponse {
   session_id: string
-  markdown_docs: MarkdownDoc[]
-  active_markdown_id: string
+  documents: Document[]
+  markdown_docs: Document[] // backward-compat alias
+  active_document_id: string
+  active_markdown_id: string // backward-compat alias
 }
 
-export interface MarkdownDoc {
+export type MarkdownDocsResponse = DocumentsResponse;
+
+export interface Document {
   id: string
-  name: string
+  title?: string
+  name?: string
   content: string
   frontmatter: Record<string, unknown>
   [k: string]: unknown
 }
+
+export type MarkdownDoc = Document;
 
 export interface ActionsResponse {
   actions: AppAction[]
@@ -249,9 +259,14 @@ export async function getDiagrams(sessionId: string): Promise<DiagramsResponse> 
   return get<DiagramsResponse>(`/chat/diagrams/${sessionId}`)
 }
 
+/** Get all documents for a session. */
+export async function getDocuments(sessionId: string): Promise<DocumentsResponse> {
+  return get<DocumentsResponse>(`/chat/documents/${sessionId}`)
+}
+
 /** Get all markdown docs for a session. */
 export async function getMarkdownDocs(sessionId: string): Promise<MarkdownDocsResponse> {
-  return get<MarkdownDocsResponse>(`/chat/markdown/${sessionId}`)
+  return getDocuments(sessionId)
 }
 
 /** List all predefined actions. */

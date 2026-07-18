@@ -228,12 +228,19 @@ class WorkflowRunner:
             return []
         return session.state.get("diagrams", [])
 
-    async def get_markdown_docs(self) -> list[dict[str, Any]]:
-        """Return all persisted markdown docs from the session."""
+    async def get_documents(self) -> list[dict[str, Any]]:
+        """Return all persisted documents from the session."""
         session = await self.get_session()
         if session is None:
             return []
-        return session.state.get("markdown_docs", [])
+        raw = session.state.get("documents")
+        if raw is None:
+            raw = session.state.get("markdown_docs", [])
+        return raw
+
+    async def get_markdown_docs(self) -> list[dict[str, Any]]:
+        """Return all persisted markdown docs from the session (backward-compat alias)."""
+        return await self.get_documents()
 
     async def get_active_ids(self) -> dict[str, str]:
         """Return active artifact IDs from the session."""

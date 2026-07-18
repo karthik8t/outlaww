@@ -122,7 +122,7 @@ export function useSession() {
   const [sessions, setSessions] = useState<api.SessionListItem[]>([])
   const [diagrams, setDiagrams] = useState<api.Diagram[]>([])
   const [rfData, setRfData] = useState<Record<string, api.RfData>>({})
-  const [markdownDocs, setMarkdownDocs] = useState<api.MarkdownDoc[]>([])
+  const [documents, setDocuments] = useState<api.Document[]>([])
   const [actions, setActions] = useState<api.AppAction[]>([])
   const [agents, setAgents] = useState<string[]>([])
 
@@ -132,7 +132,7 @@ export function useSession() {
 
   // ---- selected artifacts ----
   const [selectedDiagramId, setSelectedDiagramId] = useState<string | null>(null)
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null)
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null)
 
   // ---- active view in sidebar ----
   const [sidebarView, setSidebarView] = useState<"chat" | "diagrams" | "docs" | "actions" | "agents">("chat")
@@ -156,18 +156,34 @@ export function useSession() {
     setReady(false)
     Promise.all([
       api.getDiagrams(sessionId).catch(() => null),
-      api.getMarkdownDocs(sessionId).catch(() => null),
+      api.getDocuments(sessionId).catch(() => null),
       api.getSession(sessionId).catch(() => null),
     ])
-      .then(([diagRes, mdRes, sessRes]) => {
+      .then(([diagRes, docRes, sessRes]) => {
         if (diagRes) {
           setDiagrams(diagRes.diagrams)
           if (diagRes.rf_data) setRfData(diagRes.rf_data)
+          if (diagRes.diagrams.length > 0) {
+            setSelectedDiagramId(diagRes.active_diagram_id || diagRes.diagrams[0].id)
+          }
         }
-        if (mdRes) setMarkdownDocs(mdRes.markdown_docs)
+        if (docRes) {
+          const docsList = docRes.documents || docRes.markdown_docs || []
+          setDocuments(docsList)
+          if (docsList.length > 0) {
+            setSelectedDocumentId(docRes.active_document_id || docRes.active_markdown_id || docsList[0].id)
+          }
+        }
         if (sessRes && sessRes.events.length > 0) {
           const hist = groupEventsIntoTurns(sessRes.events)
           setMessages(hist)
+          const activeIds = (sessRes as any).state?.active_ids
+          if (activeIds) {
+            if (activeIds.active_diagram_id) setSelectedDiagramId(activeIds.active_diagram_id)
+            if (activeIds.active_document_id || activeIds.active_markdown_id) {
+              setSelectedDocumentId(activeIds.active_document_id || activeIds.active_markdown_id)
+            }
+          }
         }
       })
       .finally(() => setReady(true))
@@ -206,14 +222,15 @@ export function useSession() {
     } catch { /* ignore */ }
   }, [])
 
-  const refreshDocs = useCallback(async () => {
+  const refreshDocuments = useCallback(async () => {
     const sid = sessionIdRef.current
     if (!sid) return
     try {
-      const res = await api.getMarkdownDocs(sid)
-      setMarkdownDocs(res.markdown_docs)
+      const res = await api.getDocuments(sid)
+      setDocuments(res.documents || res.markdown_docs || [])
     } catch { /* ignore */ }
   }, [])
+
 
   // ---- send message ----
   const sendMessage = useCallback(async (text: string) => {
@@ -266,7 +283,25 @@ export function useSession() {
         setDiagrams(res.diagrams)
       }
       if (res.rf_data) setRfData(res.rf_data)
-      if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
+      const docsList = res.documents || res.markdown_docs
+      if (docsList && docsList.length > 0) {
+        setDocuments(docsList)
+      }
+
+      const activeIds = (res as any).active_ids
+      if (activeIds) {
+        if (activeIds.active_diagram_id) setSelectedDiagramId(activeIds.active_diagram_id)
+        if (activeIds.active_document_id || activeIds.active_markdown_id) {
+          setSelectedDocumentId(activeIds.active_document_id || activeIds.active_markdown_id)
+        }
+      } else {
+        if (res.diagrams.length > 0) {
+          setSelectedDiagramId(res.diagrams[res.diagrams.length - 1].id)
+        }
+        if (docsList && docsList.length > 0) {
+          setSelectedDocumentId(docsList[docsList.length - 1].id)
+        }
+      }
     } catch (err) {
       console.error("chat error:", err)
       const errMsg: ChatMsg = {
@@ -338,7 +373,25 @@ export function useSession() {
         setDiagrams(res.diagrams)
       }
       if (res.rf_data) setRfData(res.rf_data)
-      if (res.markdown_docs.length > 0) setMarkdownDocs(res.markdown_docs)
+      const docsList = res.documents || res.markdown_docs
+      if (docsList && docsList.length > 0) {
+        setDocuments(docsList)
+      }
+
+      const activeIds = (res as any).active_ids
+      if (activeIds) {
+        if (activeIds.active_diagram_id) setSelectedDiagramId(activeIds.active_diagram_id)
+        if (activeIds.active_document_id || activeIds.active_markdown_id) {
+          setSelectedDocumentId(activeIds.active_document_id || activeIds.active_markdown_id)
+        }
+      } else {
+        if (res.diagrams.length > 0) {
+          setSelectedDiagramId(res.diagrams[res.diagrams.length - 1].id)
+        }
+        if (docsList && docsList.length > 0) {
+          setSelectedDocumentId(docsList[docsList.length - 1].id)
+        }
+      }
     } catch (err) {
       console.error("action error:", err)
       const errMsg: ChatMsg = {
@@ -365,7 +418,8 @@ export function useSession() {
     sessions,
     diagrams,
     rfData,
-    markdownDocs,
+    documents,
+    markdownDocs: documents, // backward-compat alias
     actions,
     agents,
     messages,
@@ -374,13 +428,16 @@ export function useSession() {
     runAction,
     selectedDiagramId,
     setSelectedDiagramId,
-    selectedDocId,
-    setSelectedDocId,
+    selectedDocumentId,
+    setSelectedDocumentId,
+    selectedDocId: selectedDocumentId, // backward-compat alias
+    setSelectedDocId: setSelectedDocumentId, // backward-compat alias
     sidebarView,
     setSidebarView,
     refreshSessions,
     refreshDiagrams,
-    refreshDocs,
+    refreshDocuments,
+    refreshDocs: refreshDocuments, // backward-compat alias
     fetchDiagramSource,
   }
 }

@@ -1146,7 +1146,7 @@ class MarkdownMetadata(BaseModel):
     last_modified: Optional[datetime] = None
 
 
-class MarkdownArtifact(BaseModel):
+class Document(BaseModel):
     """
     Industry-standard markdown document representation.
 
@@ -1193,6 +1193,9 @@ class MarkdownArtifact(BaseModel):
         if len(text) > max_chars:
             return text[:max_chars].rsplit(" ", 1)[0] + "..."
         return text
+
+
+MarkdownArtifact = Document
 
 
 # ===========================================================================
@@ -1394,8 +1397,8 @@ class Reflections(BaseModel):
 # ===========================================================================
 
 
-class CreateMarkdownOutput(BaseModel):
-    """Deterministic output for the create_markdown agent."""
+class CreateDocumentOutput(BaseModel):
+    """Deterministic output for the create_document agent."""
     title: str = Field(description="Title of the document")
     description: str = Field(description="A brief description of what this document covers")
     content: str = Field(
@@ -1404,6 +1407,9 @@ class CreateMarkdownOutput(BaseModel):
         description="The complete markdown content of the document (excluding frontmatter). Target between 1,000 and 8,000 characters."
     )
     sections_summary: list[str] = Field(default_factory=list, description="A list of section names/headings included in this document")
+
+
+CreateMarkdownOutput = CreateDocumentOutput
 
 
 class MarkdownEditOperation(BaseModel):
@@ -1416,8 +1422,8 @@ class MarkdownEditOperation(BaseModel):
     section: Optional[MarkdownSection] = None
 
 
-class EditMarkdownOutput(BaseModel):
-    """Deterministic output for the edit_markdown agent."""
+class EditDocumentOutput(BaseModel):
+    """Deterministic output for the edit_document agent."""
     title: str = Field(description="The updated title of the document")
     content: str = Field(
         min_length=100,
@@ -1426,6 +1432,9 @@ class EditMarkdownOutput(BaseModel):
     )
     reasoning: str = Field(description="Reasoning for these edits")
     changes_summary: list[str] = Field(default_factory=list, description="A list of descriptions of the changes made")
+
+
+EditMarkdownOutput = EditDocumentOutput
 
 
 class ExplainerOutput(BaseModel):
@@ -1496,8 +1505,10 @@ class RouteTarget(str, Enum):
     CREATE_DIAGRAM = "create_diagram"
     EDIT_DIAGRAM = "edit_diagram"
     PATCH_DIAGRAM = "patch_diagram"
-    CREATE_MARKDOWN = "create_markdown"
-    EDIT_MARKDOWN = "edit_markdown"
+    CREATE_DOCUMENT = "create_document"
+    EDIT_DOCUMENT = "edit_document"
+    CREATE_MARKDOWN = "create_markdown"  # backward compat
+    EDIT_MARKDOWN = "edit_markdown"      # backward compat
     EXPLAINER = "explainer"
     GAP_SUGGESTION = "gap_suggestion"
     RESEARCH = "research"
@@ -1600,6 +1611,8 @@ _AUTHOR_MODEL_MAP: dict[str, type] = {
     "create_diagram": DiagramOutput,
     "edit_diagram": DiagramOutput,
     "patch_diagram": DiagramOutput,
+    "create_document": CreateDocumentOutput,
+    "edit_document": EditDocumentOutput,
     "create_markdown": CreateMarkdownOutput,
     "edit_markdown": EditMarkdownOutput,
     "explainer": ExplainerOutput,
@@ -1775,6 +1788,8 @@ _HUMAN_TEXT_FIELDS: dict[str, str] = {
     "router": "reasoning",
     "explainer": "explanation",
     "research": "summary",
+    "create_document": "title",
+    "edit_document": "reasoning",
     "create_markdown": "title",
     "edit_markdown": "reasoning",
     "gap_suggestion": "concerns",
@@ -1807,7 +1822,7 @@ def _extract_human_text(author: str, model_dict: dict[str, Any]) -> str | None:
     clean_author = author.replace("outlaww_", "").replace("flow_", "").replace("c4_", "").replace("_workflow", "")
     if "diagram" in clean_author:
         return "Created or updated architecture diagram topology."
-    elif "markdown" in clean_author:
+    elif "markdown" in clean_author or "document" in clean_author:
         return "Created or updated technical documentation."
     elif clean_author == "explainer":
         return "Provided concept explanation."
@@ -1828,7 +1843,8 @@ class SessionState(BaseModel):
     project_name: str = ""
     project_description: str = ""
     diagrams: list[Diagram] = []
-    markdown: list[MarkdownArtifact] = []
+    documents: list[Document] = []
+    markdown: list[Document] = []  # backward-compat alias
     active_artifact_id: str = ""
     reflection: Reflections = Reflections()
     user_id: str = ""
@@ -1860,5 +1876,6 @@ class StateSchema(BaseModel):
 
     # Persisted artifacts
     diagrams: list[dict[str, Any]] = Field(default_factory=list)
-    markdown_docs: list[dict[str, Any]] = Field(default_factory=list)
+    documents: list[dict[str, Any]] = Field(default_factory=list)
+    markdown_docs: list[dict[str, Any]] = Field(default_factory=list)  # backward-compat alias
     active_ids: dict[str, str] = Field(default_factory=dict)

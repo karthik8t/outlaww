@@ -49,8 +49,8 @@ _ACTIONS: dict[str, AppAction] = {
     ),
     "new_doc": AppAction(
         name="new_doc",
-        description="Create a new markdown document (README, spec, ADR, etc.).",
-        default_agent="create_markdown",
+        description="Create a new document (README, spec, ADR, etc.).",
+        default_agent="create_document",
         trigger_keywords=[
             "create document", "write a doc", "new document", "create readme",
             "write readme", "create a spec", "write adr", "create adr",
@@ -65,8 +65,8 @@ _ACTIONS: dict[str, AppAction] = {
     ),
     "edit_doc": AppAction(
         name="edit_doc",
-        description="Edit or update an existing markdown document.",
-        default_agent="edit_markdown",
+        description="Edit or update an existing document.",
+        default_agent="edit_document",
         trigger_keywords=[
             "edit document", "update readme", "modify doc", "change doc",
             "revise", "add section to", "remove section from", "update doc",

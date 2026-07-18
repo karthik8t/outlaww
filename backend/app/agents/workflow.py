@@ -23,6 +23,7 @@ from app.agents.agent_registry import AgentRegistry
 from app.schema.reactflow_models import Diagram as DiagramSchema
 from app.schema.models import (
     Diagram,
+    Document,
     MarkdownArtifact,
     MarkdownEditOperation,
     MarkdownFrontmatter,
@@ -150,24 +151,29 @@ def _save_diagrams(state: dict[str, Any], diagrams: list[Diagram]) -> None:
 
 
 # ---------------------------------------------------------------------------
-#  Markdown artifact helpers
+#  Document artifact helpers
 # ---------------------------------------------------------------------------
 
-_MARKDOWN_KEY = "markdown_docs"
+_DOCUMENT_KEY = "documents"
+_OLD_MARKDOWN_KEY = "markdown_docs"
 
 
-def _load_markdown_docs(state: dict[str, Any]) -> list[MarkdownArtifact]:
-    raw = state.get(_MARKDOWN_KEY, [])
+def _load_documents(state: dict[str, Any]) -> list[Document]:
+    raw = state.get(_DOCUMENT_KEY)
+    if raw is None:
+        raw = state.get(_OLD_MARKDOWN_KEY, [])
     return [
-        MarkdownArtifact.model_validate(d) if isinstance(d, dict) else d
+        Document.model_validate(d) if isinstance(d, dict) else d
         for d in raw
     ]
 
 
-def _save_markdown_docs(
-    state: dict[str, Any], docs: list[MarkdownArtifact]
+def _save_documents(
+    state: dict[str, Any], docs: list[Document]
 ) -> None:
-    state[_MARKDOWN_KEY] = [d.model_dump(mode="json") for d in docs]
+    serialized = [d.model_dump(mode="json") for d in docs]
+    state[_DOCUMENT_KEY] = serialized
+    state[_OLD_MARKDOWN_KEY] = serialized
 
 
 # ---------------------------------------------------------------------------
@@ -186,9 +192,9 @@ def _save_active_ids(state: dict[str, Any], ids: dict[str, str]) -> None:
     state[_ACTIVE_IDS_KEY] = ids
 
 
-def _apply_markdown_edits(
-    doc: MarkdownArtifact, edits: list[MarkdownEditOperation]
-) -> MarkdownArtifact:
+def _apply_document_edits(
+    doc: Document, edits: list[MarkdownEditOperation]
+) -> Document:
     """Apply a list of MarkdownEditOperation patches to an existing doc."""
     for edit in edits:
         if edit.op == "update_frontmatter" and edit.patch:
@@ -303,11 +309,11 @@ def _persist_diagram_edit(ctx: Context, output: dict[str, Any]) -> None:
     _save_reflection(ctx.state, ref)
 
 
-def _persist_markdown_output(
+def _persist_document_output(
     ctx: Context, output: dict[str, Any]
 ) -> None:
-    """Create a new MarkdownArtifact and persist to state."""
-    docs = _load_markdown_docs(ctx.state)
+    """Create a new Document and persist to state."""
+    docs = _load_documents(ctx.state)
     active = _load_active_ids(ctx.state)
 
     title = output.get("title", "")
@@ -326,16 +332,17 @@ def _persist_markdown_output(
             content="",
         ))
 
-    doc = MarkdownArtifact(
+    doc = Document(
         title=title,
         frontmatter=frontmatter,
         content=output.get("content", ""),
         sections=sections,
     )
     docs.append(doc)
-    _save_markdown_docs(ctx.state, docs)
+    _save_documents(ctx.state, docs)
 
-    active["active_markdown_id"] = doc.id
+    active["active_document_id"] = doc.id
+    active["active_markdown_id"] = doc.id  # backward-compat alias
     _save_active_ids(ctx.state, active)
 
     ref = _load_reflection(ctx.state)
@@ -343,11 +350,11 @@ def _persist_markdown_output(
     _save_reflection(ctx.state, ref)
 
 
-def _persist_markdown_edit(ctx: Context, output: dict[str, Any]) -> None:
+def _persist_document_edit(ctx: Context, output: dict[str, Any]) -> None:
     """Apply edit operations to the active markdown doc and persist to state."""
-    docs = _load_markdown_docs(ctx.state)
+    docs = _load_documents(ctx.state)
     active = _load_active_ids(ctx.state)
-    doc_id = active.get("active_markdown_id", "")
+    doc_id = active.get("active_document_id", "") or active.get("active_markdown_id", "")
 
     if not doc_id:
         return
@@ -373,7 +380,7 @@ def _persist_markdown_edit(ctx: Context, output: dict[str, Any]) -> None:
 
     target.updated_at = datetime.utcnow()
     docs[target_idx] = target
-    _save_markdown_docs(ctx.state, docs)
+    _save_documents(ctx.state, docs)
 
     ref = _load_reflection(ctx.state)
     if doc_id not in ref.artifacts_edited:
@@ -579,11 +586,11 @@ async def dispatch_node(ctx: Context, node_input: Any) -> None:
     elif agent_name == "patch_diagram" and isinstance(structured_output, dict):
         _persist_diagram_edit(ctx, structured_output)
 
-    # Markdown agents
-    elif agent_name == "create_markdown" and isinstance(structured_output, dict):
-        _persist_markdown_output(ctx, structured_output)
-    elif agent_name == "edit_markdown" and isinstance(structured_output, dict):
-        _persist_markdown_edit(ctx, structured_output)
+    # Document / Markdown agents
+    elif agent_name in ("create_document", "create_markdown") and isinstance(structured_output, dict):
+        _persist_document_output(ctx, structured_output)
+    elif agent_name in ("edit_document", "edit_markdown") and isinstance(structured_output, dict):
+        _persist_document_edit(ctx, structured_output)
 
 
 # ===========================================================================
@@ -604,13 +611,14 @@ async def reflection_node(ctx: Context, node_input: Any) -> None:
 
     # Build artifact context for the reflection agent
     diagrams = _load_diagrams(ctx.state)
-    docs = _load_markdown_docs(ctx.state)
+    docs = _load_documents(ctx.state)
     active = _load_active_ids(ctx.state)
+    active_doc = active.get('active_document_id') or active.get('active_markdown_id') or 'none'
     artifact_summary = (
         f"Diagrams in session: {len(diagrams)} | "
-        f"Markdown docs in session: {len(docs)} | "
+        f"Documents in session: {len(docs)} | "
         f"Active diagram: {active.get('active_diagram_id', 'none')[:12]} | "
-        f"Active doc: {active.get('active_markdown_id', 'none')[:12]} | "
+        f"Active doc: {active_doc[:12]} | "
         f"Total artifacts created: {len(ref.artifacts_created)} | "
         f"Total artifacts edited: {len(ref.artifacts_edited)}"
     )

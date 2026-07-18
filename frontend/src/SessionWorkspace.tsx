@@ -864,12 +864,12 @@ function AgentsPage({ agents }: { agents: string[] }) {
 function MarkdownViewer({
   doc,
 }: {
-  doc: { name: string; content: string; frontmatter?: Record<string, unknown> }
+  doc: { title?: string; name?: string; content: string; frontmatter?: Record<string, unknown> }
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-background">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold text-foreground mb-2">{doc.name}</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-2">{doc.title || doc.name || "Untitled"}</h1>
         {doc.frontmatter && (
           <pre className="text-xs text-muted-foreground bg-muted p-3 rounded mb-6 font-mono overflow-x-auto">
             {JSON.stringify(doc.frontmatter, null, 2)}
@@ -900,7 +900,7 @@ function TopBar({
   title: string
   viewMode?: "canvas" | "code"
   onViewModeChange?: (v: "canvas" | "code") => void
-  items?: { id: string; name: string }[]
+  items?: { id: string; name?: string; title?: string }[]
   selectedId?: string | null
   onSelect?: (id: string) => void
   placeholder?: string
@@ -918,7 +918,7 @@ function TopBar({
             <option value="" disabled>{placeholder}</option>
             {items.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name || "Untitled"}
+                {item.name || item.title || "Untitled"}
               </option>
             ))}
           </select>
@@ -979,13 +979,13 @@ export default function SessionWorkspace() {
   )
 
   const selectedDoc = useMemo(
-    () => session.markdownDocs.find((d) => d.id === session.selectedDocId) || null,
-    [session.markdownDocs, session.selectedDocId],
+    () => session.documents.find((d) => d.id === session.selectedDocumentId) || null,
+    [session.documents, session.selectedDocumentId],
   )
 
   const projectName = useMemo(() => {
     if (selectedDiagram?.name) return selectedDiagram.name
-    if (selectedDoc?.name) return selectedDoc.name
+    if (selectedDoc?.title || selectedDoc?.name) return (selectedDoc.title || selectedDoc.name || "Untitled") as string
     return "Untitled"
   }, [selectedDiagram, selectedDoc])
 
@@ -1013,7 +1013,7 @@ export default function SessionWorkspace() {
         activeView={activeView}
         onViewChange={session.setSidebarView}
         diagramCount={session.diagrams.length}
-        docCount={session.markdownDocs.length}
+        docCount={session.documents.length}
       />
       <main className="flex-1 flex h-full relative overflow-hidden bg-background">
         {activeView === "chat" && (
@@ -1068,12 +1068,12 @@ export default function SessionWorkspace() {
           <section className="flex-1 flex flex-col h-full relative overflow-hidden">
             <TopBar
               title={projectName}
-              items={session.markdownDocs}
-              selectedId={session.selectedDocId}
-              onSelect={session.setSelectedDocId}
+              items={session.documents}
+              selectedId={session.selectedDocumentId}
+              onSelect={session.setSelectedDocumentId}
               placeholder="Select Document"
             />
-            {session.markdownDocs.length === 0 || !session.selectedDocId || !selectedDoc ? (
+            {session.documents.length === 0 || !session.selectedDocumentId || !selectedDoc ? (
               <DocsEmptyState />
             ) : (
               <MarkdownViewer doc={selectedDoc} />

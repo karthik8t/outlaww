@@ -83,7 +83,8 @@ class ChatResponse(BaseModel):
     reflection: dict[str, Any] | None = None
     diagrams: list[dict[str, Any]] = []
     rf_data: dict[str, ReactFlowDiagramOutput] = Field(default_factory=dict, description="diagram_id -> post-processed ReactFlowDiagramOutput")
-    markdown_docs: list[dict[str, Any]] = []
+    documents: list[dict[str, Any]] = []
+    markdown_docs: list[dict[str, Any]] = []  # backward-compat alias
     active_ids: dict[str, str] = {}
 
 
@@ -111,10 +112,15 @@ class DiagramsResponse(BaseModel):
     active_diagram_id: str = ""
 
 
-class MarkdownDocsResponse(BaseModel):
+class DocumentsResponse(BaseModel):
     session_id: str
-    markdown_docs: list[Any] = []
-    active_markdown_id: str = ""
+    documents: list[Any] = []
+    markdown_docs: list[Any] = []  # backward-compat alias
+    active_document_id: str = ""
+    active_markdown_id: str = ""   # backward-compat alias
+
+
+MarkdownDocsResponse = DocumentsResponse
 
 
 class AgentsResponse(BaseModel):
@@ -196,8 +202,14 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     dispatch_result = await runner.get_dispatch_result()
     diagrams: list[dict[str, Any]] = await runner.get_diagrams()
-    docs: list[dict[str, Any]] = await runner.get_markdown_docs()
+    docs: list[dict[str, Any]] = await runner.get_documents()
     active: dict[str, str] = await runner.get_active_ids()
+
+    active_compat = dict(active)
+    if "active_document_id" in active_compat:
+        active_compat["active_markdown_id"] = active_compat["active_document_id"]
+    elif "active_markdown_id" in active_compat:
+        active_compat["active_document_id"] = active_compat["active_markdown_id"]
 
     # Primary response text = interaction_summary from reflection agent's output
     # dispatch_text = full dispatch agent text (shown in collapsible if different)
@@ -226,7 +238,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         clean_author = routed_to.replace("outlaww_", "").replace("flow_", "").replace("c4_", "").replace("_workflow", "")
         if "diagram" in clean_author:
             final_text = "Created or updated architecture diagram topology."
-        elif "markdown" in clean_author:
+        elif "markdown" in clean_author or "document" in clean_author:
             final_text = "Created or updated technical documentation."
         elif clean_author == "explainer":
             final_text = "Provided concept explanation."
@@ -258,8 +270,9 @@ async def chat(req: ChatRequest) -> ChatResponse:
         reflection=reflection_output,
         diagrams=diagrams,
         rf_data=rf_data,
+        documents=docs,
         markdown_docs=docs,
-        active_ids=active,
+        active_ids=active_compat,
     )
 
 
@@ -328,17 +341,26 @@ async def get_diagrams(session_id: str) -> DiagramsResponse:
     )
 
 
+@router.get("/documents/{session_id}", response_model=DocumentsResponse)
+async def get_documents(session_id: str) -> DocumentsResponse:
+    """Get all persisted documents for a session."""
+    runner = get_workflow_runner(session_id=session_id)
+    docs = await runner.get_documents()
+    active = await runner.get_active_ids()
+    act_doc = active.get("active_document_id", "") or active.get("active_markdown_id", "")
+    return DocumentsResponse(
+        session_id=session_id,
+        documents=docs,
+        markdown_docs=docs,
+        active_document_id=act_doc,
+        active_markdown_id=act_doc,
+    )
+
+
 @router.get("/markdown/{session_id}", response_model=MarkdownDocsResponse)
 async def get_markdown_docs(session_id: str) -> MarkdownDocsResponse:
-    """Get all persisted markdown docs for a session."""
-    runner = get_workflow_runner(session_id=session_id)
-    docs = await runner.get_markdown_docs()
-    active = await runner.get_active_ids()
-    return MarkdownDocsResponse(
-        session_id=session_id,
-        markdown_docs=docs,
-        active_markdown_id=active.get("active_markdown_id", ""),
-    )
+    """Get all persisted markdown docs for a session (backward-compat alias)."""
+    return await get_documents(session_id)
 
 
 @router.get("/actions", response_model=ActionsResponse)

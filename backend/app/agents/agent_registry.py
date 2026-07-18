@@ -8,6 +8,8 @@ if TYPE_CHECKING:
 from app.schema.reactflow_models import Diagram
 from app.schema.diagram_graph import DiagramGraph
 from app.schema.models import (
+    CreateDocumentOutput,
+    EditDocumentOutput,
     CreateMarkdownOutput,
     EditMarkdownOutput,
     ExplainerOutput,
@@ -24,6 +26,8 @@ _ROUTABLE_AGENTS: list[str] = [
     "create_diagram",
     "edit_diagram",
     "patch_diagram",
+    "create_document",
+    "edit_document",
     "create_markdown",
     "edit_markdown",
     "explainer",
@@ -43,8 +47,8 @@ def _build_router_instruction() -> str:
         "  create_diagram  — user wants a new diagram from scratch\n"
         "  edit_diagram    — user wants to add/remove/change shapes in an existing diagram\n"
         "  patch_diagram   — user wants minor style/layout tweaks to a diagram\n"
-        "  create_markdown — user wants a new markdown document (README, spec, ADR, etc.)\n"
-        "  edit_markdown   — user wants to edit an existing markdown document\n"
+        "  create_document — user wants a new text document (README, spec, ADR, etc.)\n"
+        "  edit_document   — user wants to edit an existing document\n"
         "  explainer       — user wants an explanation of a concept, code, or architecture\n"
         "  gap_suggestion  — user wants a review of what's missing or suggestions\n"
         "  research        — user wants research, comparison, or analysis\n\n"
@@ -450,6 +454,39 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
             "10. Group nodes have NO tech-stack fields — set language_runtime/framework/etc to 'none'."
         ),
         "description": "Applies minimal patches to React Flow diagrams.",
+    },
+    "create_document": {
+        "model": _DEFAULT_MODEL,
+        "output_schema": CreateDocumentOutput,
+        "instruction": (
+            "You are a document creation agent. Produce industry-standard "
+            "technical documents.\n\n"
+            "Produce the following fields in your output:\n"
+            "- title: Title of the document\n"
+            "- description: A short, 1-2 sentence description summarizing what this document is about\n"
+            "- content: The complete, well-structured, formatted markdown content of the document (excluding frontmatter). "
+            "Safety/Length rule: The content must be thorough and comprehensive, but not excessively long. Target a length between 1,000 and 8,000 characters. "
+            "Do NOT output a trivial document (less than 100 characters) and do NOT exceed 30,000 characters.\n"
+            "- sections_summary: A simple list of main section headings/titles included in this document"
+        ),
+        "description": "Creates new documents with title, description, content and sections summary.",
+    },
+    "edit_document": {
+        "model": _DEFAULT_MODEL,
+        "output_schema": EditDocumentOutput,
+        "instruction": (
+            "You are a document editing agent. You receive the current "
+            "document and an editing instruction.\n\n"
+            "Produce the complete updated version of the document, along with a list of changes made. "
+            "Fill the following fields in your output:\n"
+            "- title: The updated (or same) title of the document\n"
+            "- content: The complete updated markdown content of the document (excluding frontmatter). "
+            "Safety/Length rule: The updated content must be thorough and complete, preserving the original detail. Target a length between 1,000 and 10,000 characters. "
+            "Do NOT truncate or omit existing sections unless explicitly instructed. Do NOT output a trivial document (less than 100 characters) and do NOT exceed 35,000 characters.\n"
+            "- reasoning: Reasoning for these changes\n"
+            "- changes_summary: A simple list of short descriptions of each change made"
+        ),
+        "description": "Applies edits to existing documents.",
     },
     "create_markdown": {
         "model": _DEFAULT_MODEL,
