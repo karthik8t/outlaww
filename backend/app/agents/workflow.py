@@ -68,6 +68,10 @@ async def safe_run_node(ctx: Context, agent: Any, node_input: Any) -> Any:
         logger.error(f"[{agent_name}] LLM call failed: {exc}", exc_info=True)
         raise
 
+    # Convert Pydantic models to JSON-serializable dicts
+    if hasattr(result, "model_dump"):
+        result = result.model_dump(mode="json")
+
     # ADK should return a dict when output_schema is set — log if it didn't
     if isinstance(result, dict):
         logger.info(f"[{agent_name}] output (dict, keys={list(result.keys())})")
