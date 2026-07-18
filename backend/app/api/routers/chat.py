@@ -160,16 +160,24 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     state_delta = {"action_name": req.action} if req.action else None
 
-    # Track agents and structured outputs as events stream by
+    # Track agents and structured outputs as events stream by.
+    # The reflection agent's structured output (interaction_summary, summary, new_goals)
+    # is captured separately — it's a system agent, not shown to the user.
     _system_authors = {"user", "router", "reflection", "outlaww_text_workflow", "outlaww_action_workflow"}
     agents_involved: list[str] = []
     structured_outputs: list[dict[str, Any]] = []
+    reflection_output: dict[str, Any] | None = None
 
     start = time.perf_counter()
 
     try:
         async for event in runner.run(message, state_delta=state_delta):
             dto = _event_to_dto(event)
+
+            # Capture reflection output (system agent — separate from user-facing agents)
+            if dto.author == "reflection" and dto.agent_output and "reflection" in dto.agent_output:
+                reflection_output = dto.agent_output["reflection"]
+
             if dto.author and dto.author not in _system_authors:
                 if dto.author not in agents_involved:
                     agents_involved.append(dto.author)
@@ -187,19 +195,47 @@ async def chat(req: ChatRequest) -> ChatResponse:
     logger.info(f"[chat] {pipeline} done in {elapsed:.0f}ms agents={agents_involved}")
 
     dispatch_result = await runner.get_dispatch_result()
-    reflection: dict[str, Any] | None = await runner.get_reflection()
     diagrams: list[dict[str, Any]] = await runner.get_diagrams()
     docs: list[dict[str, Any]] = await runner.get_markdown_docs()
     active: dict[str, str] = await runner.get_active_ids()
 
-    # Primary response text = interaction_summary from reflection
+    # Primary response text = interaction_summary from reflection agent's output
     # dispatch_text = full dispatch agent text (shown in collapsible if different)
     final_text = ""
     dispatch_text = dispatch_result.get("text", "") if dispatch_result else ""
-    if reflection and reflection.get("interaction_summary"):
-        final_text = reflection["interaction_summary"]
+    if reflection_output:
+        ist = reflection_output.get("interaction_summary", "")
+        if ist:
+            final_text = ist
     if not final_text:
-        final_text = dispatch_text
+        # Fall back to episodic memory log if available
+        reflection_state = await runner.get_reflection()
+        if reflection_state:
+            episodic = reflection_state.get("episodic", {})
+            events = episodic.get("events", [])
+            if events:
+                last_event = events[-1]
+                if isinstance(last_event, dict) and last_event.get("content"):
+                    final_text = last_event["content"]
+    # Check if final_text is empty or a JSON string, and apply predefined fallbacks
+    trimmed_final = final_text.strip() if final_text else ""
+    is_json = (trimmed_final.startswith("{") and trimmed_final.endswith("}")) or (trimmed_final.startswith("[") and trimmed_final.endswith("]"))
+
+    if not final_text or is_json:
+        routed_to = dispatch_result.get("agent_name", "") if dispatch_result else (agents_involved[0] if agents_involved else "")
+        clean_author = routed_to.replace("outlaww_", "").replace("flow_", "").replace("c4_", "").replace("_workflow", "")
+        if "diagram" in clean_author:
+            final_text = "Created or updated architecture diagram topology."
+        elif "markdown" in clean_author:
+            final_text = "Created or updated technical documentation."
+        elif clean_author == "explainer":
+            final_text = "Provided concept explanation."
+        elif clean_author == "gap_suggestion":
+            final_text = "Completed gap analysis and coverage review."
+        elif clean_author == "research":
+            final_text = "Conducted research and comparison analysis."
+        else:
+            final_text = "Processed request."
 
     routed_to = dispatch_result.get("agent_name", "") if dispatch_result else (agents_involved[0] if agents_involved else "")
 
@@ -219,7 +255,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         final_text=final_text,
         dispatch_text=dispatch_text,
         structured_outputs=structured_outputs,
-        reflection=reflection,
+        reflection=reflection_output,
         diagrams=diagrams,
         rf_data=rf_data,
         markdown_docs=docs,

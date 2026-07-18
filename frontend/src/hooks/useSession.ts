@@ -66,16 +66,19 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
       }
 
       // Reflection — extract interaction_summary as agentResponse + goals
-      if (e.agent_output?.reflection) {
-        currentTurn.agentResponse = e.agent_output.reflection.interaction_summary || undefined
-        currentTurn.reflectionSummary = e.agent_output.reflection.summary || undefined
-        if (e.agent_output.reflection.new_goals?.length) {
-          currentTurn.reflectionGoals = e.agent_output.reflection.new_goals
+      if (author === "reflection") {
+        currentTurn.agentResponse = e.text || undefined
+        if (e.agent_output?.reflection) {
+          currentTurn.agentResponse = e.agent_output.reflection.interaction_summary || undefined
+          currentTurn.reflectionSummary = e.agent_output.reflection.summary || undefined
+          if (e.agent_output.reflection.new_goals?.length) {
+            currentTurn.reflectionGoals = e.agent_output.reflection.new_goals
+          }
         }
       }
 
       // Agent output / text events — capture text and structured outputs
-      if (e.event_class === "agent_output" || e.event_class === "agent_text") {
+      if ((e.event_class === "agent_output" || e.event_class === "agent_text") && !e.is_thought) {
         if (e.text && !_SYSTEM_AUTHORS.has(author)) {
           currentTurn.agentText = e.text
         }
@@ -87,7 +90,7 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
           }
           currentTurn.structuredOutputs.push({
             agent: author,
-            output: agentOut as Record<string, unknown>,
+            output: agentOut as unknown as Record<string, unknown>,
           })
         }
       }

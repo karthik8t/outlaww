@@ -1616,6 +1616,30 @@ def _to_model(output: Any, model_cls: type) -> Any | None:
     return None
 
 
+def _extract_json_from_text(text: str) -> dict[str, Any] | None:
+    if not text:
+        return None
+    trimmed = text.strip()
+    try:
+        return json.loads(trimmed)
+    except Exception:
+        pass
+    m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+    if m:
+        try:
+            return json.loads(m.group(1).strip())
+        except Exception:
+            pass
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(text[start : end + 1].strip())
+        except Exception:
+            pass
+    return None
+
+
 def _try_parse_text_as_output(
     text: str, model_cls: type
 ) -> dict[str, Any] | None:
@@ -1627,23 +1651,16 @@ def _try_parse_text_as_output(
     """
     if not text or not text.strip():
         return None
-    # Try full-text as JSON first
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        # Try to find a JSON code block
-        m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
-        if m:
-            try:
-                data = json.loads(m.group(1))
-            except json.JSONDecodeError:
-                return None
-        else:
-            return None
-    model = _to_model(data, model_cls)
-    if model is None:
+    data = _extract_json_from_text(text)
+    if not data:
         return None
-    return model.model_dump(mode="json")
+    try:
+        model = _to_model(data, model_cls)
+        if model is None:
+            return None
+        return model.model_dump(mode="json")
+    except Exception:
+        return None
 
 
 def decode_adk_event(event: Any) -> DecodedEvent:
@@ -1757,7 +1774,7 @@ _HUMAN_TEXT_FIELDS: dict[str, str] = {
 def _extract_human_text(author: str, model_dict: dict[str, Any]) -> str | None:
     """Extract a human-readable text from a structured output model dict.
 
-    Priority: author-specific field → common fallbacks → None.
+    Priority: author-specific field → common fallbacks → Clean author-specific fallback.
     """
     field = _HUMAN_TEXT_FIELDS.get(author)
     if field:
@@ -1775,6 +1792,20 @@ def _extract_human_text(author: str, model_dict: dict[str, Any]) -> str | None:
         val = model_dict.get(key)
         if isinstance(val, str) and val.strip():
             return val
+
+    # Pre-defined summary fallbacks for agents so we never return raw JSON text
+    clean_author = author.replace("outlaww_", "").replace("flow_", "").replace("c4_", "").replace("_workflow", "")
+    if "diagram" in clean_author:
+        return "Created or updated architecture diagram topology."
+    elif "markdown" in clean_author:
+        return "Created or updated technical documentation."
+    elif clean_author == "explainer":
+        return "Provided concept explanation."
+    elif clean_author == "gap_suggestion":
+        return "Completed gap analysis and coverage review."
+    elif clean_author == "research":
+        return "Conducted research and comparison analysis."
+
     return None
 
 
