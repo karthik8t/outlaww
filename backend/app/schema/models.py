@@ -1396,10 +1396,14 @@ class Reflections(BaseModel):
 
 class CreateMarkdownOutput(BaseModel):
     """Deterministic output for the create_markdown agent."""
-    title: str = ""
-    frontmatter: MarkdownFrontmatter = MarkdownFrontmatter()
-    content: str = ""
-    sections: list[MarkdownSection] = []
+    title: str = Field(description="Title of the document")
+    description: str = Field(description="A brief description of what this document covers")
+    content: str = Field(
+        min_length=100,
+        max_length=30000,
+        description="The complete markdown content of the document (excluding frontmatter). Target between 1,000 and 8,000 characters."
+    )
+    sections_summary: list[str] = Field(default_factory=list, description="A list of section names/headings included in this document")
 
 
 class MarkdownEditOperation(BaseModel):
@@ -1414,8 +1418,14 @@ class MarkdownEditOperation(BaseModel):
 
 class EditMarkdownOutput(BaseModel):
     """Deterministic output for the edit_markdown agent."""
-    edits: list[MarkdownEditOperation] = []
-    reasoning: str = ""
+    title: str = Field(description="The updated title of the document")
+    content: str = Field(
+        min_length=100,
+        max_length=35000,
+        description="The complete updated markdown content of the document (excluding frontmatter). Target between 1,000 and 10,000 characters."
+    )
+    reasoning: str = Field(description="Reasoning for these edits")
+    changes_summary: list[str] = Field(default_factory=list, description="A list of descriptions of the changes made")
 
 
 class ExplainerOutput(BaseModel):

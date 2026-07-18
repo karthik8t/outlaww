@@ -456,26 +456,31 @@ _AGENT_CONFIGS: dict[str, dict[str, Any]] = {
         "output_schema": CreateMarkdownOutput,
         "instruction": (
             "You are a markdown document creation agent. Produce industry-standard "
-            "markdown artifacts.\n\n"
-            "When given a topic or outline, generate YAML frontmatter (title, "
-            "description, tags, date, draft, slug), well-structured content with "
-            "proper heading hierarchy (h1/h2/h3), and meaningful sections.\n\n"
-            "Follow CommonMark spec. Use GitHub Flavored Markdown extensions where "
-            "helpful. Write clear, concise, publication-ready content."
-
+            "markdown documents.\n\n"
+            "Produce the following fields in your output:\n"
+            "- title: Title of the document\n"
+            "- description: A short, 1-2 sentence description summarizing what this document is about\n"
+            "- content: The complete, well-structured, formatted markdown content of the document (excluding frontmatter). "
+            "Safety/Length rule: The content must be thorough and comprehensive, but not excessively long. Target a length between 1,000 and 8,000 characters. "
+            "Do NOT output a trivial document (less than 100 characters) and do NOT exceed 30,000 characters.\n"
+            "- sections_summary: A simple list of main section headings/titles included in this document"
         ),
-        "description": "Creates new markdown documents with frontmatter and structured content.",
+        "description": "Creates new markdown documents with title, description, content and sections summary.",
     },
     "edit_markdown": {
         "model": _DEFAULT_MODEL,
         "output_schema": EditMarkdownOutput,
         "instruction": (
             "You are a markdown document editing agent. You receive the current "
-            "MarkdownArtifact and an editing instruction.\n\n"
-            "Produce edit operations: replace_section, insert_section, remove_section, "
-            "update_frontmatter, append_content, prepend_content.\n\n"
-            "Preserve existing structure unless told otherwise."
-
+            "markdown document and an editing instruction.\n\n"
+            "Produce the complete updated version of the document, along with a list of changes made. "
+            "Fill the following fields in your output:\n"
+            "- title: The updated (or same) title of the document\n"
+            "- content: The complete updated markdown content of the document (excluding frontmatter). "
+            "Safety/Length rule: The updated content must be thorough and complete, preserving the original detail. Target a length between 1,000 and 10,000 characters. "
+            "Do NOT truncate or omit existing sections unless explicitly instructed. Do NOT output a trivial document (less than 100 characters) and do NOT exceed 35,000 characters.\n"
+            "- reasoning: Reasoning for these changes\n"
+            "- changes_summary: A simple list of short descriptions of each change made"
         ),
         "description": "Applies edits to existing markdown documents.",
     },

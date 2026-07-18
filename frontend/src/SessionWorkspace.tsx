@@ -169,7 +169,8 @@ function DiagramSummary({ output }: { output: Record<string, unknown> }) {
 }
 
 function CreateMarkdownSummary({ output }: { output: Record<string, unknown> }) {
-  const sections = output.sections as Array<any> | undefined
+  const sections = (output.sections as Array<any> | undefined) || 
+    (output.sections_summary as Array<any> | undefined)?.map(s => ({ title: s }))
   return (
     <details className="group pt-1">
       <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
@@ -194,7 +195,8 @@ function CreateMarkdownSummary({ output }: { output: Record<string, unknown> }) 
 }
 
 function EditMarkdownSummary({ output }: { output: Record<string, unknown> }) {
-  const edits = output.edits as Array<any> | undefined
+  const edits = (output.edits as Array<any> | undefined) || 
+    (output.changes_summary as Array<any> | undefined)?.map(ch => ({ type: "edit", title: ch }))
   return (
     <details className="group pt-1">
       <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">

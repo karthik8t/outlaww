@@ -26,6 +26,7 @@ from app.schema.models import (
     MarkdownArtifact,
     MarkdownEditOperation,
     MarkdownFrontmatter,
+    MarkdownHeading,
     MarkdownSection,
     ReflectionOutput,
     Reflections,
@@ -309,20 +310,24 @@ def _persist_markdown_output(
     docs = _load_markdown_docs(ctx.state)
     active = _load_active_ids(ctx.state)
 
-    frontmatter = output.get("frontmatter", {})
-    if isinstance(frontmatter, dict):
-        frontmatter = MarkdownFrontmatter.model_validate(frontmatter)
+    title = output.get("title", "")
+    description = output.get("description", "")
+    frontmatter = MarkdownFrontmatter(
+        title=title,
+        description=description,
+    )
 
-    sections_raw = output.get("sections", [])
+    # Rebuild sections list from sections_summary list of headings for back-compat
+    sections_raw = output.get("sections_summary", [])
     sections = []
     for s in sections_raw:
-        if isinstance(s, dict):
-            sections.append(MarkdownSection.model_validate(s))
-        elif isinstance(s, MarkdownSection):
-            sections.append(s)
+        sections.append(MarkdownSection(
+            heading=MarkdownHeading(level=2, text=s, id=s.lower().replace(" ", "-")),
+            content="",
+        ))
 
     doc = MarkdownArtifact(
-        title=output.get("title", ""),
+        title=title,
         frontmatter=frontmatter,
         content=output.get("content", ""),
         sections=sections,
@@ -347,23 +352,27 @@ def _persist_markdown_edit(ctx: Context, output: dict[str, Any]) -> None:
     if not doc_id:
         return
 
-    target = None
-    for d in docs:
+    target_idx = -1
+    for i, d in enumerate(docs):
         if d.id == doc_id:
-            target = d
+            target_idx = i
             break
-    if target is None:
+    if target_idx == -1:
         return
 
-    edits_raw = output.get("edits", [])
-    edits = []
-    for e in edits_raw:
-        if isinstance(e, dict):
-            edits.append(MarkdownEditOperation.model_validate(e))
-        elif isinstance(e, MarkdownEditOperation):
-            edits.append(e)
+    target = docs[target_idx]
 
-    _apply_markdown_edits(target, edits)
+    # Deterministic full updated replacement
+    target.title = output.get("title", target.title)
+    target.content = output.get("content", target.content)
+    target.frontmatter.title = target.title
+    
+    # Store dynamic faked edits in the output payload so UI summaries show the changes
+    changes = output.get("changes_summary", [])
+    output["edits"] = [{"type": "edit", "title": ch, "description": ""} for ch in changes]
+
+    target.updated_at = datetime.utcnow()
+    docs[target_idx] = target
     _save_markdown_docs(ctx.state, docs)
 
     ref = _load_reflection(ctx.state)
