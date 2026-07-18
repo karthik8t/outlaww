@@ -1540,6 +1540,7 @@ class ReflectionOutput(BaseModel):
     Runs after every main agent to update the persistent memory/state.
     """
     summary: str = ""
+    interaction_summary: str = ""
     updates: list[ReflectionUpdate] = []
     new_goals: list[str] = []
     new_blockers: list[str] = []

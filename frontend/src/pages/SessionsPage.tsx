@@ -96,10 +96,13 @@ export default function SessionsPage() {
           ) : (
             <div className="space-y-2">
               {sessions.map((s) => (
-                <button
+                <div
                   key={s.session_id}
                   onClick={() => navigate(`/session/${encodeURIComponent(s.session_id)}`)}
-                  className="w-full flex items-center gap-4 px-5 py-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left group"
+                  className="w-full flex items-center gap-4 px-5 py-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left group cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/session/${encodeURIComponent(s.session_id)}`) }}
                 >
                   <MessageCircle className="w-5 h-5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -123,14 +126,14 @@ export default function SessionsPage() {
                     <ExternalLink className="w-4 h-4 text-muted-foreground" />
                   </div>
                   <button
-                    onClick={(e) => handleDelete(s.session_id, e)}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(s.session_id, e); }}
                     disabled={deleting === s.session_id}
                     className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
                     title="Delete session"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           )}

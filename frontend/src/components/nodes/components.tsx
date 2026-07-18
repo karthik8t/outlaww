@@ -16,6 +16,9 @@ import {
   FileText,
   Terminal,
   FolderClosed,
+  AlertTriangle,
+  XCircle,
+  Clock,
 } from "lucide-react"
 
 // ============================================================================
@@ -66,65 +69,131 @@ export interface EdgeData {
 }
 
 // ============================================================================
-// Node Type Config
+// Node Type Config — each category uses a different chart accent color
 // ============================================================================
 
-interface NodeTheme {
-  badge: string
-  badgeText: string
-  accent: string
+type Accent = "primary" | "chart-2" | "chart-3" | "chart-4" | "chart-5"
+
+interface AccentSet {
   border: string
-  light: string
-  accentBg: string
+  borderSub: string
+  ring: string
+  text: string
+  textSub: string
+  shadow: string
+  bg: string
+  bgSub: string
+  handleBorder: string
+  handleBg: string
+  stroke: string
+  fill: string
+}
+
+const ACCENT_SETS: Record<Accent, AccentSet> = {
+  primary: {
+    border: "border-primary", borderSub: "border-primary/20",
+    ring: "ring-primary", text: "text-primary", textSub: "text-primary/60",
+    shadow: "shadow-primary/20", bg: "bg-primary/10", bgSub: "bg-primary/50",
+    handleBorder: "!border-primary", handleBg: "!bg-primary",
+    stroke: "stroke-primary", fill: "fill-primary",
+  },
+  "chart-2": {
+    border: "border-chart-2", borderSub: "border-chart-2/20",
+    ring: "ring-chart-2", text: "text-chart-2", textSub: "text-chart-2/60",
+    shadow: "shadow-chart-2/20", bg: "bg-chart-2/10", bgSub: "bg-chart-2/50",
+    handleBorder: "!border-chart-2", handleBg: "!bg-chart-2",
+    stroke: "stroke-chart-2", fill: "fill-chart-2",
+  },
+  "chart-3": {
+    border: "border-chart-3", borderSub: "border-chart-3/20",
+    ring: "ring-chart-3", text: "text-chart-3", textSub: "text-chart-3/60",
+    shadow: "shadow-chart-3/20", bg: "bg-chart-3/10", bgSub: "bg-chart-3/50",
+    handleBorder: "!border-chart-3", handleBg: "!bg-chart-3",
+    stroke: "stroke-chart-3", fill: "fill-chart-3",
+  },
+  "chart-4": {
+    border: "border-chart-4", borderSub: "border-chart-4/20",
+    ring: "ring-chart-4", text: "text-chart-4", textSub: "text-chart-4/60",
+    shadow: "shadow-chart-4/20", bg: "bg-chart-4/10", bgSub: "bg-chart-4/50",
+    handleBorder: "!border-chart-4", handleBg: "!bg-chart-4",
+    stroke: "stroke-chart-4", fill: "fill-chart-4",
+  },
+  "chart-5": {
+    border: "border-chart-5", borderSub: "border-chart-5/20",
+    ring: "ring-chart-5", text: "text-chart-5", textSub: "text-chart-5/60",
+    shadow: "shadow-chart-5/20", bg: "bg-chart-5/10", bgSub: "bg-chart-5/50",
+    handleBorder: "!border-chart-5", handleBg: "!bg-chart-5",
+    stroke: "stroke-chart-5", fill: "fill-chart-5",
+  },
 }
 
 interface NodeTypeConfig {
   label: string
   dashed: boolean
   zIndex: number
-  theme: NodeTheme
+  compact: boolean
+  accent: Accent
 }
 
 const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
-  deploymentGroup: { label: "Zone",    dashed: true,  zIndex: 0,  theme: { badge: "bg-blue-950/40",   badgeText: "text-blue-400",   accent: "text-blue-400",   border: "border-blue-800/50",   light: "bg-blue-950/10",   accentBg: "bg-blue-500/40"   } },
-  serviceGroup:    { label: "Cluster", dashed: false, zIndex: 0,  theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
-  domainGroup:     { label: "Domain",  dashed: true,  zIndex: 0,  theme: { badge: "bg-amber-950/40",  badgeText: "text-amber-400",  accent: "text-amber-400",  border: "border-amber-800/50",  light: "bg-amber-950/10",  accentBg: "bg-amber-500/40"  } },
-  dataGroup:       { label: "Data",    dashed: false, zIndex: 0,  theme: { badge: "bg-cyan-950/40",   badgeText: "text-cyan-400",   accent: "text-cyan-400",   border: "border-cyan-800/50",   light: "bg-cyan-950/10",   accentBg: "bg-cyan-500/40"   } },
-  networkGroup:    { label: "Network", dashed: true,  zIndex: 0,  theme: { badge: "bg-teal-950/40",   badgeText: "text-teal-400",   accent: "text-teal-400",   border: "border-teal-800/50",   light: "bg-teal-950/10",   accentBg: "bg-teal-500/40"   } },
-  group:           { label: "Group",   dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",   accentBg: "bg-gray-500/30"   } },
-  c4Actor:       { label: "Actor",    dashed: false, zIndex: 20, theme: { badge: "bg-indigo-950/40", badgeText: "text-indigo-400", accent: "text-indigo-400", border: "border-indigo-800/50", light: "bg-indigo-950/10", accentBg: "bg-indigo-500/40" } },
-  c4System:      { label: "System",   dashed: false, zIndex: 10, theme: { badge: "bg-indigo-950/40", badgeText: "text-indigo-400", accent: "text-indigo-400", border: "border-indigo-800/50", light: "bg-indigo-950/10", accentBg: "bg-indigo-500/40" } },
-  c4Container:   { label: "Container",dashed: false, zIndex: 10, theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
-  c4Component:   { label: "Component",dashed: false, zIndex: 10, theme: { badge: "bg-purple-950/40", badgeText: "text-purple-400", accent: "text-purple-400", border: "border-purple-800/50", light: "bg-purple-950/10", accentBg: "bg-purple-500/40" } },
-  c4Boundary:    { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-fuchsia-950/40",badgeText: "text-fuchsia-400",accent: "text-fuchsia-400", border: "border-fuchsia-800/50",light: "bg-fuchsia-950/10", accentBg: "bg-fuchsia-500/40" } },
-  flowAction:    { label: "Action",   dashed: false, zIndex: 10, theme: { badge: "bg-amber-950/40", badgeText: "text-amber-400", accent: "text-amber-400", border: "border-amber-800/50", light: "bg-amber-950/10", accentBg: "bg-amber-500/40" } },
-  flowDecision:  { label: "Decision", dashed: false, zIndex: 10, theme: { badge: "bg-rose-950/40",  badgeText: "text-rose-400",  accent: "text-rose-400",  border: "border-rose-800/50",  light: "bg-rose-950/10",   accentBg: "bg-rose-500/40"  } },
-  flowScreen:    { label: "Screen",   dashed: false, zIndex: 10, theme: { badge: "bg-emerald-950/40",badgeText: "text-emerald-400",accent: "text-emerald-400", border: "border-emerald-800/50",light: "bg-emerald-950/10", accentBg: "bg-emerald-500/40" } },
-  flowSwimlane:  { label: "Swimlane", dashed: true,  zIndex: 1,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
-  cloudCompute:  { label: "Compute",  dashed: false, zIndex: 10, theme: { badge: "bg-blue-950/40",   badgeText: "text-blue-400",   accent: "text-blue-400",   border: "border-blue-800/50",   light: "bg-blue-950/10",   accentBg: "bg-blue-500/40"   } },
-  cloudDatabase: { label: "Database", dashed: false, zIndex: 10, theme: { badge: "bg-cyan-950/40",   badgeText: "text-cyan-400",   accent: "text-cyan-400",   border: "border-cyan-800/50",   light: "bg-cyan-950/10",   accentBg: "bg-cyan-500/40"   } },
-  cloudStorage:  { label: "Storage",  dashed: false, zIndex: 10, theme: { badge: "bg-violet-950/40", badgeText: "text-violet-400", accent: "text-violet-400", border: "border-violet-800/50", light: "bg-violet-950/10", accentBg: "bg-violet-500/40" } },
-  cloudNetwork:  { label: "Network",  dashed: false, zIndex: 10, theme: { badge: "bg-teal-950/40",   badgeText: "text-teal-400",   accent: "text-teal-400",   border: "border-teal-800/50",   light: "bg-teal-950/10",   accentBg: "bg-teal-500/40"   } },
-  cloudMessaging:{ label: "Messaging",dashed: false, zIndex: 10, theme: { badge: "bg-pink-950/40",   badgeText: "text-pink-400",   accent: "text-pink-400",   border: "border-pink-800/50",   light: "bg-pink-950/10",   accentBg: "bg-pink-500/40"   } },
-  cloudSecurity: { label: "Security", dashed: false, zIndex: 10, theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
-  cloudAnalytics:{ label: "Analytics",dashed: false, zIndex: 10, theme: { badge: "bg-rose-950/40",   badgeText: "text-rose-400",   accent: "text-rose-400",   border: "border-rose-800/50",   light: "bg-rose-950/10",   accentBg: "bg-rose-500/40"   } },
-  cloudBoundary: { label: "Boundary", dashed: true,  zIndex: 0,  theme: { badge: "bg-gray-800/50",   badgeText: "text-gray-400",   accent: "text-gray-400",   border: "border-gray-700/50",   light: "bg-gray-900/20",     accentBg: "bg-gray-500/30"   } },
+  // Containers / groups — chart-3
+  deploymentGroup: { label: "Zone",     dashed: true,  zIndex: 0,  compact: false, accent: "chart-3" },
+  serviceGroup:    { label: "Cluster",  dashed: false, zIndex: 0,  compact: false, accent: "chart-3" },
+  domainGroup:     { label: "Domain",   dashed: true,  zIndex: 0,  compact: false, accent: "chart-3" },
+  dataGroup:       { label: "Data",     dashed: false, zIndex: 0,  compact: false, accent: "chart-3" },
+  networkGroup:    { label: "Network",  dashed: true,  zIndex: 0,  compact: false, accent: "chart-3" },
+  group:           { label: "Group",    dashed: true,  zIndex: 0,  compact: false, accent: "chart-3" },
+  c4Boundary:      { label: "Boundary",  dashed: true,  zIndex: 0,  compact: false, accent: "chart-3" },
+  cloudBoundary:   { label: "Boundary",  dashed: true,  zIndex: 0,  compact: false, accent: "chart-3" },
+
+  // Actor — chart-4
+  c4Actor:       { label: "Actor",     dashed: false, zIndex: 20, compact: true,  accent: "chart-4" },
+
+  // C4 card nodes — primary
+  c4System:      { label: "System",    dashed: false, zIndex: 10, compact: false, accent: "primary" },
+  c4Container:   { label: "Container", dashed: false, zIndex: 10, compact: false, accent: "primary" },
+  c4Component:   { label: "Component", dashed: false, zIndex: 10, compact: false, accent: "primary" },
+
+  // Flow nodes — chart-5
+  flowAction:    { label: "Action",    dashed: false, zIndex: 10, compact: false, accent: "chart-5" },
+  flowDecision:  { label: "Decision",  dashed: false, zIndex: 10, compact: false, accent: "chart-5" },
+  flowScreen:    { label: "Screen",    dashed: false, zIndex: 10, compact: false, accent: "chart-5" },
+
+  // Swimlane — chart-4
+  flowSwimlane:  { label: "Swimlane",  dashed: true,  zIndex: 1,  compact: false, accent: "chart-4" },
+
+  // Cloud nodes — chart-2
+  cloudCompute:  { label: "Compute",   dashed: false, zIndex: 10, compact: false, accent: "chart-2" },
+  cloudDatabase: { label: "Database",  dashed: false, zIndex: 10, compact: false, accent: "chart-2" },
+  cloudStorage:  { label: "Storage",   dashed: false, zIndex: 10, compact: false, accent: "chart-2" },
+  cloudNetwork:  { label: "Network",   dashed: false, zIndex: 10, compact: false, accent: "chart-2" },
+  cloudMessaging:{ label: "Messaging", dashed: false, zIndex: 10, compact: false, accent: "chart-2" },
+  cloudSecurity: { label: "Security",  dashed: false, zIndex: 10, compact: false, accent: "chart-2" },
+  cloudAnalytics:{ label: "Analytics", dashed: false, zIndex: 10, compact: false, accent: "chart-2" },
 }
 
 const DEFAULT_NODE_CONFIG: NodeTypeConfig = {
-  label: "Node", dashed: false, zIndex: 10,
-  theme: { badge: "bg-gray-800/50", badgeText: "text-gray-400", accent: "text-gray-400", border: "border-gray-700/50", light: "bg-gray-900/20", accentBg: "bg-gray-500/30" },
+  label: "Node", dashed: false, zIndex: 10, compact: false, accent: "primary",
 }
 
 function getNodeConfig(nodeType: string): NodeTypeConfig {
   return NODE_TYPE_CONFIG[nodeType] || DEFAULT_NODE_CONFIG
 }
 
-const STATUS_DOTS: Record<string, string> = {
-  normal: "bg-green-500",
-  warning: "bg-amber-500",
-  error: "bg-red-500",
-  proposed: "bg-blue-500",
+function getAccentSet(nodeType: string): AccentSet {
+  return ACCENT_SETS[getNodeConfig(nodeType).accent]
+}
+
+const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  warning: AlertTriangle,
+  error: XCircle,
+  proposed: Clock,
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  warning: "text-chart-4",
+  error: "text-destructive",
+  proposed: "text-primary",
 }
 
 // ============================================================================
@@ -148,7 +217,7 @@ function handleStyle(position: Position): React.CSSProperties {
   }
 }
 
-function NodeHandle({ h, layoutDirection }: { h: HandleConfig; layoutDirection?: string }) {
+function NodeHandle({ h, layoutDirection, accent }: { h: HandleConfig; layoutDirection?: string; accent: AccentSet }) {
   const resolvedPosition = resolveHandlePosition(layoutDirection, h.type)
   const style = handleStyle(resolvedPosition)
   return (
@@ -165,7 +234,7 @@ function NodeHandle({ h, layoutDirection }: { h: HandleConfig; layoutDirection?:
         opacity: 0,
         transition: "opacity 0.15s ease",
       }}
-      className="!border-border !bg-background !z-10 group-hover:!opacity-100"
+      className={cn(accent.handleBorder, "!bg-card !z-10 group-hover:!opacity-100")}
     />
   )
 }
@@ -202,130 +271,82 @@ const GROUP_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>
 }
 
 // ============================================================================
-// Card Node — Blueprint card with left accent bar
+// Spec row builder
 // ============================================================================
 
-function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
-  const cfg = getNodeConfig(nodeType)
-  const { theme } = cfg
-  const handles = (data.handles || []) as HandleConfig[]
-  const layoutDirection = data.layoutDirection
+interface SpecRow {
+  label: string
+  value: string
+}
+
+function buildActorSpecs(data: NodeData): SpecRow[] {
+  const rows: SpecRow[] = []
+  if (data.cloudServiceName && data.cloudServiceName !== "none") rows.push({ label: "Provider", value: data.cloudServiceName })
+  return rows
+}
+
+function buildCardSpecs(data: NodeData): SpecRow[] {
+  const rows: SpecRow[] = []
+  if (data.languageRuntime && data.languageRuntime !== "none") {
+    const fw = data.frameworkLibrary && data.frameworkLibrary !== "none" ? `, ${data.frameworkLibrary}` : ""
+    rows.push({ label: "Tech", value: `${data.languageRuntime}${fw}` })
+  } else if (data.frameworkLibrary && data.frameworkLibrary !== "none") {
+    rows.push({ label: "Tech", value: data.frameworkLibrary })
+  }
+  if (data.cloudServiceName && data.cloudServiceName !== "none") rows.push({ label: "Provider", value: data.cloudServiceName })
+  if (data.databaseEngine && data.databaseEngine !== "none") rows.push({ label: "Engine", value: data.databaseEngine })
+  if (data.cloudTier && data.cloudTier !== "none") rows.push({ label: "Tier", value: data.cloudTier })
+  if (data.tableName) rows.push({ label: "Table", value: data.tableName })
+  if (data.statusState) {
+    const labels: Record<string, string> = { normal: "Healthy", warning: "High Latency", error: "Critical", proposed: "Proposed" }
+    rows.push({ label: "Status", value: labels[data.statusState] || data.statusState })
+  }
+  return rows
+}
+
+// ============================================================================
+// Actor Node — Small compact blueprint card
+// ============================================================================
+
+function ActorNode({ data, selected, accent }: { data: NodeData; selected?: boolean; accent: AccentSet }) {
   const IconComponent = data.icon ? ICON_MAP[data.icon] : null
-
-  const hasTech = [
-    data.languageRuntime, data.frameworkLibrary, data.databaseEngine,
-    data.cloudServiceName, data.cloudTier, ...(data.metadataTags || []),
-  ].some(v => v && v !== "none")
-
-  const hasDbInfo = !!data.tableName
+  const specs = buildActorSpecs(data)
 
   return (
     <div
       className={cn(
-        "group relative border bg-[#0A0A0A] text-foreground transition-all duration-150",
-        "rounded-none",
-        cfg.dashed ? "border-dashed" : "border-solid",
-        "min-w-[260px] max-w-[360px]",
-        selected ? "ring-1 ring-ring" : "hover:border-foreground/20",
-        theme.border,
+        "group relative bg-card border-2 rounded-sm",
+        "shadow-[2px_2px_0px_0px]",
+        "min-w-[140px]",
+        accent.border, accent.shadow,
+        selected && cn("ring-2", accent.ring),
       )}
     >
-      {handles.map((h) => (
-        <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
+      {(data.handles || []).map((h) => (
+        <NodeHandle key={h.id} h={h} layoutDirection={data.layoutDirection} accent={accent} />
       ))}
-
-      {/* Left accent bar */}
-      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", theme.accentBg)} />
-
-      <div className="pl-[18px] pr-4 pt-3.5 pb-3.5">
-        {/* Header with icon box + stacked title */}
-        <div className="flex items-start gap-3 mb-3 border-b border-[#1C1C1C] pb-3">
-          {IconComponent && (
-            <div className="w-8 h-8 flex items-center justify-center bg-[#141414] border border-[#2E2E2E] shrink-0">
-              <IconComponent className={cn("w-4 h-4 stroke-[2]", theme.accent)} />
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className={cn(
-                "inline-flex items-center px-1.5 py-[2px] text-[10px] font-mono font-medium leading-none",
-                theme.badge, theme.badgeText,
-              )}>
-                {cfg.label}
-              </span>
-              {data.statusState && (
-                <span className={cn("w-1.5 h-1.5 shrink-0", STATUS_DOTS[data.statusState])} />
-              )}
-            </div>
-            <div className="text-sm font-semibold text-foreground leading-snug">
-              {data.label}
-            </div>
-            {data.subtitle && (
-              <div className="text-[12px] text-muted-foreground/60 leading-normal mt-px">
-                {data.subtitle}
-              </div>
-            )}
-          </div>
+      <div className={cn("bg-muted border-b p-2 flex items-center justify-between", accent.border)}>
+        <span className={cn("font-mono text-[10px] font-bold uppercase tracking-wider", accent.text)}>
+          {data.subtitle || "Actor"}
+        </span>
+        {IconComponent && (
+          <IconComponent className={cn("w-4 h-4", accent.text)} />
+        )}
+      </div>
+      <div className="p-3">
+        <div className={cn("font-mono text-sm font-bold text-center leading-tight", accent.text)}>
+          {data.label}
         </div>
-
-        {/* Purpose */}
-        {data.purpose && (
-          <p className="text-[12px] text-muted-foreground/50 leading-relaxed mb-3 line-clamp-2">
-            {data.purpose}
-          </p>
-        )}
-
-        {/* Tech stack */}
-        {hasTech && (
-          <div className="flex flex-wrap gap-1.5 pt-3 border-t border-[#1C1C1C]">
-            {data.languageRuntime !== "none" && (
-              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
-                {data.languageRuntime}
-              </span>
-            )}
-            {data.frameworkLibrary !== "none" && (
-              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
-                {data.frameworkLibrary}
-              </span>
-            )}
-            {data.databaseEngine !== "none" && (
-              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
-                {data.databaseEngine}
-              </span>
-            )}
-            {data.cloudServiceName !== "none" && (
-              <span className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
-                {data.cloudServiceName}
-              </span>
-            )}
-            {data.cloudTier !== "none" && (
-              <span className="px-2 py-[3px] text-[10px] font-mono text-muted-foreground/50">
-                {data.cloudTier}
-              </span>
-            )}
-            {data.metadataTags && data.metadataTags.slice(0, 3).map((tag, i) => (
-              <span key={i} className="px-2 py-[3px] text-[10px] font-mono border border-[#2E2E2E] bg-[#141414] text-muted-foreground">
-                {tag}
-              </span>
-            ))}
-            {data.metadataTags && data.metadataTags.length > 3 && (
-              <span className="px-2 py-[3px] text-[10px] font-mono text-muted-foreground/50">
-                +{data.metadataTags.length - 3}
-              </span>
-            )}
+        {data.description && (
+          <div className="font-mono text-[10px] text-muted-foreground text-center mt-1 leading-tight">
+            {data.description}
           </div>
         )}
-
-        {/* DB Schema */}
-        {hasDbInfo && (
-          <div className={cn(
-            "pt-3 text-[11px] font-mono text-muted-foreground/60 truncate",
-            hasTech && "border-t border-[#1C1C1C] mt-3",
-          )}>
-            <span className="font-medium text-foreground/70">{data.tableName}</span>
-            {data.columns && data.columns.length > 0 && (
-              <span className="text-muted-foreground/40"> ({data.columns.join(", ")})</span>
-            )}
+        {specs.length > 0 && (
+          <div className="mt-2 text-[10px] font-mono">
+            {specs.map(s => (
+              <div key={s.label} className="text-muted-foreground text-center">{s.value}</div>
+            ))}
           </div>
         )}
       </div>
@@ -334,62 +355,119 @@ function CardNode({ data, selected, nodeType }: { data: NodeData; selected?: boo
 }
 
 // ============================================================================
-// Container Node — Blueprint container with left accent bar
+// Card Node — Blueprint card with properties table
 // ============================================================================
 
-function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
+function CardNode({ data, selected, nodeType, accent }: { data: NodeData; selected?: boolean; nodeType: string; accent: AccentSet }) {
   const cfg = getNodeConfig(nodeType)
-  const { theme } = cfg
-  const GroupIcon = GROUP_ICON_MAP[nodeType] || FolderClosed
-  const handles = (data.handles || []) as HandleConfig[]
-  const layoutDirection = data.layoutDirection
+  const IconComponent = data.icon ? ICON_MAP[data.icon] : null
+  const specs = buildCardSpecs(data)
+  const StatusIcon = data.statusState ? STATUS_ICONS[data.statusState] : null
+  const statusColor = data.statusState ? STATUS_COLORS[data.statusState] : ""
 
   return (
     <div
       className={cn(
-        "group w-full h-full rounded-none border transition-shadow relative",
+        "group relative bg-card border-2 rounded-sm",
+        "shadow-[2px_2px_0px_0px]",
+        "min-w-[240px]",
+        accent.border, accent.shadow,
         cfg.dashed ? "border-dashed" : "border-solid",
-        theme.border,
-        theme.light,
-        selected && "ring-1 ring-ring",
+        selected && cn("ring-2", accent.ring),
+      )}
+    >
+      {(data.handles || []).map((h) => (
+        <NodeHandle key={h.id} h={h} layoutDirection={data.layoutDirection} accent={accent} />
+      ))}
+
+      {/* Header */}
+      <div className={cn("bg-muted border-b p-2 flex items-center justify-between", accent.border)}>
+        <div className="flex items-center gap-2 min-w-0">
+          {IconComponent && (
+            <IconComponent className={cn("w-4 h-4 shrink-0", accent.text)} />
+          )}
+          <span className={cn("font-mono text-[10px] font-bold uppercase tracking-wider", accent.text)}>
+            {cfg.label}
+          </span>
+        </div>
+        {StatusIcon && (
+          <StatusIcon className={cn("w-4 h-4 shrink-0", statusColor)} />
+        )}
+      </div>
+
+      {/* Title area */}
+      {(data.label || data.purpose || data.description) && (
+        <div className={cn("p-2 border-b", accent.borderSub)}>
+          <div className={cn("font-mono text-sm font-bold leading-tight", accent.text)}>
+            {data.label}
+          </div>
+          {(data.purpose || data.description) && (
+            <div className="font-mono text-[10px] text-muted-foreground mt-1 leading-relaxed line-clamp-2">
+              {data.purpose || data.description}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Properties table */}
+      {specs.length > 0 && (
+        <div className="flex flex-col text-[10px] font-mono">
+          {specs.slice(0, 3).map((s, i) => (
+            <div key={s.label} className={cn("flex", i < specs.length - 1 && i < 2 ? cn("border-b", accent.borderSub) : "")}>
+              <div className={cn("w-[35%] p-1.5 border-r bg-muted/50 font-semibold", accent.borderSub, accent.text)}>{s.label}</div>
+              <div className="w-[65%] p-1.5 text-foreground">{s.value}</div>
+            </div>
+          ))}
+          {specs.length > 3 && (
+            <div className={cn("p-1.5 text-center text-[9px] font-mono border-t", accent.textSub, accent.borderSub)}>
+              +{specs.length - 3} more
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// Container Node — Blueprint container
+// ============================================================================
+
+function ContainerNode({ data, selected, nodeType, accent }: { data: NodeData; selected?: boolean; nodeType: string; accent: AccentSet }) {
+  const cfg = getNodeConfig(nodeType)
+  const GroupIcon = GROUP_ICON_MAP[nodeType] || FolderClosed
+
+  return (
+    <div
+      className={cn(
+        "group w-full h-full border-2 bg-card transition-shadow relative rounded-sm",
+        cfg.dashed ? "border-dashed" : "border-solid",
+        accent.border,
+        selected && cn("ring-2", accent.ring),
       )}
     >
       <NodeResizer
         isVisible={selected}
         minWidth={280}
         minHeight={160}
-        lineClassName="!border-foreground/30"
-        handleClassName="!bg-foreground/50 !w-2.5 !h-2.5 !border-0"
+        lineClassName={accent.handleBorder}
+        handleClassName={cn(accent.handleBg, "!w-3 !h-3 !border-2 !border-card")}
       />
-      {handles.map((h) => (
-        <NodeHandle key={h.id} h={h} layoutDirection={layoutDirection} />
+      {(data.handles || []).map((h) => (
+        <NodeHandle key={h.id} h={h} layoutDirection={data.layoutDirection} accent={accent} />
       ))}
 
-      {/* Left accent bar */}
-      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", theme.accentBg)} />
-
-      {/* Drag handle header */}
-      <div
-        className={cn(
-          "rf-group-drag-handle",
-          "flex items-center gap-3 pl-[18px] pr-4 py-2.5",
-          "border-b cursor-grab active:cursor-grabbing select-none",
-          "border-[#2E2E2E]",
-        )}
-      >
-        <GroupIcon className={cn("w-4 h-4 stroke-[2] shrink-0", theme.accent)} />
-        <span className="text-sm font-medium text-foreground/80 truncate">
+      <div className={cn(
+        "rf-group-drag-handle",
+        "flex items-center gap-3 px-3 py-2 border-b-2",
+        "bg-muted cursor-grab active:cursor-grabbing select-none",
+        accent.border,
+      )}>
+        <GroupIcon className={cn("w-4 h-4 shrink-0", accent.text)} />
+        <span className={cn("text-sm font-bold truncate font-mono", accent.text)}>
           {data.label}
         </span>
-        {data.subtitle && (
-          <span className="text-[11px] text-muted-foreground/50 truncate hidden sm:inline">
-            — {data.subtitle}
-          </span>
-        )}
-        <span className={cn(
-          "ml-auto px-1.5 py-[2px] text-[9px] font-mono font-medium shrink-0",
-          theme.badge, theme.badgeText,
-        )}>
+        <span className={cn("ml-auto text-[9px] font-bold uppercase tracking-wider font-mono", accent.text)}>
           {cfg.label}
         </span>
       </div>
@@ -398,56 +476,46 @@ function ContainerNode({ data, selected, nodeType }: { data: NodeData; selected?
 }
 
 // ============================================================================
-// Group Node — legacy generic group
+// Group Node
 // ============================================================================
 
-function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: boolean; nodeType: string }) {
+function GroupNode({ data, selected, nodeType, accent }: { data: NodeData; selected?: boolean; nodeType: string; accent: AccentSet }) {
   const cfg = getNodeConfig(nodeType)
-  const { theme } = cfg
 
   return (
     <div
       className={cn(
-        "relative w-full h-full rounded-none border-2 border-dashed transition-shadow",
-        selected && "ring-1 ring-ring",
-        theme.border,
-        theme.light,
+        "relative w-full h-full border-2 border-dashed bg-card rounded-sm transition-shadow",
+        accent.border,
+        selected && cn("ring-2", accent.ring),
       )}
     >
       <NodeResizer
         isVisible={selected}
         minWidth={240}
         minHeight={120}
-        lineClassName="!border-foreground/30"
-        handleClassName="!bg-foreground/50 !w-2.5 !h-2.5 !border-0"
+        lineClassName={accent.handleBorder}
+        handleClassName={cn(accent.handleBg, "!w-3 !h-3 !border-2 !border-card")}
       />
-      {/* Left accent bar */}
-      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", theme.accentBg)} />
-      <div className={cn(
-        "flex items-center gap-2 pl-[18px] pr-3 py-2 border-b border-dashed",
-        "border-[#2E2E2E]",
-      )}>
-        <span className={cn(
-          "text-[10px] font-mono font-medium leading-none",
-          theme.badgeText,
-        )}>
+      <div className={cn("flex items-center gap-2 px-3 py-2 border-b-2 border-dashed bg-muted", accent.border)}>
+        <span className={cn("text-[9px] font-bold uppercase tracking-wider font-mono", accent.text)}>
           {cfg.label}
         </span>
-        <span className="text-sm font-medium text-foreground/70 truncate">{data.label}</span>
+        <span className={cn("text-sm font-bold truncate font-mono", accent.text)}>{data.label}</span>
       </div>
       {data.title && (
-        <div className="px-[18px] py-2 border-b border-dashed" style={{ borderColor: "inherit" }}>
-          <h4 className={cn("text-sm font-semibold", theme.accent)}>{data.title}</h4>
+        <div className={cn("px-3 py-2 border-b border-dashed", accent.borderSub)}>
+          <h4 className={cn("text-xs font-semibold", accent.text)}>{data.title}</h4>
         </div>
       )}
       {data.description && (
-        <div className="px-[18px] py-2">
-          <p className="text-xs text-muted-foreground">{data.description}</p>
+        <div className="px-3 py-2">
+          <p className="text-xs text-foreground">{data.description}</p>
         </div>
       )}
       {data.purpose && !data.title && !data.description && (
-        <div className="px-[18px] py-2">
-          <p className="text-[12px] text-muted-foreground/60">{data.purpose}</p>
+        <div className="px-3 py-2">
+          <p className="text-[11px] text-muted-foreground">{data.purpose}</p>
         </div>
       )}
     </div>
@@ -458,23 +526,25 @@ function GroupNode({ data, selected, nodeType }: { data: NodeData; selected?: bo
 // Swimlane Node
 // ============================================================================
 
-function SwimlaneNode({ data, selected }: { data: NodeData; selected?: boolean }) {
+function SwimlaneNode({ data, selected, accent }: { data: NodeData; selected?: boolean; accent: AccentSet }) {
   const isHorizontal = data.layoutOrientation !== "vertical"
 
   return (
     <div
       className={cn(
-        "relative flex rounded-none border border-border bg-muted/20 transition-shadow min-h-[80px]",
+        "relative flex bg-card border-2 rounded-sm transition-shadow min-h-[50px]",
         isHorizontal ? "flex-row" : "flex-col",
-        selected && "ring-1 ring-ring",
+        accent.border,
+        selected && cn("ring-2", accent.ring),
       )}
     >
       <div
         className={cn(
-          "flex items-center justify-center font-medium text-muted-foreground",
+          "flex items-center justify-center font-bold uppercase tracking-wider bg-muted font-mono",
+          accent.text,
           isHorizontal
-            ? "w-8 min-h-full border-r border-[#2E2E2E] text-[10px] [writing-mode:vertical-rl] tracking-wider"
-            : "h-7 w-full border-b border-[#2E2E2E] text-[10px] tracking-wider",
+            ? cn("w-8 min-h-full border-r-2 text-[9px] [writing-mode:vertical-rl]", accent.border)
+            : cn("h-7 w-full border-b-2 text-[9px]", accent.border),
         )}
       >
         {data.label || "Swimlane"}
@@ -492,19 +562,24 @@ const CONTAINER_TYPES = new Set([
   "c4Boundary", "cloudBoundary",
 ])
 
+const ACTOR_TYPES = new Set(["c4Actor"])
+
 function DiagramNode(props: NodeProps) {
   const { data, selected, type } = props
   const isContainer = CONTAINER_TYPES.has(type || "")
   const isSwimlane = type === "flowSwimlane"
   const isLegacyGroup = type === "group"
+  const isActor = ACTOR_TYPES.has(type || "")
 
   const nodeData = data as any as NodeData
+  const accent = getAccentSet(type || "c4Container")
 
-  if (isContainer) return <ContainerNode data={nodeData} selected={selected} nodeType={type || "group"} />
-  if (isSwimlane)  return <SwimlaneNode data={nodeData} selected={selected} />
-  if (isLegacyGroup) return <GroupNode data={nodeData} selected={selected} nodeType={type || "group"} />
+  if (isActor)     return <ActorNode data={nodeData} selected={selected} accent={accent} />
+  if (isContainer) return <ContainerNode data={nodeData} selected={selected} nodeType={type || "group"} accent={accent} />
+  if (isSwimlane)  return <SwimlaneNode data={nodeData} selected={selected} accent={accent} />
+  if (isLegacyGroup) return <GroupNode data={nodeData} selected={selected} nodeType={type || "group"} accent={accent} />
 
-  return <CardNode data={nodeData} selected={selected} nodeType={type || "c4Container"} />
+  return <CardNode data={nodeData} selected={selected} nodeType={type || "c4Container"} accent={accent} />
 }
 
 export const nodeTypes = {
@@ -534,7 +609,7 @@ export const nodeTypes = {
 }
 
 // ============================================================================
-// Custom Edge
+// Custom Edge — Blueprint navy style
 // ============================================================================
 
 function getEdgePath(type: string, props: any) {
@@ -547,29 +622,18 @@ function getEdgePath(type: string, props: any) {
 }
 
 function edgePathStyle(edgeData: EdgeData | undefined): React.CSSProperties {
-  if (!edgeData) return { stroke: "#94a3b8", strokeWidth: 1.5 }
-  const style: React.CSSProperties = { strokeWidth: 1.5 }
-
-  if (edgeData.logicVariant && edgeData.logicVariant !== "standard_flow") {
-    style.strokeDasharray = "6,4"
-    style.stroke = "#818cf8"
-  } else {
-    style.stroke = "#94a3b8"
+  const dashed = !!(edgeData?.logicVariant && edgeData.logicVariant !== "standard_flow")
+  return {
+    strokeWidth: 1.5,
+    fill: "none",
+    strokeDasharray: dashed ? "4 2" : undefined,
   }
-
-  if (edgeData.protocol === "gRPC" || edgeData.protocol === "WebSocket") {
-    style.stroke = "#a78bfa"
-  } else if (edgeData.protocol === "AMQP" || edgeData.protocol === "Kafka") {
-    style.stroke = "#fb923c"
-  }
-
-  return style
 }
 
 export function CustomEdge(props: EdgeProps) {
   const {
     id, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition,
-    label, data, selected, markerEnd, markerStart, animated, type: edgeType,
+    label, data, selected, animated, type: edgeType,
   } = props
   const edgeData = data as EdgeData | undefined
   const pathType = edgeType || "default"
@@ -585,7 +649,8 @@ export function CustomEdge(props: EdgeProps) {
   const protocolStr = edgeData?.protocol
 
   const labelW = Math.max(40, (labelStr?.length ?? 0) * 6.5 + 16)
-  const protocolW = Math.max(32, (protocolStr?.length ?? 0) * 5.5 + 12)
+  const protocolW = Math.max(32, (protocolStr?.length ?? 0) * 5.5 + 14)
+  const labelH = 20
 
   return (
     <g>
@@ -596,28 +661,24 @@ export function CustomEdge(props: EdgeProps) {
           ...edgePathStyle(edgeData),
           animation: animated ? "dashdraw 0.5s linear infinite" : undefined,
         }}
-        markerEnd={markerEnd}
-        markerStart={markerStart}
-        className={cn(selected && "!stroke-foreground/70")}
+        markerEnd="url(#arrowhead)"
+        className={cn("stroke-primary", selected && "!opacity-80")}
       />
 
       {hasLabel && (
-        <g transform={`translate(${labelX}, ${labelY})`}>
+        <g transform={`translate(${labelX}, ${labelY - 6})`}>
           <rect
-            x={-labelW / 2}
-            y={-10}
-            width={labelW}
-            height={18}
-            rx={3}
-            className="fill-background stroke-border"
-            strokeWidth={0.75}
+            x={-labelW / 2} y={-labelH / 2}
+            width={labelW} height={labelH}
+            rx={2}
+            className="fill-card stroke-primary"
+            strokeWidth={1}
           />
           <text
-            x={0}
-            y={3}
+            x={0} y={4}
             textAnchor="middle"
-            className="fill-foreground/80"
-            style={{ fontSize: "10px", fontWeight: 600, fontFamily: "inherit" }}
+            className="fill-primary font-semibold"
+            style={{ fontSize: "10px", fontFamily: "JetBrains Mono, monospace" }}
           >
             {labelStr}
           </text>
@@ -625,27 +686,30 @@ export function CustomEdge(props: EdgeProps) {
       )}
 
       {hasProtocol && (
-        <g transform={`translate(${labelX}, ${labelY + (hasLabel ? 16 : 0)})`}>
+        <g transform={`translate(${labelX}, ${labelY + (hasLabel ? 12 : -6)})`}>
           <rect
-            x={-protocolW / 2}
-            y={-7}
-            width={protocolW}
-            height={13}
+            x={-protocolW / 2} y={-8}
+            width={protocolW} height={16}
             rx={2}
-            className="fill-muted/80 stroke-border/40"
-            strokeWidth={0.5}
+            className="fill-card stroke-primary"
+            strokeWidth={0.75}
           />
           <text
-            x={0}
-            y={2.5}
+            x={0} y={3.5}
             textAnchor="middle"
-            className="fill-muted-foreground/70"
-            style={{ fontSize: "8px", fontFamily: "monospace" }}
+            className="fill-primary"
+            style={{ fontSize: "9px", fontFamily: "JetBrains Mono, monospace" }}
           >
             {protocolStr}
           </text>
         </g>
       )}
+
+      <defs>
+        <marker id="arrowhead" markerHeight="6" markerWidth="9" orient="auto" refX="8" refY="3">
+          <polygon className="fill-primary" points="0 0, 9 3, 0 6" />
+        </marker>
+      </defs>
     </g>
   )
 }

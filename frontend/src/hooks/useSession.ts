@@ -21,6 +21,7 @@ export interface ChatMsg {
   agentText?: string
   agentsInvolved: string[]
   reflectionSummary?: string
+  interactionSummary?: string
   reflectionGoals?: string[]
   structuredOutput?: Record<string, unknown>
   routedTo?: string
@@ -69,6 +70,9 @@ export function groupEventsIntoTurns(events: any[]): ChatMsg[] {
           try { out = JSON.parse(out) } catch { /* ignore */ }
         }
         if (out && typeof out === "object") {
+          if (out.interaction_summary) {
+            currentTurn.interactionSummary = out.interaction_summary
+          }
           if (out.summary) {
             currentTurn.reflectionSummary = out.summary
           }
@@ -257,6 +261,9 @@ export function useSession() {
       // Merge reflection fields if returned at top level
       const ref = res.reflection as any
       if (ref) {
+        if (ref.interaction_summary) {
+          finalTurn.interactionSummary = ref.interaction_summary
+        }
         if (ref.summary) {
           finalTurn.reflectionSummary = ref.summary
         }
@@ -339,6 +346,9 @@ export function useSession() {
 
       const ref = res.reflection as any
       if (ref) {
+        if (ref.interaction_summary) {
+          finalTurn.interactionSummary = ref.interaction_summary
+        }
         if (ref.summary) {
           finalTurn.reflectionSummary = ref.summary
         }

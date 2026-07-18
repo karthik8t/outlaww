@@ -28,15 +28,17 @@ import {
   ZoomIn,
   ZoomOut,
   Layout,
-  PanelRight,
   Map,
-  X,
+  Sun,
+  Moon,
+  Settings,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Badge } from "@/components/ui/badge"
+import { Sheet, SheetContent, SheetHeader, SheetBody } from "@/components/ui/sheet"
+import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { nodeTypes, edgeTypes } from "@/components/nodes/components"
 import { layoutNodes } from "@/lib/layout"
@@ -59,7 +61,7 @@ interface ReactFlowDiagramViewProps {
 }
 
 // ============================================================================
-// Sidebar — shows details for a selected node or edge
+// Detail Panel — Shows details for a selected node or edge
 // ============================================================================
 
 interface SelectedElement {
@@ -69,110 +71,219 @@ interface SelectedElement {
   data: any
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  if (!value || value === "none") return null
+function PropsTab({ d, elementType }: { d: any; elementType: string }) {
   return (
-    <div className="space-y-0.5">
-      <dt className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium">{label}</dt>
-      <dd className="text-xs text-foreground/80 leading-relaxed">{value}</dd>
-    </div>
-  )
-}
+    <div className="space-y-4">
+      {/* Identification */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 bg-muted border border-primary rounded-sm flex items-center justify-center">
+            <Settings className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <span className="font-mono text-xs font-bold text-primary uppercase tracking-wider">{elementType}</span>
+        </div>
+        <div className="space-y-2.5">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Name</label>
+            <div className="w-full px-3 py-1.5 bg-card border border-border rounded-sm text-sm text-foreground font-mono">
+              {d?.label || "—"}
+            </div>
+          </div>
+          {d?.subtitle && (
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Subtitle</label>
+              <div className="w-full px-3 py-1.5 bg-card border border-border rounded-sm text-sm text-foreground font-mono">
+                {d.subtitle}
+              </div>
+            </div>
+          )}
+          {(d?.purpose || d?.description) && (
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Description</label>
+              <div className="w-full px-3 py-1.5 bg-card border border-border rounded-sm text-sm text-foreground font-mono leading-relaxed min-h-[48px]">
+                {d?.purpose || d?.description}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h4 className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground/80 mb-2">{title}</h4>
-      <dl className="space-y-2">{children}</dl>
+      <div className="h-px bg-border" />
+
+      {/* Architecture */}
+      {(d?.reasoning || d?.architectureBenefit || d?.designJustification) && (
+        <div>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Architecture</h3>
+          <div className="space-y-2.5">
+            {d?.architectureBenefit && (
+              <div>
+                <label className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Architecture Benefit</label>
+                <div className="text-xs text-foreground leading-relaxed">{d.architectureBenefit}</div>
+              </div>
+            )}
+            {d?.designJustification && (
+              <div>
+                <label className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Design Justification</label>
+                <div className="text-xs text-foreground leading-relaxed">{d.designJustification}</div>
+              </div>
+            )}
+            {d?.reasoning && (
+              <div>
+                <label className="block text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Reasoning</label>
+                <div className="text-xs text-foreground leading-relaxed">{d.reasoning}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Technologies */}
+      {(d?.languageRuntime || d?.frameworkLibrary || d?.databaseEngine || d?.cloudServiceName || d?.cloudTier) && (
+        <div>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Technologies</h3>
+          <div className="bg-card border border-border rounded-sm divide-y divide-border text-[11px] font-mono">
+            {d?.languageRuntime && d.languageRuntime !== "none" && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Runtime</span>
+                <span className="w-2/3 text-foreground">{d.languageRuntime}</span>
+              </div>
+            )}
+            {d?.frameworkLibrary && d.frameworkLibrary !== "none" && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Framework</span>
+                <span className="w-2/3 text-foreground">{d.frameworkLibrary}</span>
+              </div>
+            )}
+            {d?.databaseEngine && d.databaseEngine !== "none" && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Database</span>
+                <span className="w-2/3 text-foreground">{d.databaseEngine}</span>
+              </div>
+            )}
+            {d?.cloudServiceName && d.cloudServiceName !== "none" && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Cloud Service</span>
+                <span className="w-2/3 text-foreground">{d.cloudServiceName}</span>
+              </div>
+            )}
+            {d?.cloudTier && d.cloudTier !== "none" && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Tier</span>
+                <span className="w-2/3 text-foreground">{d.cloudTier}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edge Connection Details */}
+      {elementType === "edge" && (d?.protocol || d?.flowDirection || d?.logicVariant || d?.dependencyBenefit || d?.couplingJustification) && (
+        <div>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Connection</h3>
+          <div className="bg-card border border-border rounded-sm divide-y divide-border text-[11px] font-mono">
+            {d?.protocol && d.protocol !== "none" && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Protocol</span>
+                <span className="w-2/3 text-foreground">{d.protocol}</span>
+              </div>
+            )}
+            {d?.flowDirection && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Direction</span>
+                <span className="w-2/3 text-foreground">{d.flowDirection}</span>
+              </div>
+            )}
+            {d?.logicVariant && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Logic</span>
+                <span className="w-2/3 text-foreground">{d.logicVariant}</span>
+              </div>
+            )}
+            {d?.dependencyBenefit && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Dep Benefit</span>
+                <span className="w-2/3 text-foreground">{d.dependencyBenefit}</span>
+              </div>
+            )}
+            {d?.couplingJustification && (
+              <div className="flex px-3 py-1.5">
+                <span className="w-1/3 text-muted-foreground">Coupling</span>
+                <span className="w-2/3 text-foreground">{d.couplingJustification}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status / Monitoring Alerts */}
+      {d?.statusState && (
+        <div>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Monitoring</h3>
+          <div className={cn(
+            "border p-2.5 rounded-sm flex items-start gap-2",
+            d.statusState === "warning" && "bg-chart-4/10 border-chart-4/30",
+            d.statusState === "error" && "bg-destructive/10 border-destructive/30",
+            d.statusState === "proposed" && "bg-primary/10 border-primary/20",
+            d.statusState === "normal" && "bg-chart-2/10 border-chart-2/30",
+          )}>
+            <span className={cn(
+              "text-xs mt-0.5",
+              d.statusState === "warning" && "text-chart-4",
+              d.statusState === "error" && "text-destructive",
+              d.statusState === "proposed" && "text-primary",
+              d.statusState === "normal" && "text-chart-2",
+            )}>
+              {d.statusState === "warning" ? "⚠" : d.statusState === "error" ? "✕" : d.statusState === "proposed" ? "○" : "●"}
+            </span>
+            <div>
+              <div className="text-[11px] font-bold text-foreground">
+                {d.statusState === "normal" ? "Operational" :
+                 d.statusState === "warning" ? "Warning Detected" :
+                 d.statusState === "error" ? "Critical Error" :
+                 d.statusState === "proposed" ? "Proposed Change" : d.statusState}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tags */}
+      {d?.metadataTags && d.metadataTags.length > 0 && (
+        <div>
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Tags</h3>
+          <div className="flex flex-wrap gap-1">
+            {d.metadataTags.map((tag: string, i: number) => (
+              <span key={i} className="bg-card border border-foreground/20 px-1.5 py-0.5 font-mono text-[9px] text-foreground">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 function SidebarPanel({ element, onClose }: { element: SelectedElement | null; onClose: () => void }) {
-  if (!element) return null
-  const { type, id, elementType, data: d } = element
+  const { type, id, elementType, data: d } = element || { type: "", id: "", elementType: "", data: {} }
 
   return (
-    <div className="fixed right-0 top-16 bottom-0 w-80 bg-background border-l border-border shadow-xl z-40 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <Badge variant="outline" className="capitalize text-[10px] shrink-0">{type}</Badge>
-          <span className="text-xs font-mono text-muted-foreground truncate">{id}</span>
-        </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onClose}>
-          <X className="w-3.5 h-3.5" />
-        </Button>
-      </div>
+    <Sheet open={!!element} onOpenChange={(o) => { if (!o) onClose() }}>
+      <SheetContent onClose={onClose}>
+        <SheetHeader className="border-b border-primary/20 shrink-0">
+          <div className="flex items-center gap-2 px-4 py-3 min-w-0">
+            <span className="bg-muted border border-primary px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-primary shrink-0">
+              {type}
+            </span>
+            <span className="text-[11px] font-mono text-muted-foreground truncate">{id}</span>
+          </div>
+        </SheetHeader>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Type badge */}
-        <div>
-          <Section title="Type">
-            <DetailRow label="Component Type" value={elementType} />
-            <DetailRow label="Label" value={d?.label} />
-            <DetailRow label="Subtitle" value={d?.subtitle} />
-          </Section>
-        </div>
-
-        {/* Architecture chain-of-thought (node + edge) */}
-        {(d?.reasoning || d?.purpose) && (
-          <Section title="Architecture">
-            <DetailRow label="Reasoning" value={d?.reasoning} />
-            <DetailRow label="Purpose" value={d?.purpose} />
-            {d?.architectureBenefit && <DetailRow label="Architecture Benefit" value={d?.architectureBenefit} />}
-            {d?.designJustification && <DetailRow label="Design Justification" value={d?.designJustification} />}
-            {d?.dependencyBenefit && <DetailRow label="Dependency Benefit" value={d?.dependencyBenefit} />}
-            {d?.couplingJustification && <DetailRow label="Coupling Justification" value={d?.couplingJustification} />}
-          </Section>
-        )}
-
-        {/* Tech Stack (node only) */}
-        {(d?.languageRuntime || d?.frameworkLibrary || d?.databaseEngine || d?.cloudServiceName) && (
-          <Section title="Tech Stack">
-            <DetailRow label="Runtime" value={d?.languageRuntime} />
-            <DetailRow label="Framework" value={d?.frameworkLibrary} />
-            <DetailRow label="Database" value={d?.databaseEngine} />
-            <DetailRow label="Cloud Service" value={d?.cloudServiceName} />
-            <DetailRow label="Tier" value={d?.cloudTier} />
-          </Section>
-        )}
-
-        {/* Connection details (edge only) */}
-        {(d?.protocol || d?.flowDirection || d?.logicVariant) && (
-          <Section title="Connection">
-            <DetailRow label="Protocol" value={d?.protocol} />
-            <DetailRow label="Flow Direction" value={d?.flowDirection} />
-            <DetailRow label="Logic Variant" value={d?.logicVariant} />
-          </Section>
-        )}
-
-        {/* Status / Metadata */}
-        {d?.statusState && <Section title="Status">
-          <DetailRow label="State" value={d?.statusState} />
-        </Section>}
-
-        {(d?.tableName || (d?.columns && d?.columns.length > 0)) && (
-          <Section title="Table">
-            <DetailRow label="Name" value={d?.tableName} />
-            {d?.columns && d?.columns.length > 0 && (
-              <DetailRow label="Columns" value={d?.columns.join(", ")} />
-            )}
-          </Section>
-        )}
-
-        {d?.metadataTags && d?.metadataTags.length > 0 && (
-          <Section title="Tags">
-            <div className="flex flex-wrap gap-1">
-              {d?.metadataTags.map((tag: string, i: number) => (
-                <span key={i} className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-muted text-muted-foreground border border-border">{tag}</span>
-              ))}
-            </div>
-          </Section>
-        )}
-      </div>
-    </div>
+        <SheetBody className="p-4">
+          <PropsTab d={d} elementType={elementType} />
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -208,7 +319,6 @@ export function ReactFlowCanvas({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
-  const [showSidebar, setShowSidebar] = useState(true)
   const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(null)
   const [showMinimap, setShowMinimap] = useState(true)
 
@@ -305,7 +415,11 @@ export function ReactFlowCanvas({
   }, [nodes, edges, layoutDirection, reactFlowInstance])
 
   const toggleMinimap = useCallback(() => setShowMinimap(p => !p), [])
-  const toggleSidebar = useCallback(() => setShowSidebar(p => !p), [])
+
+  const { theme, setTheme } = useTheme()
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === "dark" ? "light" : "dark")
+  }, [theme, setTheme])
 
   const fetchDiagram = useCallback(async () => {
     if (!diagramId || !fetchDiagramData) return
@@ -371,14 +485,6 @@ export function ReactFlowCanvas({
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={toggleSidebar}>
-                    <PanelRight className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{showSidebar ? "Hide" : "Show"} sidebar</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
                   <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleDownload}>
                     <Download className="w-3.5 h-3.5" />
                   </Button>
@@ -389,6 +495,18 @@ export function ReactFlowCanvas({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="h-7 w-7" onClick={toggleTheme}>
+                  {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{theme === "dark" ? "Light" : "Dark"} mode</TooltipContent>
+            </Tooltip>
+
+            <Separator orientation="vertical" className="h-5" />
+
             {/* Zoom */}
             <div className="flex items-center gap-1 bg-muted p-0.5 rounded-md">
               <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => reactFlowInstance?.zoomOut()}>
@@ -415,7 +533,7 @@ export function ReactFlowCanvas({
         </div>
 
         {/* Canvas */}
-        <div ref={containerRef} className="flex-1 relative overflow-hidden" onClick={onPaneClick}>
+        <div ref={containerRef} className="flex-1 relative overflow-hidden">
           {error && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/90 z-10">
               <div className="text-center p-4">
@@ -433,6 +551,7 @@ export function ReactFlowCanvas({
             onConnect={onConnect}
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
+            onPaneClick={onPaneClick}
             onViewportChange={({ zoom: z }) => setZoom(z)}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -447,8 +566,8 @@ export function ReactFlowCanvas({
           </ReactFlow>
         </div>
 
-        {/* Sidebar */}
-        {showSidebar && <SidebarPanel element={selectedElement} onClose={() => setSelectedElement(null)} />}
+        {/* Sidebar — auto-shows when a node/edge is selected */}
+        <SidebarPanel element={selectedElement} onClose={() => setSelectedElement(null)} />
       </div>
     </TooltipProvider>
   )

@@ -141,6 +141,8 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
     )
   }
 
+  const primaryText = msg.interactionSummary || msg.reflectionSummary || msg.agentText
+
   return (
     <div className="flex flex-col gap-4">
       {/* 1. User Message (if present) */}
@@ -159,7 +161,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
       )}
 
       {/* 2. AI Consolidated Response Card */}
-      {(msg.agentText || msg.reflectionSummary || msg.agentsInvolved.length > 0) && (
+      {primaryText && (
         <div className="flex flex-col gap-2">
           {/* Header & Pipeline Trail */}
           <div className="flex items-center justify-between text-muted-foreground px-0.5">
@@ -178,7 +180,7 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
                   </span>
                 ))}
                 {msg.agentsInvolved.length === 0 && (
-                  <span className="text-slate-500 font-semibold">AI Agent</span>
+                  <span className="text-slate-500 font-semibold">AI</span>
                 )}
               </div>
             </div>
@@ -187,36 +189,31 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
             </span>
           </div>
 
-          {/* Response Container (Swiss clean look) */}
-          <div className="bg-background border border-border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200 space-y-4">
-            
-            {/* Reflection Summary Callout (highlighted outcome of the turn) */}
-            {msg.reflectionSummary && (
-              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="inline-flex items-center justify-center bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 w-4 h-4 rounded text-[9px] font-bold">✓</span>
-                  <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400">
-                    Outcome Summary
-                  </span>
+          {/* Response Container */}
+          <div className="bg-background border border-border rounded-xl p-4 shadow-sm space-y-3">
+            {/* Primary concise text */}
+            <p className="text-sm font-semibold text-foreground leading-snug">
+              {primaryText}
+            </p>
+
+            {/* Collapsible full agent response */}
+            {msg.agentText && primaryText !== msg.agentText && (
+              <details className="group">
+                <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+                  <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+                  Show full response
+                </summary>
+                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap font-sans mt-2 pl-3 border-l-2 border-border">
+                  {msg.agentText}
                 </div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">
-                  {msg.reflectionSummary}
-                </p>
-              </div>
+              </details>
             )}
 
-            {/* Main Agent Explanation/Text */}
-            {msg.agentText && (
-              <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap font-sans">
-                {msg.agentText}
-              </div>
-            )}
-
-            {/* Reflection goals / next steps checklist */}
+            {/* Goals checklist */}
             {msg.reflectionGoals && msg.reflectionGoals.length > 0 && (
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80">
-                <span className="text-[9px] font-mono uppercase tracking-wider font-semibold text-slate-400 block mb-2">
-                  Identified Goals & Next Steps
+              <div className="pt-2 border-t border-border">
+                <span className="text-[9px] font-mono uppercase tracking-wider font-semibold text-muted-foreground block mb-2">
+                  Next Steps
                 </span>
                 <div className="space-y-1.5">
                   {msg.reflectionGoals.map((goal, index) => (
@@ -239,10 +236,11 @@ function ChatMessageBubble({ msg }: { msg: ChatMsg }) {
             {/* Structured output drawer */}
             {msg.structuredOutput && (
               <details className="group pt-1">
-                <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none">
+                <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+                  <span className="inline-block transition-transform group-open:rotate-90">▶</span>
                   Show details & structured output
                 </summary>
-                <pre className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-border font-mono text-[11px] text-slate-600 dark:text-slate-400 mt-2.5 overflow-x-auto max-h-48 overflow-y-auto">
+                <pre className="bg-muted p-3 rounded-lg border border-border font-mono text-[11px] text-foreground mt-2.5 overflow-x-auto max-h-48 overflow-y-auto">
                   {JSON.stringify(msg.structuredOutput, null, 2)}
                 </pre>
               </details>

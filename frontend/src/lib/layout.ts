@@ -3,8 +3,8 @@ import ELK from "elkjs/lib/elk.bundled.js"
 const elk = new ELK()
 
 // Leaf node dimensions (px) — used as hints to ELK for spacing calculations
-const NODE_W = 260
-const NODE_H = 160
+const NODE_W = 280
+const NODE_H = 180
 
 // Container initial sizes — ELK will auto-expand to fit children + padding
 const CONTAINER_W = 500
