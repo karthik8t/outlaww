@@ -165,14 +165,8 @@ async def chat(req: ChatRequest) -> ChatResponse:
             events_out.append(dto)
             if dto.text:
                 final_text = dto.text
-            # Check per-agent output fields for structured output
-            agent_output = (
-                dto.diagram_creator or dto.create_markdown or dto.edit_markdown
-                or dto.explainer or dto.gap_suggestion or dto.research
-                or dto.router or dto.reflection
-            )
-            if agent_output is not None:
-                structured_output = agent_output
+            if dto.agent_output is not None:
+                structured_output = dto.agent_output
             if dto.author and dto.author not in ("router", "user", "reflection"):
                 routed_to = dto.author
     except Exception as exc:

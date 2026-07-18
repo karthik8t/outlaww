@@ -1558,11 +1558,11 @@ from app.schema.reactflow_models import Diagram as DiagramOutput
 
 
 class DecodedEvent(BaseModel):
-    """A decoded ADK event with typed per-agent output fields.
+    """A decoded ADK event with agent output stored as a single dict.
 
-    Instead of a single ``output`` dict, each agent that can produce
-    structured output gets its own typed field.  Only the field matching
-    ``author`` will be non-None for any given event.
+    ``agent_output`` is a dict keyed by agent author name (e.g.
+    ``"create_diagram"``, ``"explainer"``) whose value is the
+    serialized output model.  At most one key will be present.
     """
     event_class: str = "agent_text"
     author: str = ""
@@ -1570,15 +1570,8 @@ class DecodedEvent(BaseModel):
     is_thought: bool = False
     is_partial: bool = False
 
-    # Per-agent output fields — only one populated per event
-    diagram_creator: DiagramOutput | None = None
-    create_markdown: CreateMarkdownOutput | None = None
-    edit_markdown: EditMarkdownOutput | None = None
-    explainer: ExplainerOutput | None = None
-    gap_suggestion: GapSuggestionOutput | None = None
-    research: ResearchOutput | None = None
-    router: RouterOutput | None = None
-    reflection: ReflectionOutput | None = None
+    # Single dict — key = author, value = output model dict
+    agent_output: dict[str, Any] | None = None
 
     # Tool fields
     tool_name: str = ""
@@ -1590,19 +1583,6 @@ class DecodedEvent(BaseModel):
     invocation_id: str = ""
     timestamp: float = 0.0
 
-
-_AUTHOR_FIELD_MAP: dict[str, str] = {
-    "create_diagram": "diagram_creator",
-    "edit_diagram": "diagram_creator",
-    "patch_diagram": "diagram_creator",
-    "create_markdown": "create_markdown",
-    "edit_markdown": "edit_markdown",
-    "explainer": "explainer",
-    "gap_suggestion": "gap_suggestion",
-    "research": "research",
-    "router": "router",
-    "reflection": "reflection",
-}
 
 _AUTHOR_MODEL_MAP: dict[str, type] = {
     "create_diagram": DiagramOutput,
@@ -1635,10 +1615,7 @@ def _to_model(output: Any, model_cls: type) -> Any | None:
 
 
 def decode_adk_event(event: Any) -> DecodedEvent:
-    """Convert a raw ADK Event into a typed DecodedEvent.
-
-    Each agent's structured output is placed in its own named field.
-    """
+    """Convert a raw ADK Event into a DecodedEvent with agent_output dict."""
     author = getattr(event, "author", "unknown")
     event_id = getattr(event, "id", "")
     invocation_id = getattr(event, "invocation_id", "")
@@ -1705,10 +1682,11 @@ def decode_adk_event(event: Any) -> DecodedEvent:
         "timestamp": timestamp,
     }
 
-    field_name = _AUTHOR_FIELD_MAP.get(author)
     model_cls = _AUTHOR_MODEL_MAP.get(author)
-    if field_name and model_cls:
-        kw[field_name] = _to_model(output, model_cls)
+    if model_cls:
+        model = _to_model(output, model_cls)
+        if model is not None:
+            kw["agent_output"] = {author: model.model_dump(mode="json")}
 
     return DecodedEvent(**kw)
 

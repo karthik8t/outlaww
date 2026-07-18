@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import * as api from "@/lib/api"
-import type { EventDict } from "@/lib/api"
+import type { EventDict, AgentOutputDict } from "@/lib/api"
 
 // ---------------------------------------------------------------------------
 //  Hook
@@ -17,16 +17,14 @@ import type { EventDict } from "@/lib/api"
 
 export interface ChatMsg {
   id: string
-  timestamp: string
-  userText?: string
+  role: "user" | "agent"
+  text: string
   agentText?: string
-  agentsInvolved: string[]
-  reflectionSummary?: string
-  interactionSummary?: string
-  reflectionGoals?: string[]
-  structuredOutput?: AgentOutputDto
   routedTo?: string
-  isError?: boolean
+  interactionSummary?: string
+  reflectionSummary?: string
+  reflectionGoals?: string[]
+  structuredOutput?: Record<string, unknown>
 }
 
 export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
@@ -65,12 +63,11 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
       }
 
       // Reflection — extract interaction_summary and goals
-      if (e.reflection) {
-        currentTurn.interactionSummary = (e.reflection as any).interaction_summary || undefined
-        currentTurn.reflectionSummary = (e.reflection as any).summary || undefined
-        const goals = (e.reflection as any).new_goals
-        if (Array.isArray(goals) && goals.length) {
-          currentTurn.reflectionGoals = goals
+      if (e.agent_output?.reflection) {
+        currentTurn.interactionSummary = e.agent_output.reflection.interaction_summary || undefined
+        currentTurn.reflectionSummary = e.agent_output.reflection.summary || undefined
+        if (e.agent_output.reflection.new_goals?.length) {
+          currentTurn.reflectionGoals = e.agent_output.reflection.new_goals
         }
       }
 
@@ -81,12 +78,11 @@ export function groupEventsIntoTurns(events: EventDict[]): ChatMsg[] {
           currentTurn.agentText = e.text
           currentTurn.routedTo = author
         }
-        // Use whichever per-agent field is populated
-        const agentOutput = e.diagram_creator ?? e.create_markdown ?? e.edit_markdown
-          ?? e.explainer ?? e.gap_suggestion ?? e.research ?? e.router
-        if (agentOutput && author !== "router" && author !== "reflection"
+        // Extract the agent's output from the agent_output dict
+        const agentOut = e.agent_output?.[author as keyof AgentOutputDict]
+        if (agentOut && author !== "router" && author !== "reflection"
             && author !== "outlaww_text_workflow" && author !== "outlaww_action_workflow") {
-          currentTurn.structuredOutput = agentOutput as Record<string, unknown>
+          currentTurn.structuredOutput = agentOut as Record<string, unknown>
           currentTurn.routedTo = author
         }
       }

@@ -129,147 +129,152 @@ function IconRail({
 //  Agent Output Renderer — displays structured output per agent type
 // ---------------------------------------------------------------------------
 
-function AgentOutputRenderer({ output, agent }: { output?: Record<string, unknown>; agent?: string }) {
-  if (!output) return null
+function DiagramSummary({ output }: { output: Record<string, unknown> }) {
+  const meta = output.metadata as Record<string, unknown> | undefined
+  const nodes = output.nodes as Array<unknown> | undefined
+  return (
+    <details className="group pt-1">
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+        <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+        <GitBranch className="w-3 h-3 inline" />
+        {meta?.label ? <>Diagram: <span className="font-medium">{String(meta.label)}</span></> : "Diagram"}
+        {nodes?.length ? <> · {nodes.length} {nodes.length === 1 ? "node" : "nodes"}</> : null}
+      </summary>
+    </details>
+  )
+}
 
-  const agentKey = agent?.replace(/^(outlaww_|flow_|c4_)/, "").replace(/_workflow$/, "")
-  const out = output
+function CreateMarkdownSummary({ output }: { output: Record<string, unknown> }) {
+  const sections = output.sections as Array<unknown> | undefined
+  return (
+    <details className="group pt-1">
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+        <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+        <FileText className="w-3 h-3 inline" />
+        Created document{output.title ? <>: <span className="font-medium">{String(output.title)}</span></> : null}
+        {sections?.length ? <> · {sections.length} {sections.length === 1 ? "section" : "sections"}</> : null}
+      </summary>
+    </details>
+  )
+}
 
-  // Diagram agents
-  if (agentKey === "create_diagram" || agentKey === "edit_diagram" || agentKey === "patch_diagram") {
-    const name = (out as any).metadata?.label || (out as any).name || ""
-    const nodeCount = Array.isArray((out as any).nodes) ? (out as any).nodes.length : 0
-    return (
-      <details className="group pt-1">
-        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
-          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-          <GitBranch className="w-3 h-3 inline" />
-          {agentKey === "create_diagram" ? "Created" : "Edited"} diagram
-          {name && <>: <span className="font-medium">{name}</span></>}
-          {nodeCount > 0 && <> · {nodeCount} {nodeCount === 1 ? "node" : "nodes"}</>}
-        </summary>
-      </details>
-    )
-  }
+function EditMarkdownSummary({ output }: { output: Record<string, unknown> }) {
+  const edits = output.edits as Array<unknown> | undefined
+  return (
+    <details className="group pt-1">
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+        <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+        <FileText className="w-3 h-3 inline" />
+        Edited document · {edits?.length ?? 0} {(edits?.length ?? 0) === 1 ? "change" : "changes"}
+      </summary>
+      {output.reasoning && (
+        <p className="text-xs text-muted-foreground mt-1.5 pl-4">{String(output.reasoning)}</p>
+      )}
+    </details>
+  )
+}
 
-  // Create markdown
-  if (agentKey === "create_markdown") {
-    const title = (out as any).title || ""
-    const sections = Array.isArray((out as any).sections) ? (out as any).sections : []
-    return (
-      <details className="group pt-1">
-        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
-          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-          <FileText className="w-3 h-3 inline" />
-          Created document{title && <>: <span className="font-medium">{title}</span></>}
-          {sections.length > 0 && <> · {sections.length} {sections.length === 1 ? "section" : "sections"}</>}
-        </summary>
-      </details>
-    )
-  }
+function ExplainerSummary({ output }: { output: Record<string, unknown> }) {
+  const keyPoints = output.key_points as string[] | undefined
+  return (
+    <details className="group pt-1" defaultOpen>
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+        <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+        <Lightbulb className="w-3 h-3 inline" />
+        Explanation · {keyPoints?.length ?? 0} {(keyPoints?.length ?? 0) === 1 ? "key point" : "key points"}
+      </summary>
+      {output.explanation && (
+        <p className="text-xs text-foreground mt-1.5 pl-4 leading-relaxed">{String(output.explanation)}</p>
+      )}
+      {keyPoints?.length ? (
+        <ul className="mt-1.5 pl-6 space-y-1">
+          {keyPoints.map((pt, i) => (
+            <li key={i} className="text-xs text-muted-foreground list-disc">{pt}</li>
+          ))}
+        </ul>
+      ) : null}
+    </details>
+  )
+}
 
-  // Edit markdown
-  if (agentKey === "edit_markdown") {
-    const edits = Array.isArray((out as any).edits) ? (out as any).edits : []
-    return (
-      <details className="group pt-1">
-        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
-          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-          <FileText className="w-3 h-3 inline" />
-          Edited document · {edits.length} {edits.length === 1 ? "change" : "changes"}
-        </summary>
-        {(out as any).reasoning && (
-          <p className="text-xs text-muted-foreground mt-1.5 pl-4">{(out as any).reasoning}</p>
-        )}
-      </details>
-    )
-  }
+function GapSuggestionSummary({ output }: { output: Record<string, unknown> }) {
+  const dg = (output.diagram_gaps as Array<unknown> | undefined)?.length ?? 0
+  const dg2 = (output.documentation_gaps as Array<unknown> | undefined)?.length ?? 0
+  const cn = (output.concerns as Array<unknown> | undefined)?.length ?? 0
+  const sg = (output.suggestions as Array<unknown> | undefined)?.length ?? 0
+  return (
+    <details className="group pt-1">
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+        <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+        <AlertTriangle className="w-3 h-3 inline" />
+        Analysis
+        {dg > 0 && <> · {dg} diagram {dg === 1 ? "gap" : "gaps"}</>}
+        {dg2 > 0 && <> · {dg2} doc {dg2 === 1 ? "gap" : "gaps"}</>}
+        {cn > 0 && <> · {cn} {cn === 1 ? "concern" : "concerns"}</>}
+        {sg > 0 && <> · {sg} {sg === 1 ? "suggestion" : "suggestions"}</>}
+      </summary>
+    </details>
+  )
+}
 
-  // Explainer
-  if (agentKey === "explainer") {
-    const keyPoints = Array.isArray((out as any).key_points) ? (out as any).key_points : []
-    return (
-      <details className="group pt-1" defaultOpen>
-        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
-          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-          <Lightbulb className="w-3 h-3 inline" />
-          Explanation · {keyPoints.length} {keyPoints.length === 1 ? "key point" : "key points"}
-        </summary>
-        {(out as any).explanation && (
-          <p className="text-xs text-foreground mt-1.5 pl-4 leading-relaxed">{(out as any).explanation}</p>
-        )}
-        {keyPoints.length > 0 && (
-          <ul className="mt-1.5 pl-6 space-y-1">
-            {keyPoints.map((pt: string, i: number) => (
-              <li key={i} className="text-xs text-muted-foreground list-disc">{pt}</li>
-            ))}
-          </ul>
-        )}
-      </details>
-    )
-  }
-
-  // Gap suggestion
-  if (agentKey === "gap_suggestion") {
-    const dg = Array.isArray((out as any).diagram_gaps) ? (out as any).diagram_gaps.length : 0
-    const dg2 = Array.isArray((out as any).documentation_gaps) ? (out as any).documentation_gaps.length : 0
-    const cn = Array.isArray((out as any).concerns) ? (out as any).concerns.length : 0
-    const sg = Array.isArray((out as any).suggestions) ? (out as any).suggestions.length : 0
-    return (
-      <details className="group pt-1">
-        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
-          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-          <AlertTriangle className="w-3 h-3 inline" />
-          Analysis
-          {dg > 0 && <> · {dg} diagram {dg === 1 ? "gap" : "gaps"}</>}
-          {dg2 > 0 && <> · {dg2} doc {dg2 === 1 ? "gap" : "gaps"}</>}
-          {cn > 0 && <> · {cn} {cn === 1 ? "concern" : "concerns"}</>}
-          {sg > 0 && <> · {sg} {sg === 1 ? "suggestion" : "suggestions"}</>}
-        </summary>
-      </details>
-    )
-  }
-
-  // Research
-  if (agentKey === "research") {
-    const findings = Array.isArray((out as any).findings) ? (out as any).findings : []
-    const confidence = (out as any).confidence || 0
-    return (
-      <details className="group pt-1" defaultOpen>
-        <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
-          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-          <Search className="w-3 h-3 inline" />
-          Research · {findings.length} {findings.length === 1 ? "finding" : "findings"}
-          {confidence > 0 && <> · {Math.round(confidence * 100)}% confidence</>}
-        </summary>
-        {(out as any).summary && (
-          <p className="text-xs text-foreground mt-1.5 pl-4 leading-relaxed">{(out as any).summary}</p>
-        )}
-        {(out as any).recommendation && (
-          <div className="mt-1.5 pl-4">
-            <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-muted-foreground">Recommendation</span>
-            <p className="text-xs text-foreground mt-0.5">{(out as any).recommendation}</p>
-          </div>
-        )}
-      </details>
-    )
-  }
-
-  // Router
-  if (agentKey === "router") {
-    const target = ((out as any).target || "").replace(/_/g, " ")
-    return (
-      <div className="pt-1">
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Workflow className="w-3 h-3" />
-          Routed to <span className="font-medium text-foreground">{target}</span>
+function ResearchSummary({ output }: { output: Record<string, unknown> }) {
+  const findings = output.findings as Array<unknown> | undefined
+  const confidence = (output.confidence as number) || 0
+  return (
+    <details className="group pt-1" defaultOpen>
+      <summary className="text-[11px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none list-none flex items-center gap-1">
+        <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+        <Search className="w-3 h-3 inline" />
+        Research · {findings?.length ?? 0} {(findings?.length ?? 0) === 1 ? "finding" : "findings"}
+        {confidence > 0 && <> · {Math.round(confidence * 100)}% confidence</>}
+      </summary>
+      {output.summary && (
+        <p className="text-xs text-foreground mt-1.5 pl-4 leading-relaxed">{String(output.summary)}</p>
+      )}
+      {output.recommendation && (
+        <div className="mt-1.5 pl-4">
+          <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-muted-foreground">Recommendation</span>
+          <p className="text-xs text-foreground mt-0.5">{String(output.recommendation)}</p>
         </div>
-        {(out as any).reasoning && (
-          <p className="text-[10px] text-muted-foreground mt-0.5 pl-5">{(out as any).reasoning}</p>
-        )}
+      )}
+    </details>
+  )
+}
+
+function RouterSummary({ output }: { output: Record<string, unknown> }) {
+  const target = String(output.target ?? "").replace(/_/g, " ")
+  return (
+    <div className="pt-1">
+      <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        <Workflow className="w-3 h-3" />
+        Routed to <span className="font-medium text-foreground">{target}</span>
       </div>
-    )
-  }
+      {output.reasoning && (
+        <p className="text-[10px] text-muted-foreground mt-0.5 pl-5">{String(output.reasoning)}</p>
+      )}
+    </div>
+  )
+}
+
+const _AGENT_RENDERERS: Record<string, (o: Record<string, unknown>) => React.ReactNode> = {
+  create_diagram: (o) => <DiagramSummary output={o} />,
+  edit_diagram: (o) => <DiagramSummary output={o} />,
+  patch_diagram: (o) => <DiagramSummary output={o} />,
+  create_markdown: (o) => <CreateMarkdownSummary output={o} />,
+  edit_markdown: (o) => <EditMarkdownSummary output={o} />,
+  explainer: (o) => <ExplainerSummary output={o} />,
+  gap_suggestion: (o) => <GapSuggestionSummary output={o} />,
+  research: (o) => <ResearchSummary output={o} />,
+  router: (o) => <RouterSummary output={o} />,
+}
+
+function AgentOutputRenderer({ output, agent }: { output?: Record<string, unknown>; agent?: string }) {
+  if (!output || !agent) return null
+
+  const agentKey = agent.replace(/^(outlaww_|flow_|c4_)/, "").replace(/_workflow$/, "")
+  const renderer = _AGENT_RENDERERS[agentKey]
+
+  if (renderer) return renderer(output)
 
   // Fallback — raw JSON
   return (

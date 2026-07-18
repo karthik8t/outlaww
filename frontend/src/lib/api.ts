@@ -36,6 +36,73 @@ export interface ChatResponse {
   active_ids: Record<string, string>
 }
 
+// ---------------------------------------------------------------------------
+//  Agent Output Types – mirrored from backend models
+// ---------------------------------------------------------------------------
+
+export interface AgentDiagramOutput {
+  metadata: Record<string, unknown>
+  nodes: Array<Record<string, unknown>>
+  edges: Array<Record<string, unknown>>
+}
+
+export interface AgentCreateMarkdownOutput {
+  title: string
+  content: string
+  sections: Array<Record<string, unknown>>
+}
+
+export interface AgentEditMarkdownOutput {
+  edits: Array<Record<string, unknown>>
+  reasoning: string
+}
+
+export interface AgentExplainerOutput {
+  explanation: string
+  key_points: string[]
+  related_concepts: string[]
+}
+
+export interface AgentGapSuggestionOutput {
+  documentation_gaps: Array<Record<string, unknown>>
+  diagram_gaps: Array<Record<string, unknown>>
+  concerns: Array<Record<string, unknown>>
+  suggestions: Array<Record<string, unknown>>
+}
+
+export interface AgentResearchOutput {
+  summary: string
+  findings: Array<Record<string, unknown>>
+  alternatives: Array<Record<string, unknown>>
+  recommendation: string
+  confidence: number
+}
+
+export interface AgentRouterOutput {
+  target: string
+  action_name: string
+  reasoning: string
+}
+
+export interface AgentReflectionOutput {
+  summary: string
+  interaction_summary: string
+  new_goals: string[]
+}
+
+export interface AgentOutputDict {
+  create_diagram?: AgentDiagramOutput
+  edit_diagram?: AgentDiagramOutput
+  patch_diagram?: AgentDiagramOutput
+  create_markdown?: AgentCreateMarkdownOutput
+  edit_markdown?: AgentEditMarkdownOutput
+  explainer?: AgentExplainerOutput
+  gap_suggestion?: AgentGapSuggestionOutput
+  research?: AgentResearchOutput
+  router?: AgentRouterOutput
+  reflection?: AgentReflectionOutput
+}
+
 export interface EventDict {
   event_class: string
   author: string
@@ -43,15 +110,8 @@ export interface EventDict {
   is_thought: boolean
   is_partial: boolean
 
-  // Per-agent output fields — only one is populated per event
-  diagram_creator: Record<string, unknown> | null
-  create_markdown: Record<string, unknown> | null
-  edit_markdown: Record<string, unknown> | null
-  explainer: Record<string, unknown> | null
-  gap_suggestion: Record<string, unknown> | null
-  research: Record<string, unknown> | null
-  router: Record<string, unknown> | null
-  reflection: Record<string, unknown> | null
+  // Single dict — key = author, value = serialized output model
+  agent_output: AgentOutputDict | null
 
   // Tool fields
   tool_name: string
